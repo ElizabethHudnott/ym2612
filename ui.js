@@ -1,11 +1,18 @@
-import {FMOperator} from './opl3.js';
+import {FMSynth} from './opn2.js';
 let context;
 
 
-document.getElementById('btn-start').addEventListener('click', function (event) {
+document.getElementById('btn-init').addEventListener('click', function (event) {
 	context = new AudioContext();
-	const op = new FMOperator(context, true);
-	op.connect(context.destination);
-	op.start(context.currentTime + 0.1);
-	window.op = op;
+	const synth = new FMSynth(context);
+	synth.start(context.currentTime + 0.1);
+	window.synth = synth;
+});
+
+document.getElementById('btn-note-on').addEventListener('click', function (event) {
+	synth.channels[0].keyOn(context.currentTime);
+});
+
+document.getElementById('btn-sound-off').addEventListener('click', function (event) {
+	synth.soundOff();
 });
