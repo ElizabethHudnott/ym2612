@@ -37,7 +37,7 @@ const NOTE_FREQUENCIES = function () {
 
 class FMOperator {
 
-	constructor(context, output, canFeedback) {
+	constructor(context, lfo, output, canFeedback) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -50,10 +50,11 @@ class FMOperator {
 
 		const amMod = new GainNode(context);
 		delay.connect(amMod);
-		this.amMod = amMod;
-		const amModAmp = new GainNode(context, {gain: 0});
-		amModAmp.connect(amMod.gain);
-		this.amModAmp = amModAmp;
+		this.amMod = amMod.gain;
+		const amModGain = new GainNode(context, {gain: 0});
+		amModGain.connect(amMod.gain);
+		this.amModAmp = amModGain.gain;
+		lfo.connect(amModGain);
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
@@ -88,11 +89,6 @@ class FMOperator {
 		this.envelopeGain.connect(destination);
 	}
 
-	connectLFO(am, fm) {
-		am.connect(this.amModAmp);
-		fm.connect(this.sine.frequency);
-	}
-
 	setFrequency(blockNumber, frequencyNumber, time = 0, frequencyMultiple = 1, method = 'setValueAtTime') {
 		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple;
 		const delayTime = 1 / (frequency * 2);
@@ -115,9 +111,10 @@ class FMOperator {
 		this.feedback[method](amount, time);
 	}
 
-	setAM(amount, time = 0, method = 'setValueAtTime') {
-		this.amModAmp[method](amount / 2, time);
-		this.amMod[method](0.5 + 0.5 * (1 - amount), time);
+	setAM(linearAmount, time = 0, method = 'setValueAtTime') {
+		const amplitude = linearAmount / 2;
+		this.amModAmp[method](amplitude, time);
+		this.amMod[method](1 - amplitude, time);
 	}
 
 	setVolume(level, time = 0, method = 'setValueAtTime') {
@@ -172,16 +169,28 @@ const ALGORITHMS = [
 	[[0, 0, 0, 0, 0, 0], [0.25, 0.25, 0.25, 0.25]],
 ];
 
+function decibelsToAmplitude(decibels) {
+	return 1 - 10 ** (-decibels / 20);
+}
+
+const AM_PRESETS = [0, 1.4, 5.9, 11.8].map(decibelsToAmplitude);
+
 class FMChannel {
 
 	constructor(context, lfo, output) {
 		const panner = new StereoPannerNode(context);
 		panner.connect(output);
 		this.panControl = panner.pan;
-		const op1 = new FMOperator(context, panner, true);
-		const op2 = new FMOperator(context, panner, false);
-		const op3 = new FMOperator(context, panner, false);
-		const op4 = new FMOperator(context, panner, false);
+
+		//LFO affecting FM
+		const lfoAmp = new GainNode(context, {gain: 0});
+		lfo.connect(lfoAmp);
+		this.lfoAmp = lfoAmp;
+
+		const op1 = new FMOperator(context, lfo, panner, true);
+		const op2 = new FMOperator(context, lfo, panner, false);
+		const op3 = new FMOperator(context, lfo, panner, false);
+		const op4 = new FMOperator(context, lfo, panner, false);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -214,12 +223,11 @@ class FMChannel {
 			op3To4.gain
 		];
 
-		const lfoAmp = new GainNode(context, {gain: 0});
-		lfo.connect(lfoAmp);
-		this.lfoAmp = lfoAmp;
-
 		this.frequencyMultiples = [1, 1, 1, 1];
+
+		this.amAmount = 0;
 		this.amEnabled = [false, false, false, false];
+
 		this.setAlgorithmNumber(7);
 	}
 
@@ -264,13 +272,30 @@ class FMChannel {
 	}
 
 	setFeedbackNumber(n, time = 0) {
-		let amount;
-		if (n === 0) {
-			amount = 0;
-		} else {
-			amount = 2 ** (n - 6);
+		this.setFeedback(n / 14, time);
+	}
+
+	setAMAmount(amount, time = 0, method = 'setValueAtTime') {
+		for (let i = 0; i < 4; i++) {
+			if (this.amEnabled[i]) {
+				this.operators[i].setAM(amount, time, method);
+			}
 		}
-		this.setFeedback(amount, time);
+		this.amAmount = amount;
+	}
+
+	useAMPreset(presetNum, time = 0) {
+		this.setAMAmount(AM_PRESETS[presetNum], time);
+	}
+
+	enableAM(operatorNum, enabled, time = 0, method = 'setValueAtTime') {
+		if (enabled) {
+			this.operators[operatorNum].setAM(this.amAmount, time, method);
+			this.amEnabled[operatorNum] = true;
+		} else {
+			this.operators[operatorNum].setAM(0, time, method);
+			this.amEnabled[operatorNum] = false;
+		}
 	}
 
 	keyOn(time, op1 = true, op2 = true, op3 = true, op4 = true) {
@@ -351,4 +376,4 @@ class FMSynth {
 
 }
 
-export {FMSynth, NOTE_FREQUENCIES};
+export {FMSynth, NOTE_FREQUENCIES, decibelsToAmplitude};
