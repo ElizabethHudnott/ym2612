@@ -41,10 +41,10 @@ class FMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 220});
+		const delay = new DelayNode(context, {delayTime: 1 / 880});
 		sine.connect(delay);
 		this.delay = delay.delayTime;
-		const delayAmp = new GainNode(context, {gain: 1 / 220});
+		const delayAmp = new GainNode(context, {gain: 1 / 880});
 		delayAmp.connect(delay.delayTime);
 		this.delayAmp = delayAmp;
 
@@ -95,7 +95,7 @@ class FMOperator {
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, frequencyMultiple = 1, method = 'setValueAtTime') {
 		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple;
-		const delayTime = 1 / (frequency / 2);
+		const delayTime = 1 / (frequency * 2);
 		this.sine.frequency[method](frequency, time);
 		this.delay[method](delayTime, time);
 		this.delayAmp.gain[method](delayTime, time);
