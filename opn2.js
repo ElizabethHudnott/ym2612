@@ -1,18 +1,5 @@
 
-class LinearEnvelope {
-
-	constructor(gainNode) {
-		gainNode.gain.value = 0;
-		this.gain = gainNode.gain;
-	}
-
-	keyOn(time) {
-		this.gain.setValueAtTime(1, time);
-	}
-
-}
-
-class ExponentialEnvelope {
+class Envelope {
 
 	constructor(gainNode) {
 		gainNode.gain.value = 0;
@@ -50,30 +37,39 @@ const NOTE_FREQUENCIES = function () {
 
 class FMOperator {
 
-	constructor(context, output, isModulator) {
+	constructor(context, output, canFeedback) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
+		const delay = new DelayNode(context, {delayTime: 1 / 220});
+		sine.connect(delay);
+		this.delay = delay.delayTime;
+		const delayAmp = new GainNode(context, {gain: 1 / 220});
+		delayAmp.connect(delay.delayTime);
+		this.delayAmp = delayAmp;
+
 		const amMod = new GainNode(context);
-		sine.connect(amMod);
+		delay.connect(amMod);
 		this.amMod = amMod;
 		const amModAmp = new GainNode(context, {gain: 0});
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
 
-		const expGain = new GainNode(context);
-		amMod.connect(expGain);
-		this.expEnvelope = new ExponentialEnvelope(expGain);
-		const mixer = new GainNode(context, {gain: 0.25});
-		expGain.connect(mixer);
-		mixer.connect(output);
-		this.mixer = mixer;
+		const envelopeGain = new GainNode(context);
+		amMod.connect(envelopeGain);
+		this.envelope = new Envelope(envelopeGain);
+		this.envelopeGain = envelopeGain;
 
-		if (isModulator) {
-			const linearGain = new GainNode(context);
-			amMod.connect(linearGain);
-			this.linearGain = linearGain;
-			this.linearEnvelope = new LinearEnvelope(linearGain);
+		const mixer = new GainNode(context, {gain: 0.25});
+		envelopeGain.connect(mixer);
+		mixer.connect(output);
+		this.mixer = mixer.gain;
+
+		if (canFeedback) {
+			const feedback = new GainNode(context, {gain: 0});
+			envelopeGain.connect(feedback);
+			feedback.connect(delayAmp);
+			this.feedback = feedback.gain;
 		}
 
 		this.freqBlockNumber = 4;
@@ -85,11 +81,11 @@ class FMOperator {
 	}
 
 	connectIn(source) {
-		source.connect(this.sine.frequency);
+		source.connect(this.delayAmp);
 	}
 
 	connectOut(destination) {
-		this.linearGain.connect(destination);
+		this.envelopeGain.connect(destination);
 	}
 
 	connectLFO(am, fm) {
@@ -99,7 +95,10 @@ class FMOperator {
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, frequencyMultiple = 1, method = 'setValueAtTime') {
 		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple;
+		const delayTime = 1 / (frequency / 2);
 		this.sine.frequency[method](frequency, time);
+		this.delay[method](delayTime, time);
+		this.delayAmp.gain[method](delayTime, time);
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
 	}
@@ -107,6 +106,13 @@ class FMOperator {
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
 		this.setFrequency(block, frequencyNumber, time, 1, method);
+	}
+
+	/*
+	 * @param {number} amount As a multiple of PI.
+	 */
+	setFeedback(amount, time = 0, method = 'setValueAtTime') {
+		this.feedback[method](amount, time);
 	}
 
 	setAM(amount, time = 0, method = 'setValueAtTime') {
@@ -119,14 +125,11 @@ class FMOperator {
 	}
 
 	keyOn(time) {
-		this.expEnvelope.keyOn(time);
-		if (this.linearEnvelope) {
-			this.linearEnvelope.keyOn(time);
-		}
+		this.envelope.keyOn(time);
 	}
 
 	soundOff(time = 0) {
-		this.expEnvelope.soundOff(time);
+		this.envelope.soundOff(time);
 	}
 
 }
@@ -176,8 +179,8 @@ class FMChannel {
 		panner.connect(output);
 		this.panControl = panner.pan;
 		const op1 = new FMOperator(context, panner, true);
-		const op2 = new FMOperator(context, panner, true);
-		const op3 = new FMOperator(context, panner, true);
+		const op2 = new FMOperator(context, panner, false);
+		const op3 = new FMOperator(context, panner, false);
 		const op4 = new FMOperator(context, panner, false);
 		this.operators = [op1, op2, op3, op4];
 
@@ -217,6 +220,7 @@ class FMChannel {
 
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.amEnabled = [false, false, false, false];
+		this.setAlgorithmNumber(7);
 	}
 
 	start(time) {
@@ -230,7 +234,7 @@ class FMChannel {
 			this.gains[i + 1][method](modulations[i], time);
 		}
 		for (let i = 0; i < 4; i++) {
-			this.operators[i].setVolume(outputsLevels[i], time, method);
+			this.operators[i].setVolume(outputLevels[i], time, method);
 		}
 	}
 
@@ -248,6 +252,25 @@ class FMChannel {
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
 		this.setFrequency(block, frequencyNumber, time, method);
+	}
+
+	updateOperatorPitches(time = 0, method = 'setValueAtTime') {
+		const op1 = this.operators[0];
+		this.setFrequency(op1.freqBlockNumber, op1.frequencyNumber, time, method);
+	}
+
+	setFeedback(amount, time = 0, method = 'setValueAtTime') {
+		this.operators[0].setFeedback(amount, time, method);
+	}
+
+	setFeedbackNumber(n, time = 0) {
+		let amount;
+		if (n === 0) {
+			amount = 0;
+		} else {
+			amount = 2 ** (n - 6);
+		}
+		this.setFeedback(amount, time);
 	}
 
 	keyOn(time, op1 = true, op2 = true, op3 = true, op4 = true) {
