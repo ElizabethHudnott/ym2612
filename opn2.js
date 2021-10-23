@@ -20,10 +20,9 @@ class Envelope {
 const FREQUENCY_STEP = 0.025157;
 
 const NOTE_FREQUENCIES = function () {
-	const root = 2 ** (1 / 12);
 	const frequencyData = [];
 	for (let i = 0; i < 128; i++) {
-		const frequency = (root ** (i - 69)) * 440;
+		const frequency = 440 * (2 ** ((i - 69) / 12));
 		let freqNum = frequency / FREQUENCY_STEP;
 		let block = 0;
 		while (freqNum >= 2047.5) {
@@ -37,16 +36,17 @@ const NOTE_FREQUENCIES = function () {
 
 class FMOperator {
 
-	constructor(context, lfo, output, canFeedback) {
+	constructor(context, amModulator, fmLFModulator, output, canFeedback) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 880});
+		const delay = new DelayNode(context, {delayTime: 1 / 440});
 		sine.connect(delay);
 		this.delay = delay.delayTime;
-		const delayAmp = new GainNode(context, {gain: 1 / 880});
+		const delayAmp = new GainNode(context, {gain: 1 / 220});
 		delayAmp.connect(delay.delayTime);
 		this.delayAmp = delayAmp;
+		fmLFModulator.connect(delayAmp);
 
 		const amMod = new GainNode(context);
 		delay.connect(amMod);
@@ -54,7 +54,7 @@ class FMOperator {
 		const amModGain = new GainNode(context, {gain: 0});
 		amModGain.connect(amMod.gain);
 		this.amModAmp = amModGain.gain;
-		lfo.connect(amModGain);
+		amModulator.connect(amModGain);
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
@@ -91,10 +91,10 @@ class FMOperator {
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, frequencyMultiple = 1, method = 'setValueAtTime') {
 		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple;
-		const delayTime = 1 / (frequency * 2);
+		const period = 1 / frequency;
 		this.sine.frequency[method](frequency, time);
-		this.delay[method](delayTime, time);
-		this.delayAmp.gain[method](delayTime, time);
+		this.delay[method](period, time);
+		this.delayAmp.gain[method](0.5 * period, time);
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
 	}
@@ -175,6 +175,8 @@ function decibelsToAmplitude(decibels) {
 
 const AM_PRESETS = [0, 1.4, 5.9, 11.8].map(decibelsToAmplitude);
 
+const LF_FM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200)) - 1);
+
 class FMChannel {
 
 	constructor(context, lfo, output) {
@@ -183,14 +185,14 @@ class FMChannel {
 		this.panControl = panner.pan;
 
 		//LFO affecting FM
-		const lfoAmp = new GainNode(context, {gain: 0});
-		lfo.connect(lfoAmp);
-		this.lfoAmp = lfoAmp;
+		const lfoGain = new GainNode(context, {gain: 0});
+		lfo.connect(lfoGain);
+		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new FMOperator(context, lfo, panner, true);
-		const op2 = new FMOperator(context, lfo, panner, false);
-		const op3 = new FMOperator(context, lfo, panner, false);
-		const op4 = new FMOperator(context, lfo, panner, false);
+		const op1 = new FMOperator(context, lfo, lfoGain, panner, true);
+		const op2 = new FMOperator(context, lfo, lfoGain, panner, false);
+		const op3 = new FMOperator(context, lfo, lfoGain, panner, false);
+		const op4 = new FMOperator(context, lfo, lfoGain, panner, false);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -296,6 +298,14 @@ class FMChannel {
 			this.operators[operatorNum].setAM(0, time, method);
 			this.amEnabled[operatorNum] = false;
 		}
+	}
+
+	setLFFMAmount(amount, time = 0, method = 'setValueAtTime') {
+		this.lfoAmp[method](amount, time);
+	}
+
+	useLFFMPresent(presetNum, time = 0) {
+		this.setLFFMAmount(LF_FM_PRESETS[presetNum], time);
 	}
 
 	keyOn(time, op1 = true, op2 = true, op3 = true, op4 = true) {
