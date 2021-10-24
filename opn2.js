@@ -34,6 +34,21 @@ const NOTE_FREQUENCIES = function () {
 	return frequencyData;
 }();
 
+const DETUNE_AMOUNTS = [
+/* Preset 0 */
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+/* Preset +-1 */
+	0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2,
+	2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8, 8, 8, 8,
+/* Preset +-2 */
+	1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5,
+	5, 6, 6, 7, 8, 8, 9,10,11,12,13,14,16,16,16,16,
+/* Preset +-3 */
+	2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7,
+	8 , 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
+].map(x => x * 1.164 / 22);
+
 class FMOperator {
 
 	constructor(context, amModulator, fmLFModulator, output, canFeedback) {
@@ -75,6 +90,8 @@ class FMOperator {
 
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
+		this.keyCode = 18;
+		this.detune = 0;
 	}
 
 	start(time) {
@@ -89,19 +106,26 @@ class FMOperator {
 		this.envelopeGain.connect(destination);
 	}
 
-	setFrequency(blockNumber, frequencyNumber, time = 0, frequencyMultiple = 1, method = 'setValueAtTime') {
-		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple;
+	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
+		const keyCode = (blockNumber << 2) + (frequencyNumber >> 9);
+		const detuneSetting = this.detune;
+		const detuneTableOffset = (detuneSetting & 3) << 5;
+		const detuneSign = (-1) ** (detuneSetting >> 2);
+		const detuneMultiple = 1 + detuneSign * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
+
+		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple * detuneMultiple;
 		const period = 1 / frequency;
 		this.sine.frequency[method](frequency, time);
 		this.delay[method](period, time);
 		this.delayAmp.gain[method](0.5 * period, time);
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
+		this.keyCode = keyCode;
 	}
 
-	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
+	setMIDINote(noteNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
 		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
-		this.setFrequency(block, frequencyNumber, time, 1, method);
+		this.setFrequency(block, frequencyNumber, frequencyMultiple, time, method);
 	}
 
 	/*
@@ -175,7 +199,7 @@ function decibelsToAmplitude(decibels) {
 
 const AM_PRESETS = [0, 1.4, 5.9, 11.8].map(decibelsToAmplitude);
 
-const LF_FM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200)) - 1);
+const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200)) - 1);
 
 class FMChannel {
 
@@ -255,18 +279,13 @@ class FMChannel {
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 4; i++) {
-			this.operators[i].setFrequency(blockNumber, frequencyNumber, time, this.frequencyMultiples[i], method);
+			this.operators[i].setFrequency(blockNumber, frequencyNumber, this.frequencyMultiples[i], time, method);
 		}
 	}
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
 		this.setFrequency(block, frequencyNumber, time, method);
-	}
-
-	updateOperatorPitches(time = 0, method = 'setValueAtTime') {
-		const op1 = this.operators[0];
-		this.setFrequency(op1.freqBlockNumber, op1.frequencyNumber, time, method);
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
@@ -300,12 +319,12 @@ class FMChannel {
 		}
 	}
 
-	setLFFMAmount(amount, time = 0, method = 'setValueAtTime') {
+	setLFPMAmount(amount, time = 0, method = 'setValueAtTime') {
 		this.lfoAmp[method](amount, time);
 	}
 
-	useLFFMPresent(presetNum, time = 0) {
-		this.setLFFMAmount(LF_FM_PRESETS[presetNum], time);
+	useLFPMPresent(presetNum, time = 0) {
+		this.setLFPMAmount(LF_PM_PRESETS[presetNum], time);
 	}
 
 	keyOn(time, op1 = true, op2 = true, op3 = true, op4 = true) {
