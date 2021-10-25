@@ -1,10 +1,9 @@
-import {FMSynth} from './opn2.js';
+import {PMSynth} from './opn2.js';
 let context;
-
 
 document.getElementById('btn-init').addEventListener('click', function (event) {
 	context = new AudioContext();
-	const synth = new FMSynth(context, 1);
+	const synth = new PMSynth(context, context.destination, 1);
 	synth.start(context.currentTime + 0.1);
 	window.audioContext = context;
 	window.synth = synth;
