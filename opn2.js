@@ -1,17 +1,56 @@
 
+/**
+ * @param {number} n A number between 0 and 1
+ * @return {number} A number between 0 and 1.
+ */
+function logToLinear(n) {
+	return (2 ** n) - 1;
+}
+
+const ENV_INCREMENT = new Array(64);
+{
+	const values = [0, 0, 4, 4, 4, 4, 6, 6];
+	for (let i = 0; i < 60; i++) {
+		const power = Math.trunc(i / 4) - 11;
+		let multiple;
+		if (i < 8) {
+			multiple = values[i];
+		} else {
+			multiple = ((i % 4) + 4);
+		}
+		ENV_INCREMENT[i] =  multiple * (2 ** power);
+	}
+	ENV_INCREMENT.fill(64, 60);
+}
+
 class Envelope {
 
 	/**Creates an envelope.
 	 * @param {GainNode} gainNode The GainNode to be controlled by the envelope.
 	 */
-	constructor(gainNode) {
+	constructor(gainNode, tickRate) {
 		gainNode.gain.value = 0;
 		this.gain = gainNode.gain;
+		this.tickRate = tickRate;
+		this.totalLevel = 127;
+		this.attackRate = 16;
+		this.rateScaling = 0;
+		this.decayRate = 16;
+		this.sustain = 63;
+		this.sustainRate = 0;
+		this.releaseRate = 16;
+	}
+
+	time(from, to, rate, rateAdjust) {
+		const index = rate === 0 ? 0 : Math.min(2 * rate + rateAdjust, 63);
+		return ((to - from) / ENV_INCREMENT[index]) * this.tickRate;
 	}
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(velocity, time) {
+	keyOn(velocityProportion, keyCode, time) {
+		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));
+
 		this.gain.setValueAtTime(1, time);
 	}
 
@@ -108,7 +147,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(context, lfModulator, amModulator, output) {
+	constructor(context, lfModulator, amModulator, output, envelopeTick) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -130,7 +169,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
-		this.envelope = new Envelope(envelopeGain);
+		this.envelope = new Envelope(envelopeGain, envelopeTick);
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
@@ -319,8 +358,8 @@ class PMOperator {
 		return this.mixer.value;
 	}
 
-	keyOn(velocity, time) {
-		this.envelope.keyOn(velocity, time);
+	keyOn(amount, time) {
+		this.envelope.keyOn(amount, this.keyCode, time);
 	}
 
 	soundOff(time = 0) {
@@ -387,7 +426,7 @@ const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200
 
 class PMChannel {
 
-	constructor(context, lfo, output) {
+	constructor(context, lfo, output, envelopeTick) {
 		const panner = new StereoPannerNode(context);
 		panner.connect(output);
 		this.panControl = panner.pan;
@@ -397,10 +436,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(context, lfoGain, lfo, panner);
-		const op2 = new PMOperator(context, lfoGain, lfo, panner);
-		const op3 = new PMOperator(context, lfoGain, lfo, panner);
-		const op4 = new PMOperator(context, lfoGain, lfo, panner);
+		const op1 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
+		const op2 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
+		const op3 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
+		const op4 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -618,12 +657,22 @@ class PMChannel {
 		return LF_PM_PRESETS.indexOf(this.getLFPMAmount());
 	}
 
-	keyOn(time, op1Velocity = 127, op2Velocity = op1Velocity, op3Velocity = op1Velocity, op4Velocity = op1Velocity) {
-		const operators = this.operators
-		operators[0].keyOn(op1Velocity, time);
-		operators[1].keyOn(op2Velocity, time);
-		operators[2].keyOn(op3Velocity, time);
-		operators[3].keyOn(op4Velocity, time);
+	keyOn(time, velocity = 127, op1 = true, op2 = true, op3 = true, op4 = true) {
+		const amount = velocity / 127;
+		const operators = this.operators;
+		const levels = this.outputLevels;
+		if (op1) {
+			operators[0].keyOn(levels[0] === 0 ? 1 : amount, time);
+		}
+		if (op2) {
+			operators[1].keyOn(levels[1] === 0 ? 1 : amount, time);
+		}
+		if (op3) {
+			operators[2].keyOn(levels[2] === 0 ? 1 : amount, time);
+		}
+		if (op4) {
+			operators[3].keyOn(levels[3] === 0 ? 1 : amount, time);
+		}
 	}
 
 	soundOff(time = 0) {
@@ -681,14 +730,16 @@ class PMSynth {
 		const channelGain = new GainNode(context, {gain : 1 / numChannels});
 		channelGain.connect(output);
 
+		const clockRate = pal ? 7.60048914 : 7.67045357;
+		const envelopeTick = 351 / (clockRate * 1000000);
+		this.lfoRateMultiplier = clockRate / 8;
+
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(context, this.lfo, channelGain);
+			const channel = new PMChannel(context, this.lfo, channelGain, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;
-
-		this.clockMultiplier = (pal ? 7.61 : 7.67) / 8;
 	}
 
 	start(time) {
@@ -720,11 +771,11 @@ class PMSynth {
 	}
 
 	setLFOFrequencyNumber(n, time = 0) {
-		this.setLFOFrequency(LFO_FREQUENCIES[n] / this.clockMultiplier, time);
+		this.setLFOFrequency(LFO_FREQUENCIES[n] / this.lfoRateMultiplier, time);
 	}
 
 	getLFOFrequencyNumber() {
-		let frequency = this.getLFOFrequency() * this.clockMultiplier;
+		let frequency = this.getLFOFrequency() * this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
 	}
