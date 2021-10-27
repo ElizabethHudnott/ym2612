@@ -7,6 +7,38 @@ function logToLinear(n) {
 	return (2 ** n) - 1;
 }
 
+let supportsCancelAndHold;
+
+function cancelAndHoldAtTime(param, holdValue, time) {
+	if (supportsCancelAndHold) {
+		param.cancelAndHoldAtTime(time);
+	} else {
+		param.cancelScheduledValues(time);
+	}
+	param.setValueAtTime(holdValue, time);
+}
+
+function frequencyToNote(block, frequencyNum) {
+		let lb = 0;
+		let ub = 127;
+		while (lb < ub) {
+			let mid = Math.trunc((lb + ub) / 2);
+			const [noteBlock, noteFreqNum] = NOTE_FREQUENCIES[mid];
+			if (block < noteBlock) {
+				ub = mid - 1;
+			} else if (block > noteBlock) {
+				lb = mid + 1;
+			} else if (frequencyNum < noteFreqNum) {
+				ub = mid - 1;
+			} else if (frequencyNum > noteFreqNum) {
+				lb = mid + 1;
+			} else {
+				return mid;
+			}
+		}
+		return lb;
+}
+
 // For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
 for (let i = 0; i < 60; i++) {
@@ -40,6 +72,7 @@ class Envelope {
 		this.linearSustain = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
+		this.keyIsOn = false;
 	}
 
 	/**
@@ -53,6 +86,10 @@ class Envelope {
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(velocityProportion, keyCode, time) {
+		if (this.keyIsOn) {
+			return;
+		}
+
 		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));
 		const gain = this.gain;
 
@@ -62,6 +99,7 @@ class Envelope {
 		const endAttack = time;
 		gain.setValueAtTime(expPeak, time);
 
+		this.keyIsOn = true;
 		this.linearPeak = linearPeak;
 		this.endAttack = endAttack;
 
@@ -126,18 +164,24 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(keyCode, time) {
+		if (!this.keyIsOn) {
+			return;
+		}
 		const linearValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));;
 		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
-		this.gain.exponentialRampToValueAtTime(1, time + releaseTime);
+		const currentValue = 1 + logToLinear(linearValue / 1023);
+		const gain = this.gain;
+		cancelAndHoldAtTime(gain, currentValue, time);
+		gain.exponentialRampToValueAtTime(1, time + releaseTime);
+		this.keyIsOn = false;
 	}
 
 	/**Cuts audio output without going through the envelope's release phase.
 	 * @param {number} time When to stop outputting audio. Defaults to ceasing sound production immediately.
 	 */
 	soundOff(time = 0) {
-		this.gain.cancelAndHoldAtTime(time);
-		this.gain.setValueAtTime(1, time);
+		cancelAndHoldAtTime(this.gain, 1, time);
 	}
 
 }
@@ -291,10 +335,9 @@ class PMOperator {
 		this.envelopeGain.connect(destination);
 	}
 
-	/**Changes the operator's frequency. This method is often called by an instance of
+	/**Changes the operator's frequency. This method is usually invoked by an instance of
 	 * {@link PMChannel} (e.g. by its setFrequency() method) but it can also be useful to
-	 * invoke this method directly for individual operators to create dissonant sounds,
-	 * known as Channel 3's "Special Mode" on the original chip.
+	 * invoke this method directly for individual operators to create dissonant sounds.
 	 * @param {number} blockNumber A kind of octave measurement. See {@link NOTE_FREQUENCIES}.
 	 * @param {number} frequencyNumber A linear frequency measurement. See {@link NOTE_FREQUENCIES}.
 	 * @param {number} [frequencyMultiple] After the basic frequency in Hertz is calculated
@@ -376,26 +419,7 @@ class PMOperator {
 	 * current frequency.
 	 */
 	getMIDINote() {
-		const block = this.freqBlockNumber;
-		const freqNum = this.frequencyNumber;
-		let lb = 0;
-		let ub = 127;
-		while (lb < ub) {
-			let mid = Math.trunc((lb + ub) / 2);
-			const [noteBlock, noteFreqNum] = NOTE_FREQUENCIES[mid];
-			if (block < noteBlock) {
-				ub = mid - 1;
-			} else if (block > noteBlock) {
-				lb = mid + 1;
-			} else if (freqNum < noteFreqNum) {
-				ub = mid - 1;
-			} else if (freqNum > noteFreqNum) {
-				lb = mid + 1;
-			} else {
-				return mid;
-			}
-		}
-		return lb;
+		return frequencyToNote(this.freqBlockNumber, this.frequencyNumber);
 	}
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
@@ -553,6 +577,7 @@ class PMChannel {
 
 		this.amDepth = 0;
 		this.amEnabled = [false, false, false, false];
+		this.transpose = 0;
 
 		this.setAlgorithmNumber(7);
 	}
@@ -657,13 +682,22 @@ class PMChannel {
 		return this.frequencyMultiples[operatorNum];
 	}
 
+	setTranspose(transpose) {
+		this.transpose = transpose;
+	}
+
+	getTranspose() {
+		return this.transpose;
+	}
+
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
+		const realNote = noteNumber + this.transpose;
+		const [block, frequencyNumber] = NOTE_FREQUENCIES[realNote];
 		this.setFrequency(block, frequencyNumber, time, method);
 	}
 
 	getMIDINote() {
-		return this.operators[0].getMIDINote();
+		return this.operators[0].getMIDINote() - this.transpose;
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
@@ -836,6 +870,11 @@ class PMSynth {
 			channels[i] = channel;
 		}
 		this.channels = channels;
+
+		this.ch3ExtraFreqBlocks = [4, 4, 4];
+		this.ch3ExtraFreqNums = [1093, 1093, 1093];
+		this.ch3Mode = 0;	// Normal mode
+		supportsCancelAndHold = channelGain.gain.cancelAndHoldAtTime !== undefined;
 	}
 
 	start(time) {
@@ -874,6 +913,68 @@ class PMSynth {
 		let frequency = this.getLFOFrequency() * this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
+	}
+
+	setChannel3Mode(mode, time = 0) {
+		const channel = this.channels[2];
+		switch (mode) {
+		case 0:
+			// Normal mode
+			const block = channel.getFrequencyBlock();
+			const freqNum = channel.getFrequencyNumber();
+			channel.setFrequency(block, freqNum, time);
+			break;
+
+		case 1:
+			// Separate frequencies mode
+			for (let i = 2; i <= 4; i++) {
+				const operator = channel.getOperator(i);
+				const block = this.ch3ExtraFreqBlocks[i - 2];
+				const freqNum = this.ch3ExtraFreqNums[i - 2];
+				operator.setFrequency(block, freqNum, 1, time);
+			}
+			break;
+		}
+		this.ch3Mode = mode;
+	}
+
+	getChannel3Mode() {
+		return this.ch3Mode;
+	}
+
+	setChannel3Frequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+		const channel = this.channels[2];
+		if (this.ch3Mode === 1) {
+			const operator = channel.getOperator(operatorNum);
+			operator.setFrequency(blockNumber, frequencyNumber, 1, time);
+		} else if (operatorNum === 1) {
+			channel.setFrequency(blockNumber, frequencyNumber, time, method);
+		}
+		if (operatorNum > 1) {
+			this.ch3ExtraFreqBlocks[operatorNum - 2] = blockNumber;
+			this.ch3ExtraFreqNums[operatorNum - 2] = frequencyNumber;
+		}
+	}
+
+	getChannel3FrequencyBlock(operatorNum) {
+		if (operatorNum === 1) {
+			return this.channels[2].getFrequencyBlock();
+		} else {
+			return this.ch3ExtraFreqBlocks[operatorNum - 2];
+		}
+	}
+
+	getChannel3FrequencyNumber(operatorNum) {
+		if (operatorNum === 1) {
+			return this.channels[2].getFrequencyNumber();
+		} else {
+			this.ch3ExtraFreqNums[operatorNum - 2];
+		}
+	}
+
+	setChannel3MIDINote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
+		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
+		this.setChannel3Frequency(operatorNum, block, frequencyNumber, time, method);
 	}
 
 }
