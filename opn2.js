@@ -7,21 +7,14 @@ function logToLinear(n) {
 	return (2 ** n) - 1;
 }
 
+// For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
-{
-	const values = [0, 0, 4, 4, 4, 4, 6, 6];
-	for (let i = 0; i < 60; i++) {
-		const power = Math.trunc(i / 4) - 11;
-		let multiple;
-		if (i < 8) {
-			multiple = values[i];
-		} else {
-			multiple = ((i % 4) + 4);
-		}
-		ENV_INCREMENT[i] =  multiple * (2 ** power);
-	}
-	ENV_INCREMENT.fill(64, 60);
+for (let i = 0; i < 60; i++) {
+	const power = Math.trunc(i / 4) - 14;
+	let multiple = ((i % 4) + 4);
+	ENV_INCREMENT[i] =  multiple * (2 ** power);
 }
+ENV_INCREMENT.fill(8, 60);
 
 class Envelope {
 
@@ -29,35 +22,114 @@ class Envelope {
 	 * @param {GainNode} gainNode The GainNode to be controlled by the envelope.
 	 */
 	constructor(gainNode, tickRate) {
-		gainNode.gain.value = 0;
+		gainNode.gain.value = 1;
 		this.gain = gainNode.gain;
 		this.tickRate = tickRate;
-		this.totalLevel = 127;
 		this.attackRate = 16;
 		this.rateScaling = 0;
 		this.decayRate = 16;
-		this.sustain = 63;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
+		// These have been pre-scaled 0..127 -> 0..1023
+		this.totalLevel = 1023;
+		this.sustain = 400;
+
+		// Values stored during key on.
+		this.linearPeak = 0;
+		this.endAttack = 0;
+		this.linearSustain = 0;
+		this.endDecay = 0;
+		this.endSustain = 0;
 	}
 
-	time(from, to, rate, rateAdjust) {
-		const index = rate === 0 ? 0 : Math.min(2 * rate + rateAdjust, 63);
-		return ((to - from) / ENV_INCREMENT[index]) * this.tickRate;
+	/**
+	 * Don't call with rate = 0, because that means infinite time.
+	 */
+	decayTime(from, to, rate, rateAdjust) {
+		const gradient = ENV_INCREMENT[Math.min(2 * rate + rateAdjust, 63)];
+		return this.tickRate * (from - to) / gradient;
 	}
 
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(velocityProportion, keyCode, time) {
 		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));
+		const gain = this.gain;
 
-		this.gain.setValueAtTime(1, time);
+		const linearPeak = this.totalLevel * velocityProportion;
+		const expPeak = 1 + logToLinear(linearPeak / 1023);
+
+		const endAttack = time;
+		gain.setValueAtTime(expPeak, time);
+
+		this.linearPeak = linearPeak;
+		this.endAttack = endAttack;
+
+		if (this.decayRate === 0) {
+			this.endDecay = Infinity;
+			this.endSustain = Infinity;
+			return;
+		}
+
+		const linearSustain = this.sustain * velocityProportion;
+		const expSustain = 1 + logToLinear(linearSustain / 1023);
+		const decay = this.decayTime(linearPeak, linearSustain, this.decayRate, rateAdjust);
+		const endDecay = endAttack + decay;
+		gain.exponentialRampToValueAtTime(expSustain, endDecay);
+		this.linearSustain = linearSustain;
+		this.endDecay = endDecay;
+		if (linearSustain === 0) {
+			this.endSustain = endDecay;
+			return;
+		} else if (this.sustainRate === 0) {
+			this.endSustain = Infinity;
+			return;
+		}
+
+		const sustainTime = this.decayTime(linearSustain, 0, this.sustainRate, rateAdjust);
+		const endSustain = endDecay + sustainTime;
+		gain.exponentialRampToValueAtTime(1, endSustain);
+	}
+
+	linearValueAtTime(time) {
+		const linearPeak = this.linearPeak;
+		const endAttack = this.endAttack;
+		const endDecay = this.endDecay;
+		const linearSustain = this.linearSustain;
+		const endSustain = this.endSustain;
+		let linearValue;
+
+		if (time >= endSustain) {
+			return 0;
+		}
+
+		if (time >= endDecay) {
+			// In the sustain phase
+			if (endSustain === Infinity) {
+				linearValue = linearSustain;
+			} else {
+				const timeProportion = (time - endDecay) / (endSustain - endDecay);
+				linearValue = linearSustain * timeProportion;
+			}
+		} else if (time >= endAttack) {
+			// In the decay phase
+			if (endDecay === Infinity) {
+				linearValue = linearPeak;
+			} else {
+				const timeProportion = (time - endAttack) / (endDecay - endAttack);
+				linearValue = linearPeak -  (linearPeak - linearSustain) * timeProportion;
+			}
+		}
+		return linearValue;
 	}
 
 	/**Closes the envelope at a specified time.
 	 */
-	keyOff(time) {
-
+	keyOff(keyCode, time) {
+		const linearValue = this.linearValueAtTime(time);
+		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));;
+		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
+		this.gain.exponentialRampToValueAtTime(1, time + releaseTime);
 	}
 
 	/**Cuts audio output without going through the envelope's release phase.
@@ -65,7 +137,7 @@ class Envelope {
 	 */
 	soundOff(time = 0) {
 		this.gain.cancelAndHoldAtTime(time);
-		this.gain.setValueAtTime(0, time);
+		this.gain.setValueAtTime(1, time);
 	}
 
 }
@@ -147,7 +219,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(context, lfModulator, amModulator, output, envelopeTick) {
+	constructor(context, lfModulator, amModulator, minusOne, output, envelopeTick) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -169,6 +241,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
+		minusOne.connect(envelopeGain.gain);
 		this.envelope = new Envelope(envelopeGain, envelopeTick);
 		this.envelopeGain = envelopeGain;
 
@@ -362,6 +435,10 @@ class PMOperator {
 		this.envelope.keyOn(amount, this.keyCode, time);
 	}
 
+	keyOff(time) {
+		this.envelope.keyOff(this.keyCode, time);
+	}
+
 	soundOff(time = 0) {
 		this.envelope.soundOff(time);
 	}
@@ -426,7 +503,7 @@ const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200
 
 class PMChannel {
 
-	constructor(context, lfo, output, envelopeTick) {
+	constructor(context, lfo, minusOne, output, envelopeTick) {
 		const panner = new StereoPannerNode(context);
 		panner.connect(output);
 		this.panControl = panner.pan;
@@ -436,10 +513,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
-		const op2 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
-		const op3 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
-		const op4 = new PMOperator(context, lfoGain, lfo, panner, envelopeTick);
+		const op1 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op2 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op3 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op4 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -675,6 +752,22 @@ class PMChannel {
 		}
 	}
 
+	keyOff(time, op1 = true, op2 = true, op3 = true, op4 = true) {
+		const operators = this.operators;
+		if (op1) {
+			operators[0].keyOff(time);
+		}
+		if (op2) {
+			operators[1].keyOff(time);
+		}
+		if (op3) {
+			operators[2].keyOff(time);
+		}
+		if (op4) {
+			operators[3].keyOff(time);
+		}
+	}
+
 	soundOff(time = 0) {
 		for (let operator of this.operators) {
 			operator.soundOff(time);
@@ -724,6 +817,9 @@ const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0
 
 class PMSynth {
 	constructor(context, output = context.destination, numChannels = 6, pal = false) {
+		const minusOne = new ConstantSourceNode(context, {offset: -1});
+		minusOne.start();
+
 		const lfo = new OscillatorNode(context, {frequency: 0});
 		this.lfo = lfo;
 
@@ -736,7 +832,7 @@ class PMSynth {
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(context, this.lfo, channelGain, envelopeTick);
+			const channel = new PMChannel(context, lfo, minusOne, channelGain, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;
