@@ -50,9 +50,9 @@ class Envelope {
 		this.decayRate = 16;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
-		// These have been pre-scaled 0..127 -> 0..1023
-		this.totalLevel = 1023;
-		this.sustain = 516;
+		// These have been pre-scaled.
+		this.totalLevel = 1023;	// 0-48dB	0..127 -> 0..1023
+		this.sustain = 768;		// 0-12dB less than totalLevel
 
 		// Values stored during key on.
 		this.linearPeak = 0;
