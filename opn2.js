@@ -41,12 +41,15 @@ function frequencyToNote(block, frequencyNum) {
 
 // For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
-for (let i = 0; i < 60; i++) {
-	const power = Math.trunc(i / 4) - 14;
-	let multiple = ((i % 4) + 4);
-	ENV_INCREMENT[i] =  multiple * (2 ** power);
+{
+	const increments = [0, 0, 4, 4, 4, 4, 6, 6];
+	for (let i = 0; i < 60; i++) {
+		const power = Math.trunc(i / 4) - 14;
+		const multiple = i < 8 ? increments[i] : ((i % 4) + 4);
+		ENV_INCREMENT[i] =  multiple * (2 ** power);
+	}
+	ENV_INCREMENT.fill(8, 60);
 }
-ENV_INCREMENT.fill(8, 60);
 
 class Envelope {
 
