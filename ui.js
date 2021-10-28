@@ -1,14 +1,16 @@
-import {PMSynth} from './opn2.js';
+import YM2612 from './ym2612.js';
 let context;
 
 document.getElementById('btn-init').addEventListener('click', function (event) {
 	this.disabled = true;
 	context = new AudioContext();
-	const synth = new PMSynth(context, context.destination, 1);
+	const chip = new YM2612(context);
+	const synth = chip.synth;
 	synth.start(context.currentTime + 0.01);
 	window.audioContext = context;
+	window.chip = chip;
 	window.synth = synth;
-	window.chan = synth.channels[0];
+	window.chan = synth.getChannel(1);
 });
 
 document.getElementById('btn-note').addEventListener('mousedown', function (event) {

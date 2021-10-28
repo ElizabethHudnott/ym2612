@@ -771,38 +771,38 @@ class PMChannel {
 		return LF_PM_PRESETS.indexOf(this.getLFPMAmount());
 	}
 
-	keyOn(time, velocity = 127, op1 = true, op2 = true, op3 = true, op4 = true) {
+	keyOnOff(op1, time, velocity = 127, op2 = op1, op3 = op1, op4 = op1) {
 		const amount = velocity / 127;
 		const operators = this.operators;
 		const levels = this.outputLevels;
 		if (op1) {
 			operators[0].keyOn(levels[0] === 0 ? 1 : amount, time);
-		}
-		if (op2) {
-			operators[1].keyOn(levels[1] === 0 ? 1 : amount, time);
-		}
-		if (op3) {
-			operators[2].keyOn(levels[2] === 0 ? 1 : amount, time);
-		}
-		if (op4) {
-			operators[3].keyOn(levels[3] === 0 ? 1 : amount, time);
-		}
-	}
-
-	keyOff(time, op1 = true, op2 = true, op3 = true, op4 = true) {
-		const operators = this.operators;
-		if (op1) {
+		} else {
 			operators[0].keyOff(time);
 		}
 		if (op2) {
+			operators[1].keyOn(levels[1] === 0 ? 1 : amount, time);
+		} else {
 			operators[1].keyOff(time);
 		}
 		if (op3) {
+			operators[2].keyOn(levels[2] === 0 ? 1 : amount, time);
+		} else {
 			operators[2].keyOff(time);
 		}
 		if (op4) {
+			operators[3].keyOn(levels[3] === 0 ? 1 : amount, time);
+		} else {
 			operators[3].keyOff(time);
 		}
+	}
+
+	keyOn(time, velocity = 127) {
+		this.keyOnOff(true, time, velocity);
+	}
+
+	keyOff(time) {
+		this.keyOnOff(false, time);
 	}
 
 	soundOff(time = 0) {
@@ -852,8 +852,13 @@ class PMChannel {
 
 const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0, 0, 0, 0, 0, 0];
 
+const CLOCK_RATE = {
+	PAL: 	7600489,
+	NTSC: 	7670454
+}
+
 class PMSynth {
-	constructor(context, output = context.destination, numChannels = 6, pal = false) {
+	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		const minusOne = new ConstantSourceNode(context, {offset: -1});
 		minusOne.start();
 
@@ -863,9 +868,8 @@ class PMSynth {
 		const channelGain = new GainNode(context, {gain : 1 / numChannels});
 		channelGain.connect(output);
 
-		const clockRate = pal ? 7.60048914 : 7.67045357;
-		const envelopeTick = 351 / (clockRate * 1000000);
-		this.lfoRateMultiplier = clockRate / 8;
+		const envelopeTick = 351 / clockRate;
+		this.lfoRateMultiplier = clockRate / 8000000;
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
@@ -898,6 +902,10 @@ class PMSynth {
 		for (let channel of this.channels) {
 			channel.soundOff(time);
 		}
+	}
+
+	getChannel(channelNum) {
+		return this.channels[channelNum - 1];
 	}
 
 	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
@@ -985,5 +993,5 @@ class PMSynth {
 export {
 	PMOperator, PMChannel, PMSynth,
 	tunedMIDINotes, decibelsToAmplitude, amplitudeToDecibels,
-	NOTE_FREQUENCIES, DETUNE_AMOUNTS,
+	NOTE_FREQUENCIES, DETUNE_AMOUNTS, CLOCK_RATE
 };
