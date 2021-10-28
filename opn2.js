@@ -18,25 +18,10 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 	param.setValueAtTime(holdValue, time);
 }
 
-function frequencyToNote(block, frequencyNum) {
-		let lb = 0;
-		let ub = 127;
-		while (lb < ub) {
-			let mid = Math.trunc((lb + ub) / 2);
-			const [noteBlock, noteFreqNum] = NOTE_FREQUENCIES[mid];
-			if (block < noteBlock) {
-				ub = mid - 1;
-			} else if (block > noteBlock) {
-				lb = mid + 1;
-			} else if (frequencyNum < noteFreqNum) {
-				ub = mid - 1;
-			} else if (frequencyNum > noteFreqNum) {
-				lb = mid + 1;
-			} else {
-				return mid;
-			}
-		}
-		return lb;
+function calcKeyCode(blockNumber, frequencyNumber) {
+	const f11 = frequencyNumber >= 1024;
+	const lsb = frequencyNumber >= 1152 || (!f11 && frequencyNumber >= 896);
+	return (blockNumber << 2) + (f11 << 1) + lsb;
 }
 
 // For decay, sustain and release
@@ -189,38 +174,6 @@ class Envelope {
 
 }
 
-const FREQUENCY_STEP = 0.025157;
-
-/**Calculates frequency data for a scale of 128 MIDI notes. The results are expressed in
- * terms of the YM2612's block and frequency number notation.
- * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
- */
-function tunedMIDINotes(a4Pitch) {
-	const frequencyData = [];
-	for (let i = 0; i < 128; i++) {
-		const frequency = a4Pitch * (2 ** ((i - 69) / 12));
-		let freqNum = frequency / FREQUENCY_STEP;
-		let block = 0;
-		while (freqNum >= 2047.5) {
-			freqNum /= 2;
-			block++;
-		}
-		frequencyData[i] = [block, Math.round(freqNum)];
-	}
-	return frequencyData;
-}
-
-/**Provides frequency information for each MIDI note in terms of the YM2612's block and
- * frequency number notation. The block number is stored in the first element of each
- * entry and the frequency number is stored in the nested array's second element. When the
- * block number is zero then increasing the frequency number by one raises the note's
- * frequency by 0.025157Hz. Increasing the block number by one multiplies the frequency in
- * Hertz by two. You can edit this table if you want to tune to something other than A440
- * pitch (see {@link tunedMIDINotes}). The only constraint is that the table is sorted
- * first by block number and then by frequency number.
- * @type {Array<Array<number>>}
- */
-const NOTE_FREQUENCIES = tunedMIDINotes(440);
 
 /**The amount to detune each note by when the various detuning settings are applied. The
  * array is organized into four sequential blocks of 32 values each. The first block
@@ -266,7 +219,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(context, lfModulator, amModulator, minusOne, output, envelopeTick) {
+	constructor(synth, context, lfModulator, amModulator, minusOne, output, envelopeTick) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -299,9 +252,10 @@ class PMOperator {
 			this.mixer = mixer.gain;
 		}
 
+		this.synth = synth;
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
-		this.keyCode = 18;
+		this.keyCode = calcKeyCode(4, 1093);
 		this.frequencyMultiple = 1;
 
 		// Public fields
@@ -341,8 +295,8 @@ class PMOperator {
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
 	 * {@link PMChannel} (e.g. by its setFrequency() method) but it can also be useful to
 	 * invoke this method directly for individual operators to create dissonant sounds.
-	 * @param {number} blockNumber A kind of octave measurement. See {@link NOTE_FREQUENCIES}.
-	 * @param {number} frequencyNumber A linear frequency measurement. See {@link NOTE_FREQUENCIES}.
+	 * @param {number} blockNumber A kind of octave measurement. See {@link PMSynth.noteFrequencies}.
+	 * @param {number} frequencyNumber A linear frequency measurement. See {@link PMSynth.noteFrequencies}.
 	 * @param {number} [frequencyMultiple] After the basic frequency in Hertz is calculated
 	 * from the block number and frequency number the result is then multiplied by this
 	 * number. Defaults to 1.
@@ -352,13 +306,14 @@ class PMOperator {
 	 * Defaults to 'setValueAtTime'.
 	 */
 	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
-		const keyCode = (blockNumber << 2) + (frequencyNumber >> 9);
+		const keyCode = calcKeyCode(blockNumber, frequencyNumber);
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
 		const detuneSign = (-1) ** (detuneSetting >> 2);
 		const detuneMultiple = 1 + detuneSign * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
 
-		const frequency = (frequencyNumber << blockNumber) * FREQUENCY_STEP * frequencyMultiple * detuneMultiple;
+		let frequency = (frequencyNumber << blockNumber) * this.synth.frequencyStep;
+		frequency *= frequencyMultiple * detuneMultiple;
 		const period = 1 / frequency;
 		this.sine.frequency[method](frequency, time);
 		this.delay[method](period, time);
@@ -370,14 +325,14 @@ class PMOperator {
 	}
 
 	/**Returns the block number associated with the operator's current frequency.
-	 * See {@link NOTE_FREQUENCIES}.
+	 * See {@link PMSynth.noteFrequencies}.
 	 */
 	getFrequencyBlock() {
 		return this.freqBlockNumber;
 	}
 
 	/**Returns the frequency number associated with the operator's current frequency.
-	 * See {@link NOTE_FREQUENCIES}.
+	 * See {@link PMSynth.noteFrequencies}.
 	 */
 	getFrequencyNumber() {
 		return this.frequencyNumber;
@@ -414,7 +369,7 @@ class PMOperator {
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
 	setMIDINote(noteNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
-		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
+		const [block, frequencyNumber] = this.synth.noteFrequencies[noteNumber];
 		this.setFrequency(block, frequencyNumber, frequencyMultiple, time, method);
 	}
 
@@ -422,7 +377,7 @@ class PMOperator {
 	 * current frequency.
 	 */
 	getMIDINote() {
-		return frequencyToNote(this.freqBlockNumber, this.frequencyNumber);
+		return this.synth.frequencyToNote(this.freqBlockNumber, this.frequencyNumber);
 	}
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
@@ -530,7 +485,8 @@ const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200
 
 class PMChannel {
 
-	constructor(context, lfo, minusOne, output, envelopeTick) {
+	constructor(synth, context, lfo, minusOne, output, envelopeTick) {
+		this.synth = synth;
 		const panner = new StereoPannerNode(context);
 		panner.connect(output);
 		this.panControl = panner.pan;
@@ -540,10 +496,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op2 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op3 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op4 = new PMOperator(context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op1 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op2 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op3 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op4 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -695,7 +651,7 @@ class PMChannel {
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const realNote = noteNumber + this.transpose;
-		const [block, frequencyNumber] = NOTE_FREQUENCIES[realNote];
+		const [block, frequencyNumber] = this.synth.noteFrequencies[realNote];
 		this.setFrequency(block, frequencyNumber, time, method);
 	}
 
@@ -867,21 +823,35 @@ class PMSynth {
 
 		const channelGain = new GainNode(context, {gain : 1 / numChannels});
 		channelGain.connect(output);
+		supportsCancelAndHold = channelGain.gain.cancelAndHoldAtTime !== undefined;
 
 		const envelopeTick = 351 / clockRate;
+		const frequencyStep = clockRate / (288 * 2 ** 20);
+		this.frequencyStep = frequencyStep;
 		this.lfoRateMultiplier = clockRate / 8000000;
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(context, lfo, minusOne, channelGain, envelopeTick);
+			const channel = new PMChannel(this, context, lfo, minusOne, channelGain, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;
 
-		this.ch3ExtraFreqBlocks = [4, 4, 4];
-		this.ch3ExtraFreqNums = [1093, 1093, 1093];
+		/**Provides frequency information for each MIDI note in terms of the YM2612's block and
+		 * frequency number notation. The block number is stored in the first element of each
+		 * entry and the frequency number is stored in the nested array's second element. When the
+		 * block number is zero then increasing the frequency number by one raises the note's
+		 * frequency by 0.025157Hz. Increasing the block number by one multiplies the frequency in
+		 * Hertz by two. You can edit this table if you want to tune to something other than A440
+		 * pitch (see {@link tunedMIDINotes}). The only constraint is that the table is sorted
+		 * first by block number and then by frequency number.
+		 * @type {Array<Array<number>>}
+		 */
+		this.noteFrequencies = this.tunedMIDINotes(440);
+
+		this.ch3FreqBlocks = [4, 4, 4, 4];
+		this.ch3FreqNums = [1093, 1093, 1093, 1093];
 		this.ch3Mode = 0;	// Normal mode
-		supportsCancelAndHold = channelGain.gain.cancelAndHoldAtTime !== undefined;
 	}
 
 	start(time) {
@@ -938,10 +908,10 @@ class PMSynth {
 
 		case 1:
 			// Separate frequencies mode
-			for (let i = 2; i <= 4; i++) {
+			for (let i = 1; i <= 3; i++) {
 				const operator = channel.getOperator(i);
-				const block = this.ch3ExtraFreqBlocks[i - 2];
-				const freqNum = this.ch3ExtraFreqNums[i - 2];
+				const block = this.ch3FreqBlocks[i - 1];
+				const freqNum = this.ch3FreqNums[i - 1];
 				operator.setFrequency(block, freqNum, 1, time);
 			}
 			break;
@@ -958,40 +928,70 @@ class PMSynth {
 		if (this.ch3Mode === 1) {
 			const operator = channel.getOperator(operatorNum);
 			operator.setFrequency(blockNumber, frequencyNumber, 1, time);
-		} else if (operatorNum === 1) {
+		} else if (operatorNum === 4) {
 			channel.setFrequency(blockNumber, frequencyNumber, time, method);
 		}
-		if (operatorNum > 1) {
-			this.ch3ExtraFreqBlocks[operatorNum - 2] = blockNumber;
-			this.ch3ExtraFreqNums[operatorNum - 2] = frequencyNumber;
-		}
+		this.ch3FreqBlocks[operatorNum - 1] = blockNumber;
+		this.ch3FreqNums[operatorNum - 1] = frequencyNumber;
 	}
 
 	getChannel3FrequencyBlock(operatorNum) {
-		if (operatorNum === 1) {
-			return this.channels[2].getFrequencyBlock();
-		} else {
-			return this.ch3ExtraFreqBlocks[operatorNum - 2];
-		}
+		return this.ch3FreqBlocks[operatorNum - 1];
 	}
 
 	getChannel3FrequencyNumber(operatorNum) {
-		if (operatorNum === 1) {
-			return this.channels[2].getFrequencyNumber();
-		} else {
-			this.ch3ExtraFreqNums[operatorNum - 2];
-		}
+		return this.ch3FreqNums[operatorNum - 1];
 	}
 
 	setChannel3MIDINote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
-		const [block, frequencyNumber] = NOTE_FREQUENCIES[noteNumber];
+		const [block, frequencyNumber] = this.noteFrequencies[noteNumber];
 		this.setChannel3Frequency(operatorNum, block, frequencyNumber, time, method);
+	}
+
+	/**Calculates frequency data for a scale of 128 MIDI notes. The results are expressed in
+	 * terms of the YM2612's block and frequency number notation.
+	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
+	 */
+	tunedMIDINotes(a4Pitch) {
+		const frequencyData = [];
+		for (let i = 0; i < 128; i++) {
+			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
+			let freqNum = frequency / this.frequencyStep;
+			let block = 0;
+			while (freqNum >= 2047.5) {
+				freqNum /= 2;
+				block++;
+			}
+			frequencyData[i] = [block, Math.round(freqNum)];
+		}
+		return frequencyData;
+	}
+
+	frequencyToNote(block, frequencyNum) {
+			let lb = 0;
+			let ub = 127;
+			while (lb < ub) {
+				let mid = Math.trunc((lb + ub) / 2);
+				const [noteBlock, noteFreqNum] = this.noteFrequencies[mid];
+				if (block < noteBlock) {
+					ub = mid - 1;
+				} else if (block > noteBlock) {
+					lb = mid + 1;
+				} else if (frequencyNum < noteFreqNum) {
+					ub = mid - 1;
+				} else if (frequencyNum > noteFreqNum) {
+					lb = mid + 1;
+				} else {
+					return mid;
+				}
+			}
+			return lb;
 	}
 
 }
 
 export {
 	PMOperator, PMChannel, PMSynth,
-	tunedMIDINotes, decibelsToAmplitude, amplitudeToDecibels,
-	NOTE_FREQUENCIES, DETUNE_AMOUNTS, CLOCK_RATE
+	decibelsToAmplitude, amplitudeToDecibels,
+	DETUNE_AMOUNTS, CLOCK_RATE
 };
