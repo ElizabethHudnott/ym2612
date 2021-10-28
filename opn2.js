@@ -1,10 +1,10 @@
 
 /**
- * @param {number} n A number between 0 and 1
+ * @param {number} x A number between 0 and 1
  * @return {number} A number between 0 and 1.
  */
-function logToLinear(n) {
-	return (2 ** n) - 1;
+function logToLinear(x) {
+	return 10 / 9 * (10 ** (x - 1) - 0.1);
 }
 
 let supportsCancelAndHold;
@@ -51,7 +51,7 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 16;
 		// These have been pre-scaled 0..127 -> 0..1023
-		this.totalLevel = 329;
+		this.totalLevel = 523;
 		this.sustain = 128;
 
 		// Values stored during key on.
