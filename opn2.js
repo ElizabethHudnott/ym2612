@@ -51,8 +51,8 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 16;
 		// These have been pre-scaled 0..127 -> 0..1023
-		this.totalLevel = 1023;
-		this.sustain = 400;
+		this.totalLevel = 329;
+		this.sustain = 128;
 
 		// Values stored during key on.
 		this.linearPeak = 0;
@@ -455,20 +455,20 @@ const ALGORITHMS = [
 
 	// 1 -> 2
 	// 3 -> 4
-	[[1, 0, 0, 0, 0, 1], [0, 0.5, 0, 0.5]],
+	[[1, 0, 0, 0, 0, 1], [0, 1, 0, 1]],
 
 	//   /--> 2 
 	// 1 |--> 3
 	//   \--> 4
-	[[1, 1, 1, 0, 0, 0], [0, 1/3, 1/3, 1/3]],
+	[[1, 1, 1, 0, 0, 0], [0, 1, 1, 1]],
 
 	// 1 -> 2
 	//      3
 	//      4
-	[[1, 0, 0, 0, 0, 0], [0, 1/3, 1/3, 1/3]],
+	[[1, 0, 0, 0, 0, 0], [0, 1, 1, 1]],
 
 	// No modulation
-	[[0, 0, 0, 0, 0, 0], [0.25, 0.25, 0.25, 0.25]],
+	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
 ];
 
 function decibelsToAmplitude(decibels) {
@@ -606,19 +606,19 @@ class PMChannel {
 	}
 
 	getFrequencyBlock() {
-		return this.operators[0].getFrequencyBlock();
+		return this.operators[3].getFrequencyBlock();
 	}
 
 	getFrequencyNumber() {
-		return this.operators[0].getFrequencyNumber();
+		return this.operators[3].getFrequencyNumber();
 	}
 
 	setFrequencyMultiple(operatorNum, multiple, time = undefined, method = 'setValueAtTime') {
 		this.frequencyMultiples[operatorNum] = multiple;
 		if (time !== undefined) {
-			const op1 = this.operators[0];
-			const block = op1.getFrequencyBlock();
-			const freqNum = op1.getFrequencyNumber();
+			const op4 = this.operators[3];
+			const block = op4.getFrequencyBlock();
+			const freqNum = op4.getFrequencyNumber();
 			const operator = this.operators[operatorNum - 1];
 			operator.setFrequency(block, freqNum, multiple, time, method);
 		}
@@ -628,9 +628,9 @@ class PMChannel {
 		const multiples = [op1, op2, op3, op4];
 		this.frequencyMultiples = multiples;
 		if (time !== undefined) {
-			const op1 = this.operators[0];
-			const block = op1.getFrequencyBlock();
-			const freqNum = op1.getFrequencyNumber();
+			const op4 = this.operators[3];
+			const block = op4.getFrequencyBlock();
+			const freqNum = op4.getFrequencyNumber();
 			for (let i = 0; i < 4; i++) {
 				this.operators[i].setFrequency(block, freqNum, multiples[i], time, method);
 			}
@@ -656,7 +656,7 @@ class PMChannel {
 	}
 
 	getMIDINote() {
-		return this.operators[0].getMIDINote() - this.transpose;
+		return this.operators[3].getMIDINote() - this.transpose;
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
