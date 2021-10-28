@@ -4,7 +4,7 @@
  * @return {number} A number between 0 and 1.
  */
 function logToLinear(x) {
-	return 10 / 9 * (10 ** (x - 1) - 0.1);
+	return x === 0 ? 0 : 10 ** (2.4 * (x - 1));
 }
 
 let supportsCancelAndHold;
@@ -51,8 +51,8 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 16;
 		// These have been pre-scaled 0..127 -> 0..1023
-		this.totalLevel = 523;
-		this.sustain = 128;
+		this.totalLevel = 1023;
+		this.sustain = 516;
 
 		// Values stored during key on.
 		this.linearPeak = 0;
@@ -820,10 +820,7 @@ class PMSynth {
 
 		const lfo = new OscillatorNode(context, {frequency: 0});
 		this.lfo = lfo;
-
-		const channelGain = new GainNode(context, {gain : 1 / numChannels});
-		channelGain.connect(output);
-		supportsCancelAndHold = channelGain.gain.cancelAndHoldAtTime !== undefined;
+		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 
 		const envelopeTick = 351 / clockRate;
 		const frequencyStep = clockRate / (288 * 2 ** 20);
@@ -832,7 +829,7 @@ class PMSynth {
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, minusOne, channelGain, envelopeTick);
+			const channel = new PMChannel(this, context, lfo, minusOne, context.destination, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;
