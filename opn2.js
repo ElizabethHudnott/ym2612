@@ -827,7 +827,7 @@ class PMSynth {
 		this.lfo = lfo;
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 
-		const envelopeTick = 351 / clockRate;
+		const envelopeTick = 72 * 6 / clockRate;
 		const frequencyStep = clockRate / (288 * 2 ** 20);
 		this.frequencyStep = frequencyStep;
 		this.lfoRateMultiplier = clockRate / 8000000;
