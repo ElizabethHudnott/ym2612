@@ -231,7 +231,7 @@ class PMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime: 39.734});
+		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime: 19.8666});
 		sine.connect(delay);
 		this.delay = delay.delayTime;
 		const delayAmp = new GainNode(context, {gain: 1 / 440});
@@ -318,9 +318,9 @@ class PMOperator {
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
 		const detuneSign = (-1) ** (detuneSetting >> 2);
-		const detuneSteps = detuneSign * 2 * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
+		const detuneSteps = detuneSign * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
 
-		let fullFreqNumber = (frequencyNumber << blockNumber) + detuneSteps;
+		let fullFreqNumber = Math.trunc(0.5 * (frequencyNumber << blockNumber)) + detuneSteps;
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
 		}
@@ -828,7 +828,7 @@ class PMSynth {
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 
 		const envelopeTick = 72 * 6 / clockRate;
-		const frequencyStep = clockRate / (288 * 2 ** 20);
+		const frequencyStep = clockRate / (144 * 2 ** 20);
 		this.frequencyStep = frequencyStep;
 		this.lfoRateMultiplier = clockRate / 8000000;
 
