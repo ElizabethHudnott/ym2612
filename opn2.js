@@ -7,6 +7,14 @@ function logToLinear(x) {
 	return x === 0 ? 0 : 10 ** (2.4 * (x - 1));
 }
 
+function decibelsToAmplitude(decibels) {
+	return 1 - 10 ** (-decibels / 20);
+}
+
+function amplitudeToDecibels(amplitude) {
+	return -20 * Math.log10(1 - amplitude);
+}
+
 let supportsCancelAndHold;
 
 function cancelAndHoldAtTime(param, holdValue, time) {
@@ -202,7 +210,7 @@ const DETUNE_AMOUNTS = [
 /* Preset +-3 */
 	2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7,
 	8 , 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
-].map(x => x * 1.164 / 22);
+];
 
 /**Represents a single operator in the FM synthesizer. The synthesizer alters frequency
  * using phase modulation (PM). There are 4 operators per sound channel and 6 independent
@@ -223,7 +231,7 @@ class PMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 220});
+		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime: 39.734});
 		sine.connect(delay);
 		this.delay = delay.delayTime;
 		const delayAmp = new GainNode(context, {gain: 1 / 440});
@@ -310,14 +318,19 @@ class PMOperator {
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
 		const detuneSign = (-1) ** (detuneSetting >> 2);
-		const detuneMultiple = 1 + detuneSign * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
+		const detuneSteps = detuneSign * 2 * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
 
-		let frequency = (frequencyNumber << blockNumber) * this.synth.frequencyStep;
-		frequency *= frequencyMultiple * detuneMultiple;
-		const period = 1 / frequency;
+		let fullFreqNumber = (frequencyNumber << blockNumber) + detuneSteps;
+		if (fullFreqNumber < 0) {
+			fullFreqNumber += 0x1FFFF;
+		}
+		const frequency = fullFreqNumber * frequencyMultiple * this.synth.frequencyStep;
 		this.sine.frequency[method](frequency, time);
-		this.delay[method](period, time);
-		this.delayAmp.gain[method](0.5 * period, time);
+		if (frequency > 0) {
+			const period = 1 / frequency;
+			this.delay[method](period, time);
+			this.delayAmp.gain[method](0.5 * period, time);
+		}
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
 		this.keyCode = keyCode;
@@ -470,14 +483,6 @@ const ALGORITHMS = [
 	// No modulation
 	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
 ];
-
-function decibelsToAmplitude(decibels) {
-	return 1 - 10 ** (-decibels / 20);
-}
-
-function amplitudeToDecibels(amplitude) {
-	return -20 * Math.log10(1 - amplitude);
-}
 
 const AM_PRESETS = [0, 1.4, 5.9, 11.8].map(decibelsToAmplitude);
 
