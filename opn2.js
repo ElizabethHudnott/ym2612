@@ -492,7 +492,9 @@ class PMChannel {
 
 	constructor(synth, context, lfo, minusOne, output, envelopeTick) {
 		this.synth = synth;
+		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const panner = new StereoPannerNode(context);
+		shaper.connect(panner);
 		panner.connect(output);
 		this.panControl = panner.pan;
 
@@ -501,10 +503,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op2 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op3 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
-		const op4 = new PMOperator(synth, context, lfoGain, lfo, minusOne, panner, envelopeTick);
+		const op1 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
+		const op2 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
+		const op3 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
+		const op4 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -716,20 +718,20 @@ class PMChannel {
 		return this.amEnabled[operatorNum];
 	}
 
-	setLFPMAmount(amount, time = 0, method = 'setValueAtTime') {
-		this.lfoAmp[method](amount, time);
+	setLFPMDepth(depth, time = 0, method = 'setValueAtTime') {
+		this.lfoAmp[method](depth, time);
 	}
 
-	getLFPMAmount() {
+	getLFPMDepth() {
 		return this.lfoAmp.value;
 	}
 
 	useLFPMPreset(presetNum, time = 0) {
-		this.setLFPMAmount(LF_PM_PRESETS[presetNum], time);
+		this.setPMDepth(LF_PM_PRESETS[presetNum], time);
 	}
 
 	getLFPMPresetNumber() {
-		return LF_PM_PRESETS.indexOf(this.getLFPMAmount());
+		return LF_PM_PRESETS.indexOf(this.getLFPMDepth());
 	}
 
 	keyOnOff(op1, time, velocity = 127, op2 = op1, op3 = op1, op4 = op1) {
@@ -832,9 +834,11 @@ class PMSynth {
 		this.frequencyStep = frequencyStep;
 		this.lfoRateMultiplier = clockRate / 8000000;
 
+		const channelGain = new GainNode(context, {gain: 1 / numChannels});
+		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, minusOne, context.destination, envelopeTick);
+			const channel = new PMChannel(this, context, lfo, minusOne, channelGain, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;

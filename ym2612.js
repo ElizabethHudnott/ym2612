@@ -113,3 +113,36 @@ write[0xAA] = (chip, b, t) => setCh3Frequency(chip, 2, b, t);
 write[0xAC] = (chip, b) => chip.longRegisters[LONG_REGISTER.CH3_FREQUENCY + 2] = b;
 write[0xAD] = (chip, b) => chip.longRegisters[LONG_REGISTER.CH3_FREQUENCY] = b;
 write[0xAE] = (chip, b) => chip.longRegisters[LONG_REGISTER.CH3_FREQUENCY + 1] = b;
+
+function setAlgorithmAndFeedback(chip, port, relativeChannelNum, value, time) {
+	const channelNum = port * 2 + relativeChannelNum;
+	const algorithmNum = value & 7;
+	const feedbackNum = value >> 3;
+	const channel = chip.synth.getChannel(channelNum);
+	channel.setAlgorithmNumber(algorithmNum, time);
+	channel.setFeedbackNumber(feedbackNum, time);
+}
+
+write[0xB0] = (chip, b, t, port) => setAlgorithmAndFeedback(chip, port, 1, b, t);
+write[0xB1] = (chip, b, t, port) => setAlgorithmAndFeedback(chip, port, 2, b, t);
+write[0xB2] = (chip, b, t, port) => setAlgorithmAndFeedback(chip, port, 3, b, t);
+
+function setPanAndLFO(chip, port, relativeChannelNum, value, time) {
+	const channelNum = port * 2 + relativeChannelNum;
+	const pmDepth = value & 7;
+	const amDepth = (value & 48) >> 4;
+	const channel = chip.synth.getChannel(channelNum);
+	channel.useLFPMPreset(pmDepth, time);
+	channel.useAMPreset(amDepth, time);
+	if ((value && 192) === 0) {
+		channel.mute(true, time);
+		return;
+	}
+	const pan = ((value & 128) ? -1 : 0) + ((value & 64) ? 1 : 0);
+	channel.setPan(pan, time);
+	channel.mute(false, time);
+}
+
+write[0xB4] = (chip, b, t, port) => setPanAndLFO(chip, port, 1, b, t);
+write[0xB5] = (chip, b, t, port) => setPanAndLFO(chip, port, 2, b, t);
+write[0xB6] = (chip, b, t, port) => setPanAndLFO(chip, port, 3, b, t);
