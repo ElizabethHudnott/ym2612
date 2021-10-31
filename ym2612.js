@@ -45,7 +45,7 @@ write[0x28] = (chip, b, t) => {
 	const op2 = (b & 32) === 32;
 	const op3 = (b & 64) === 64;
 	const op4 = (b & 128) === 128;
-	chip.synth.getChannel(channelNum + 1).keyOnOff(op1, t, 127, op2, op3, op4);
+	chip.synth.getChannel(channelNum + 1).keyOnOff(t, op1, op2, op3, op4);
 }
 
 function multiplyAndDetune(chip, port, relativeChannelNum, operatorNum, value, time) {

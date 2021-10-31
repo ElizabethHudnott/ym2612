@@ -49,11 +49,22 @@ const ENV_INCREMENT = new Array(64);
 class Envelope {
 
 	/**Creates an envelope.
-	 * @param {GainNode} gainNode The GainNode to be controlled by the envelope.
+	 * @param {GainNode} output The GainNode to be controlled by the envelope.
 	 */
-	constructor(gainNode, tickRate) {
-		gainNode.gain.value = 1;
-		this.gain = gainNode.gain;
+	constructor(context, output, tickRate) {
+		output.gain.value = 0;
+		const gain = new ConstantSourceNode(context);
+		gain.start();
+		this.gain = gain.offset;
+		// -(attenuation + 1)
+		const totalLevelControl = new ConstantSourceNode(context, {offset: -1});
+		totalLevelControl.start();
+		this.totalLevelControl = totalLevelControl.offset;
+		const shaper = new WaveShaperNode(context, {curve: [0, 0, 1]});
+		gain.connect(shaper);
+		totalLevelControl.connect(shaper);
+		shaper.connect(output.gain);
+
 		this.tickRate = tickRate;
 		this.attackRate = 16;
 		this.rateScaling = 0;
@@ -61,16 +72,18 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 16;
 		// These have been pre-scaled.
-		this.totalLevel = 1023;	// 0-48dB	0..127 -> 0..1023
 		this.sustain = 768;		// 0-12dB less than totalLevel
 
 		// Values stored during key on.
-		this.linearPeak = 0;
 		this.endAttack = 0;
-		this.linearSustain = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
 		this.keyIsOn = false;
+	}
+
+	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
+		const attenuation = logToLinear(1 - level / 127);
+		this.totalLevelControl[method](-attenuation - 1, time);
 	}
 
 	/**
@@ -83,7 +96,7 @@ class Envelope {
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(velocityProportion, keyCode, time) {
+	keyOn(keyCode, time) {
 		if (this.keyIsOn) {
 			return;
 		}
@@ -91,15 +104,11 @@ class Envelope {
 		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));
 		const gain = this.gain;
 
-		const linearPeak = this.totalLevel * velocityProportion;
-		const expPeak = 1 + logToLinear(linearPeak / 1023);
-
 		const endAttack = time;
-		gain.setValueAtTime(expPeak, time);
+		gain.setValueAtTime(2, time);
 
-		this.keyIsOn = true;
-		this.linearPeak = linearPeak;
 		this.endAttack = endAttack;
+		this.keyIsOn = true;
 
 		if (this.decayRate === 0) {
 			this.endDecay = Infinity;
@@ -107,12 +116,11 @@ class Envelope {
 			return;
 		}
 
-		const linearSustain = this.sustain * velocityProportion;
+		const linearSustain = this.sustain;
 		const expSustain = 1 + logToLinear(linearSustain / 1023);
-		const decay = this.decayTime(linearPeak, linearSustain, this.decayRate, rateAdjust);
+		const decay = this.decayTime(1023, linearSustain, this.decayRate, rateAdjust);
 		const endDecay = endAttack + decay;
 		gain.exponentialRampToValueAtTime(expSustain, endDecay);
-		this.linearSustain = linearSustain;
 		this.endDecay = endDecay;
 		if (linearSustain === 0) {
 			this.endSustain = endDecay;
@@ -128,10 +136,9 @@ class Envelope {
 	}
 
 	linearValueAtTime(time) {
-		const linearPeak = this.linearPeak;
 		const endAttack = this.endAttack;
 		const endDecay = this.endDecay;
-		const linearSustain = this.linearSustain;
+		const linearSustain = this.sustain;
 		const endSustain = this.endSustain;
 		let linearValue;
 
@@ -150,10 +157,10 @@ class Envelope {
 		} else if (time >= endAttack) {
 			// In the decay phase
 			if (endDecay === Infinity) {
-				linearValue = linearPeak;
+				linearValue = 1023;
 			} else {
 				const timeProportion = (time - endAttack) / (endDecay - endAttack);
-				linearValue = linearPeak -  (linearPeak - linearSustain) * timeProportion;
+				linearValue = 1023 -  timeProportion * (1023 - linearSustain);
 			}
 		}
 		return linearValue;
@@ -229,7 +236,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(synth, context, lfModulator, amModulator, minusOne, output, envelopeTick) {
+	constructor(synth, context, lfModulator, amModulator, output, envelopeTick) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -251,8 +258,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
-		minusOne.connect(envelopeGain.gain);
-		this.envelope = new Envelope(envelopeGain, envelopeTick);
+		this.envelope = new Envelope(context, envelopeGain, envelopeTick);
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
@@ -428,8 +434,8 @@ class PMOperator {
 		return this.mixer.value;
 	}
 
-	keyOn(amount, time) {
-		this.envelope.keyOn(amount, this.keyCode, time);
+	keyOn(time) {
+		this.envelope.keyOn(this.keyCode, time);
 	}
 
 	keyOff(time) {
@@ -438,6 +444,10 @@ class PMOperator {
 
 	soundOff(time = 0) {
 		this.envelope.soundOff(time);
+	}
+
+	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
+		this.envelope.setTotalLevel(level, time, method);
 	}
 
 }
@@ -492,7 +502,7 @@ const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200
 
 class PMChannel {
 
-	constructor(synth, context, lfo, minusOne, output, envelopeTick) {
+	constructor(synth, context, lfo, output, envelopeTick) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const panner = new StereoPannerNode(context);
@@ -505,10 +515,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
-		const op2 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
-		const op3 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
-		const op4 = new PMOperator(synth, context, lfoGain, lfo, minusOne, shaper, envelopeTick);
+		const op1 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
+		const op2 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
+		const op3 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
+		const op4 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -736,38 +746,45 @@ class PMChannel {
 		return LF_PM_PRESETS.indexOf(this.getLFPMDepth());
 	}
 
-	keyOnOff(op1, time, velocity = 127, op2 = op1, op3 = op1, op4 = op1) {
-		const amount = velocity / 127;
-		const operators = this.operators;
+	setVelocity(velocity, time = 0) {
 		const levels = this.outputLevels;
+		const operators = this.operators;
+		operators[0].setTotalLevel(levels[0] === 0 ? 127 : velocity, time);
+		operators[1].setTotalLevel(levels[1] === 0 ? 127 : velocity, time);
+		operators[2].setTotalLevel(levels[2] === 0 ? 127 : velocity, time);
+		operators[3].setTotalLevel(levels[3] === 0 ? 127 : velocity, time);
+	}
+
+	keyOnOff(time, op1, op2 = op1, op3 = op1, op4 = op1) {
+		const operators = this.operators;
 		if (op1) {
-			operators[0].keyOn(levels[0] === 0 ? 1 : amount, time);
+			operators[0].keyOn(time);
 		} else {
 			operators[0].keyOff(time);
 		}
 		if (op2) {
-			operators[1].keyOn(levels[1] === 0 ? 1 : amount, time);
+			operators[1].keyOn(time);
 		} else {
 			operators[1].keyOff(time);
 		}
 		if (op3) {
-			operators[2].keyOn(levels[2] === 0 ? 1 : amount, time);
+			operators[2].keyOn(time);
 		} else {
 			operators[2].keyOff(time);
 		}
 		if (op4) {
-			operators[3].keyOn(levels[3] === 0 ? 1 : amount, time);
+			operators[3].keyOn(time);
 		} else {
 			operators[3].keyOff(time);
 		}
 	}
 
-	keyOn(time, velocity = 127) {
-		this.keyOnOff(true, time, velocity);
+	keyOn(time) {
+		this.keyOnOff(time, true);
 	}
 
 	keyOff(time) {
-		this.keyOnOff(false, time);
+		this.keyOnOff(time, false);
 	}
 
 	soundOff(time = 0) {
@@ -824,9 +841,6 @@ const CLOCK_RATE = {
 
 class PMSynth {
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
-		const minusOne = new ConstantSourceNode(context, {offset: -1});
-		minusOne.start();
-
 		const lfo = new OscillatorNode(context, {frequency: 0});
 		this.lfo = lfo;
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
@@ -840,7 +854,7 @@ class PMSynth {
 		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, minusOne, channelGain, envelopeTick);
+			const channel = new PMChannel(this, context, lfo, channelGain, envelopeTick);
 			channels[i] = channel;
 		}
 		this.channels = channels;
