@@ -236,7 +236,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(synth, context, lfModulator, amModulator, output, envelopeTick) {
+	constructor(synth, context, lfModulator, amModulator, output) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -258,7 +258,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
-		this.envelope = new Envelope(context, envelopeGain, envelopeTick);
+		this.envelope = synth.createEnvelope(context, envelopeGain);
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
@@ -502,7 +502,7 @@ const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200
 
 class PMChannel {
 
-	constructor(synth, context, lfo, output, envelopeTick) {
+	constructor(synth, context, lfo, output) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const panner = new StereoPannerNode(context);
@@ -515,10 +515,10 @@ class PMChannel {
 		lfo.connect(lfoGain);
 		this.lfoAmp = lfoGain.gain;
 
-		const op1 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
-		const op2 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
-		const op3 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
-		const op4 = new PMOperator(synth, context, lfoGain, lfo, shaper, envelopeTick);
+		const op1 = new PMOperator(synth, context, lfoGain, lfo, shaper);
+		const op2 = new PMOperator(synth, context, lfoGain, lfo, shaper);
+		const op3 = new PMOperator(synth, context, lfoGain, lfo, shaper);
+		const op4 = new PMOperator(synth, context, lfoGain, lfo, shaper);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -845,16 +845,15 @@ class PMSynth {
 		this.lfo = lfo;
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 
-		const envelopeTick = 72 * 6 / clockRate;
-		const frequencyStep = clockRate / (144 * 2 ** 20);
-		this.frequencyStep = frequencyStep;
+		this.envelopeTick = 72 * 6 / clockRate;
+		this.frequencyStep = clockRate / (144 * 2 ** 20);
 		this.lfoRateMultiplier = clockRate / 8000000;
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
 		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, channelGain, envelopeTick);
+			const channel = new PMChannel(this, context, lfo, channelGain);
 			channels[i] = channel;
 		}
 		this.channels = channels;
@@ -1008,6 +1007,14 @@ class PMSynth {
 				}
 			}
 			return lb;
+	}
+
+	createEnvelope(context, output) {
+		return new Envelope(context, output, this.envelopeTick);
+	}
+
+	getLFO() {
+		return this.lfo;
 	}
 
 }
