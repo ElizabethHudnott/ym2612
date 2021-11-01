@@ -9,6 +9,10 @@ function logToLinear(x) {
 	return x === 0 ? 0 : 10 ** (MAX_DB / 20 * (x - 1));
 }
 
+function linearToLog(y) {
+	return y === 0 ? 0 : 20 / MAX_DB * Math.log10(y) + 1;
+}
+
 function decibelsToAmplitude(decibels) {
 	return 1 - 10 ** (-decibels / 20);
 }
@@ -55,19 +59,21 @@ class Envelope {
 		output.gain.value = 0;
 		const gain = new ConstantSourceNode(context);
 		gain.start();
+		this.gainNode = gain;
 		this.gain = gain.offset;
 		// -(attenuation + 1)
 		const totalLevelControl = new ConstantSourceNode(context, {offset: -1});
 		totalLevelControl.start();
 		this.totalLevelControl = totalLevelControl.offset;
+		this.totalLevelNode = totalLevelControl;
 		const shaper = new WaveShaperNode(context, {curve: [0, 0, 1]});
 		gain.connect(shaper);
 		totalLevelControl.connect(shaper);
 		shaper.connect(output.gain);
 		this.tickRate = tickRate;
 
-		this.attackRate = 16;
 		this.rateScaling = 0;
+		this.attackRate = 16;
 		this.decayRate = 16;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
@@ -81,16 +87,66 @@ class Envelope {
 		this.keyIsOn = false;
 	}
 
+	stop(time) {
+		this.gainNode.stop(time);
+		this.totalLevelNode.stop(time);
+	}
+
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		const attenuation = logToLinear(level / 127);
 		this.totalLevelControl[method](-attenuation - 1, time);
 	}
 
+	getTotalLevel() {
+		return Math.round(linearToLog(-(this.totalLevelControl.value + 1)) * 127);
+	}
+
+	setRateScaling(amount) {
+		this.rateScaling = amount;
+	}
+
+	getRateScaling() {
+		return this.rateScaling;
+	}
+
+	setAttackRate(rate) {
+		this.attackRate = rate;
+	}
+
+	getAttackRate() {
+		return this.attackRate;
+	}
+
+	setDecayRate(rate) {
+		this.decayRate = rate;
+	}
+
+	getDecayRate() {
+		return this.decayRate;
+	}
+
+	setSustainRate(rate) {
+		this.sustainRate = rate;
+	}
+
+	getSustainRate() {
+		return this.sustainRate;
+	}
+
+	setReleaseRate(rate) {
+		this.releaseRate = rate * 2 + 1;
+	}
+
+	getReleaseRate() {
+		return (this.releaseRate - 1) / 2;
+	}
+
 	/**
 	 * Don't call with rate = 0, because that means infinite time.
 	 */
-	decayTime(from, to, rate, rateAdjust) {
-		const gradient = ENV_INCREMENT[Math.min(2 * rate + rateAdjust, 63)];
+	decayTime(from, to, basicRate, rateAdjust) {
+		const rate = Math.min(Math.round(2 * basicRate + rateAdjust), 63);
+		const gradient = ENV_INCREMENT[rate];
 		return this.tickRate * (from - to) / gradient;
 	}
 
@@ -101,8 +157,14 @@ class Envelope {
 			return;
 		}
 
-		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));
+		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
 		const gain = this.gain;
+
+		if (this.attackRate <= 1) {
+			gain.setValueAtTime(1, time);
+			this.endSustain = time;
+			return;
+		}
 
 		const endAttack = time;
 		gain.setValueAtTime(2, time);
@@ -173,7 +235,7 @@ class Envelope {
 			return;
 		}
 		const linearValue = this.linearValueAtTime(time);
-		const rateAdjust = Math.trunc(keyCode >> (3 - this.rateScaling));;
+		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
 		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
 		const currentValue = 1 + logToLinear(linearValue / 1023);
 		const gain = this.gain;
@@ -290,6 +352,7 @@ class PMOperator {
 	 */
 	stop(time = 0) {
 		this.sine.stop(time);
+		this.envelope.stop(time);
 	}
 
 	/**Configures this operator to have its phase modulated from an external source (usually another operator).
@@ -448,6 +511,50 @@ class PMOperator {
 
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.envelope.setTotalLevel(level, time, method);
+	}
+
+	getTotalLevel() {
+		return this.envelope.getTotalLevel();
+	}
+
+	setRateScaling(amount) {
+		this.envelope.setRateScaling(amount);
+	}
+
+	getRateScaling() {
+		return this.envelope.getRateScaling();
+	}
+
+	setAttackRate(rate) {
+		this.envelope.setAttackRate(rate);
+	}
+
+	getAttackRate() {
+		return this.envelope.getAttackRate();
+	}
+
+	setDecayRate(rate) {
+		this.envelope.setDecayRate(rate);
+	}
+
+	getDecayRate() {
+		return this.envelope.getDecayRate();
+	}
+
+	setSustainRate(rate) {
+		this.envelope.setSustainRate(rate);
+	}
+
+	getSustainRate() {
+		return this.envelope.getSustainRate();
+	}
+
+	setReleaseRate(rate) {
+		this.envelope.setReleaseRate(rate);
+	}
+
+	getReleaseRate() {
+		return this.envelope.getReleaseRate();
 	}
 
 }
@@ -975,7 +1082,7 @@ class PMSynth {
 	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
 	 */
 	tunedMIDINotes(a4Pitch) {
-		const frequencyData = [];
+		const frequencyData = new Array(128);
 		for (let i = 0; i < 128; i++) {
 			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
 			let freqNum = frequency / this.frequencyStep;
@@ -990,24 +1097,24 @@ class PMSynth {
 	}
 
 	frequencyToNote(block, frequencyNum) {
-			let lb = 0;
-			let ub = 127;
-			while (lb < ub) {
-				let mid = Math.trunc((lb + ub) / 2);
-				const [noteBlock, noteFreqNum] = this.noteFrequencies[mid];
-				if (block < noteBlock) {
-					ub = mid - 1;
-				} else if (block > noteBlock) {
-					lb = mid + 1;
-				} else if (frequencyNum < noteFreqNum) {
-					ub = mid - 1;
-				} else if (frequencyNum > noteFreqNum) {
-					lb = mid + 1;
-				} else {
-					return mid;
-				}
+		let lb = 0;
+		let ub = 127;
+		while (lb < ub) {
+			let mid = Math.trunc((lb + ub) / 2);
+			const [noteBlock, noteFreqNum] = this.noteFrequencies[mid];
+			if (block < noteBlock) {
+				ub = mid - 1;
+			} else if (block > noteBlock) {
+				lb = mid + 1;
+			} else if (frequencyNum < noteFreqNum) {
+				ub = mid - 1;
+			} else if (frequencyNum > noteFreqNum) {
+				lb = mid + 1;
+			} else {
+				return mid;
 			}
-			return lb;
+		}
+		return lb;
 	}
 
 	createEnvelope(context, output) {
@@ -1021,8 +1128,8 @@ class PMSynth {
 }
 
 export {
-	PMOperator, PMChannel, PMSynth,
-	decibelsToAmplitude, amplitudeToDecibels,
+	Envelope, PMOperator, PMChannel, PMSynth,
+	decibelsToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
 	DETUNE_AMOUNTS, CLOCK_RATE
 };
 

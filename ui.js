@@ -1,4 +1,5 @@
 import YM2612 from './ym2612.js';
+import {PSG} from './psg.js';
 let context;
 
 document.getElementById('btn-init').addEventListener('click', function (event) {
@@ -11,6 +12,9 @@ document.getElementById('btn-init').addEventListener('click', function (event) {
 	window.chip = chip;
 	window.synth = synth;
 	window.chan = synth.getChannel(1);
+
+	const psg = new PSG(context);
+	window.psg = psg;
 });
 
 document.getElementById('btn-note').addEventListener('mousedown', function (event) {
