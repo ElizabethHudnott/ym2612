@@ -64,8 +64,8 @@ class Envelope {
 		gain.connect(shaper);
 		totalLevelControl.connect(shaper);
 		shaper.connect(output.gain);
-
 		this.tickRate = tickRate;
+
 		this.attackRate = 16;
 		this.rateScaling = 0;
 		this.decayRate = 16;
@@ -82,7 +82,7 @@ class Envelope {
 	}
 
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		const attenuation = logToLinear(1 - level / 127);
+		const attenuation = logToLinear(level / 127);
 		this.totalLevelControl[method](-attenuation - 1, time);
 	}
 
@@ -110,7 +110,7 @@ class Envelope {
 		this.endAttack = endAttack;
 		this.keyIsOn = true;
 
-		if (this.decayRate === 0) {
+		if (this.decayRate <= 1) {
 			this.endDecay = Infinity;
 			this.endSustain = Infinity;
 			return;
@@ -125,7 +125,7 @@ class Envelope {
 		if (linearSustain === 0) {
 			this.endSustain = endDecay;
 			return;
-		} else if (this.sustainRate === 0) {
+		} else if (this.sustainRate <= 1) {
 			this.endSustain = Infinity;
 			return;
 		}
@@ -747,12 +747,13 @@ class PMChannel {
 	}
 
 	setVelocity(velocity, time = 0) {
-		const levels = this.outputLevels;
 		const operators = this.operators;
-		operators[0].setTotalLevel(levels[0] === 0 ? 127 : velocity, time);
-		operators[1].setTotalLevel(levels[1] === 0 ? 127 : velocity, time);
-		operators[2].setTotalLevel(levels[2] === 0 ? 127 : velocity, time);
-		operators[3].setTotalLevel(levels[3] === 0 ? 127 : velocity, time);
+		const levels = this.outputLevels;
+		const totalLevel = 127 - velocity;
+		operators[0].setTotalLevel(levels[0] === 0 ? 127 : totalLevel, time);
+		operators[1].setTotalLevel(levels[1] === 0 ? 127 : totalLevel, time);
+		operators[2].setTotalLevel(levels[2] === 0 ? 127 : totalLevel, time);
+		operators[3].setTotalLevel(levels[3] === 0 ? 127 : totalLevel, time);
 	}
 
 	keyOnOff(time, op1, op2 = op1, op3 = op1, op4 = op1) {
