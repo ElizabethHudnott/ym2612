@@ -61,7 +61,7 @@ class PSGChannel {
 	}
 
 	getWave() {
-
+		return -this.wave.value;
 	}
 
 	setDutyCycle(value, time = 0, method = 'setValueAtTime') {

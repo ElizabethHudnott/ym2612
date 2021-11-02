@@ -389,7 +389,7 @@ class PMOperator {
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
 		const detuneSign = (-1) ** (detuneSetting >> 2);
-		const detuneSteps = detuneSign * DETUNE_AMOUNTS[detuneTableOffset + keyCode];
+		const detuneSteps = detuneSign * DETUNE_AMOUNTS[detuneTableOffset + Math.min(keyCode, 31)];
 
 		let fullFreqNumber = Math.trunc(0.5 * (frequencyNumber << blockNumber)) + detuneSteps;
 		if (fullFreqNumber < 0) {
@@ -1086,10 +1086,16 @@ class PMSynth {
 		for (let i = 0; i < 128; i++) {
 			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
 			let freqNum = frequency / this.frequencyStep;
-			let block = 0;
-			while (freqNum >= 2047.5) {
-				freqNum /= 2;
-				block++;
+			let block;
+			if (freqNum < 1024) {
+				block = 0;
+				freqNum *= 2;
+			} else {
+				block = 1;
+				while (freqNum >= 2047.5) {
+					freqNum /= 2;
+					block++;
+				}
 			}
 			frequencyData[i] = [block, Math.round(freqNum)];
 		}
