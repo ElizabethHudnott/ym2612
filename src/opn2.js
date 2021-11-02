@@ -302,7 +302,7 @@ class PMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime: 19.8666});
+		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime:  1 / synth.frequencyStep});
 		sine.connect(delay);
 		this.delay = delay.delayTime;
 		const delayAmp = new GainNode(context, {gain: 1 / 440});

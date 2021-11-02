@@ -1,5 +1,5 @@
-import YM2612 from './ym2612.js';
-import {PSG} from './psg.js';
+import YM2612 from './src/ym2612.js';
+import {PSG} from './src/psg.js';
 let context;
 
 document.getElementById('btn-init').addEventListener('click', function (event) {
