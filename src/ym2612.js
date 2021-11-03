@@ -132,7 +132,7 @@ function setPanAndLFO(chip, port, relativeChannelNum, value, time) {
 	const pmDepth = value & 7;
 	const amDepth = (value & 48) >> 4;
 	const channel = chip.synth.getChannel(channelNum);
-	channel.useLFPMPreset(pmDepth, time);
+	channel.useVibratoPreset(pmDepth, time);
 	channel.useAMPreset(amDepth, time);
 	if ((value && 192) === 0) {
 		channel.mute(true, time);

@@ -1,4 +1,4 @@
-import {decibelReductionToAmplitude, CLOCK_RATE} from './common.js';
+import {decibelReductionToAmplitude, CLOCK_RATE, LFO_FREQUENCIES, AM_PRESETS, VIBRATO_PRESETS} from './common.js';
 
 const MAX_DB = 54;
 
@@ -476,14 +476,13 @@ class PMOperator {
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
 	setAMDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		const amplitude = linearAmount / 2;
-		this.amModAmp[method](amplitude, time);
-		this.amMod[method](1 - amplitude, time);
+		this.amModAmp[method](linearAmount, time);
+		this.amMod[method](1 - linearAmount, time);
 	}
 
 	/**Gets the amount of amplitude modulation being applied to the operator on a 0..1 linear scale. */
 	getAMDepth() {
-		return this.amModAmp.value * 2;
+		return this.amModAmp.value;
 	}
 
 	setVolume(level, time = 0, method = 'setValueAtTime') {
@@ -599,10 +598,6 @@ const ALGORITHMS = [
 	// No modulation
 	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
 ];
-
-const AM_PRESETS = [0, 1.4, 5.9, 11.8];
-
-const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200)) - 1);
 
 class PMChannel {
 
@@ -816,7 +811,7 @@ class PMChannel {
 		this.setAMDepth(AM_PRESETS[presetNum], time);
 	}
 
-	getAMPresetNumber() {
+	getAMPreset() {
 		return AM_PRESETS.indexOf(this.amDepth);
 	}
 
@@ -834,20 +829,20 @@ class PMChannel {
 		return this.amEnabled[operatorNum];
 	}
 
-	setLFPMDepth(depth, time = 0, method = 'setValueAtTime') {
+	setVibratoDepth(depth, time = 0, method = 'setValueAtTime') {
 		this.lfoAmp[method](depth, time);
 	}
 
-	getLFPMDepth() {
+	getVibratoDepth() {
 		return this.lfoAmp.value;
 	}
 
-	useLFPMPreset(presetNum, time = 0) {
-		this.setPMDepth(LF_PM_PRESETS[presetNum], time);
+	useVibratoPreset(presetNum, time = 0) {
+		this.setVibratoDepth(VIBRATO_PRESETS[presetNum], time);
 	}
 
-	getLFPMPresetNumber() {
-		return LF_PM_PRESETS.indexOf(this.getLFPMDepth());
+	getVibratoPreset() {
+		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
 	}
 
 	setVelocity(velocity, time = 0) {
@@ -937,8 +932,6 @@ class PMChannel {
 
 }
 
-const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0, 0, 0, 0, 0, 0];
-
 class PMSynth {
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		const lfo = new OscillatorNode(context, {frequency: 0});
@@ -1011,7 +1004,7 @@ class PMSynth {
 		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time);
 	}
 
-	getLFOFrequencyNumber() {
+	getLFOPreset() {
 		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
