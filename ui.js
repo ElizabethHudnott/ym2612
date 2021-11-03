@@ -14,6 +14,7 @@ document.getElementById('btn-init').addEventListener('click', function (event) {
 	window.chan = synth.getChannel(1);
 
 	const psg = new PSG(context);
+	psg.start(context.currentTime + 0.01);
 	window.psg = psg;
 });
 

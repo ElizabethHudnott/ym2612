@@ -1,8 +1,8 @@
-import {decibelsToAmplitude} from './opn2.js';
+import {decibelReductionToAmplitude, CLOCK_RATE as OPN_CLOCK_RATE} from './common.js';
 
 const AMPLITUDES = new Array(16);
 for (let i = 0; i < 16; i++) {
-	AMPLITUDES[i] = 1 - decibelsToAmplitude(i * 2);
+	AMPLITUDES[i] = decibelReductionToAmplitude(i * 2);
 }
 
 const CLOCK_RATE = {
@@ -10,14 +10,17 @@ const CLOCK_RATE = {
 	NTSC: 	3579545
 }
 
+const CLOCK_RATIO = OPN_CLOCK_RATE.NTSC / CLOCK_RATE.NTSC;
+
 let supportsCancelAndHold;
 
 class PSGChannel {
 
 	constructor(synth, context, lfo, output) {
-		const saw = new OscillatorNode(context, {type: 'sawtooth'});
+		this.synth = synth;
+		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
 		this.saw = saw;
-		const frequency = new ConstantSourceNode(context, {offset: 440});
+		const frequency = new ConstantSourceNode(context);
 		frequency.start();
 		this.frequency = frequency.offset;
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
@@ -41,9 +44,28 @@ class PSGChannel {
 		dcOffset.start();
 		dcOffset.connect(inverter);
 		this.dcOffset = dcOffset;
+		const waveGain = new GainNode(context, {gain: 0});
+		saw.connect(waveGain);
+		inverter.connect(waveGain);
+		this.waveAmp = waveGain.gain;
 
-		saw.connect(output);
-		inverter.connect(output);
+		const constant = new ConstantSourceNode(context);
+		constant.start();
+		this.constant = constant.offset;
+		this.constantNode = constant;
+
+		const amMod = new GainNode(context);
+		waveGain.connect(amMod);
+		constant.connect(amMod);
+		this.amMod = amMod.gain;
+		const amModGain = new GainNode(context, {gain: 0});
+		amModGain.connect(amMod.gain);
+		this.amModAmp = amModGain.gain;
+		lfo.connect(amModGain);
+
+		amMod.connect(output);
+
+		this.keyCode = -Infinity;
 	}
 
 	start(time) {
@@ -53,7 +75,33 @@ class PSGChannel {
 	stop(time = 0) {
 		this.saw.stop(time);
 		this.dcOffset.stop(time);
+		this.constantNode.stop(time);
 		this.reciprocal.disconnect();
+	}
+
+	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
+		this.saw.frequency[method](frequency, time);
+		if (frequency === 0) {
+			this.waveAmp[method](0, time);
+			this.constant[method](1, time);
+		} else {
+			this.frequency[method](frequency, time);
+			this.waveAmp[method](1, time);
+			this.constant[method](0, time);
+		}
+		this.keyCode = this.synth.calcKeyCode(frequency);
+	}
+
+	getFrequency() {
+		return this.saw.frequency.value;
+	}
+
+	setFrequencyNumber(frequencyNumber, time = 0, method = 'setValueAtTime') {
+		this.setFrequency(this.synth.frequencies[frequencyNumber], time, method);
+	}
+
+	getFrequencyNumber() {
+
 	}
 
 	setWave(value, time = 0, method = 'setValueAtTime') {
@@ -73,6 +121,17 @@ class PSGChannel {
 		return (this.dcOffset.offset.value + 1) / 2;
 	}
 
+	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
+		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
+		const amplitude = linearAmount / 2;
+		this.amModAmp[method](amplitude, time);
+		this.amMod[method](1 - amplitude, time);
+	}
+
+	useAMPreset(presetNum, time = 0) {
+		this.setAMDepth(AM_PRESETS[presetNum], time);
+	}
+
 }
 
 class PSG {
@@ -90,6 +149,11 @@ class PSG {
 			frequencies[i] = frequency;
 		}
 		this.noteFrequencies = this.tunedMIDINotes(440);
+
+		const opnClock = clockRate * CLOCK_RATIO;
+		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
+		this.opnBaseNote = 256 * opnFrequencyStep;
+
 		const reciprocalTable = [];
 		reciprocalTable[0] = (2 - 2 ** -23) * 2 ** 127;
 		for (let i = 1; i <= this.maxFrequency; i++) {
@@ -179,6 +243,14 @@ class PSG {
 
 	getLFO() {
 		return this.lfo;
+	}
+
+	calcKeyCode(frequency) {
+		const multiple = frequency / this.opnBaseNote;
+		const octave = Math.log2(multiple) + 1;
+		const block = Math.max(Math.trunc(octave) - 2, 0);
+		const lsbs = Math.ceil(octave - block);
+		return (block << 2) + lsbs;
 	}
 
 }

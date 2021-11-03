@@ -1,3 +1,4 @@
+import {decibelReductionToAmplitude, CLOCK_RATE} from './common.js';
 
 const MAX_DB = 54;
 
@@ -11,10 +12,6 @@ function logToLinear(x) {
 
 function linearToLog(y) {
 	return y === 0 ? 0 : 20 / MAX_DB * Math.log10(y) + 1;
-}
-
-function decibelsToAmplitude(decibels) {
-	return 1 - 10 ** (-decibels / 20);
 }
 
 function amplitudeToDecibels(amplitude) {
@@ -473,7 +470,7 @@ class PMOperator {
 	 * @param {number} linearAmount The amount of amplitude modulation to apply between 0
 	 * and 1. Unlike the {@link PMChannel} methods this method uses a linear scale. You'll
 	 * probably first want to convert from an exponential (decibels) scale to a linear scale
-	 * using the decibelsToAmplitude() function in order to match human perception of
+	 * using the decibelReductionToAmplitude() function in order to match human perception of
 	 * loudness.
 	 * @param {number} [time] When to change the amplitude modulation depth. Defaults to immediately.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
@@ -603,7 +600,7 @@ const ALGORITHMS = [
 	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
 ];
 
-const AM_PRESETS = [0, 1.4, 5.9, 11.8].map(decibelsToAmplitude);
+const AM_PRESETS = [0, 1.4, 5.9, 11.8];
 
 const LF_PM_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80].map(x => (2 ** (x / 1200)) - 1);
 
@@ -802,7 +799,7 @@ class PMChannel {
 	}
 
 	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
-		const linearAmount = decibelsToAmplitude(decibels);
+		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
 		for (let i = 0; i < 4; i++) {
 			if (this.amEnabled[i]) {
 				this.operators[i].setAMDepth(linearAmount, time, method);
@@ -942,11 +939,6 @@ class PMChannel {
 
 const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0, 0, 0, 0, 0, 0];
 
-const CLOCK_RATE = {
-	PAL: 	7600489,
-	NTSC: 	7670454
-}
-
 class PMSynth {
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		const lfo = new OscillatorNode(context, {frequency: 0});
@@ -1015,12 +1007,12 @@ class PMSynth {
 		return this.lfo.frequency.value;
 	}
 
-	setLFOFrequencyNumber(n, time = 0) {
-		this.setLFOFrequency(LFO_FREQUENCIES[n] / this.lfoRateMultiplier, time);
+	useLFOPreset(n, time = 0) {
+		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time);
 	}
 
 	getLFOFrequencyNumber() {
-		let frequency = this.getLFOFrequency() * this.lfoRateMultiplier;
+		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
 	}
@@ -1135,8 +1127,8 @@ class PMSynth {
 
 export {
 	Envelope, PMOperator, PMChannel, PMSynth,
-	decibelsToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	DETUNE_AMOUNTS, CLOCK_RATE
+	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
+	DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
 
 const ATTACK_STEPS = [294912, 294912, 147456, 147456, 98304, 98304, 73728, 59392, 49152,
