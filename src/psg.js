@@ -1,9 +1,10 @@
 import {decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE as OPN_CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS} from './common.js';
 
 const AMPLITUDES = new Array(16);
-for (let i = 0; i < 16; i++) {
+for (let i = 0; i < 15; i++) {
 	AMPLITUDES[i] = decibelReductionToAmplitude(i * 2);
 }
+AMPLITUDES[15] = 0;
 
 const CLOCK_RATE = {
 	PAL: 	3546893,
@@ -82,7 +83,10 @@ class PSGChannel {
 		this.amModAmp = amModGain.gain;
 		lfo1.connect(amModGain);
 
-		amMod.connect(output);
+		const envelopeGain = new GainNode(context, {gain: 0});
+		amMod.connect(envelopeGain);
+		envelopeGain.connect(output);
+		this.envelopeGain = envelopeGain;
 
 		this.keyCode = -Infinity;
 	}

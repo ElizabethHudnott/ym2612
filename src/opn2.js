@@ -85,6 +85,9 @@ class Envelope {
 		this.totalLevelNode.stop(time);
 	}
 
+	/**
+	 * For Algorithm 7, set total level to at least 122 to avoid distortion.
+	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		const attenuation = logToLinear(level / 127);
 		this.totalLevelControl[method](-attenuation - 1, time);
@@ -102,19 +105,19 @@ class Envelope {
 		return this.rateScaling;
 	}
 
-	setAttackRate(rate) {
+	setAttack(rate) {
 		this.attackRate = rate;
 	}
 
-	getAttackRate() {
+	getAttack() {
 		return this.attackRate;
 	}
 
-	setDecayRate(rate) {
+	setDecay(rate) {
 		this.decayRate = rate;
 	}
 
-	getDecayRate() {
+	getDecay() {
 		return this.decayRate;
 	}
 
@@ -126,11 +129,11 @@ class Envelope {
 		return this.sustainRate;
 	}
 
-	setReleaseRate(rate) {
+	setRelease(rate) {
 		this.releaseRate = rate * 2 + 1;
 	}
 
-	getReleaseRate() {
+	getRelease() {
 		return (this.releaseRate - 1) / 2;
 	}
 
@@ -152,20 +155,30 @@ class Envelope {
 
 		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
 		const gain = this.gain;
+		this.keyIsOn = true;
 
+		let endAttack = time;
+		let attackRate;
+		if (this.attackRate === 0) {
+			attackRate = 0;
+		} else {
+			attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
+		}
 		if (this.attackRate <= 1) {
 			gain.setValueAtTime(1, time);
 			this.endSustain = time;
 			return;
+		} else if (attackRate < 62) {
+			gain.setValueAtTime(1, time);
+			const target = 1 + ATTACK_TARGET[attackRate - 2] / 1023;
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
+			gain.setTargetAtTime(target, time, timeConstant);
+			endAttack += ATTACK_STEPS[attackRate - 2] * this.tickRate;
 		}
-
-		const endAttack = time;
-		gain.setValueAtTime(2, time);
-
+		gain.setValueAtTime(2, endAttack);
 		this.endAttack = endAttack;
-		this.keyIsOn = true;
 
-		if (this.decayRate <= 1) {
+		if (this.decayRate === 0) {
 			this.endDecay = Infinity;
 			this.endSustain = Infinity;
 			return;
@@ -180,7 +193,7 @@ class Envelope {
 		if (linearSustain === 0) {
 			this.endSustain = endDecay;
 			return;
-		} else if (this.sustainRate <= 1) {
+		} else if (this.sustainRate === 0) {
 			this.endSustain = Infinity;
 			return;
 		}
@@ -217,6 +230,8 @@ class Envelope {
 				const timeProportion = (time - endAttack) / (endDecay - endAttack);
 				linearValue = 1023 -  timeProportion * (1023 - linearSustain);
 			}
+		} else {
+			return 1023; //temporary
 		}
 		return linearValue;
 	}
@@ -517,20 +532,20 @@ class PMOperator {
 		return this.envelope.getRateScaling();
 	}
 
-	setAttackRate(rate) {
-		this.envelope.setAttackRate(rate);
+	setAttack(rate) {
+		this.envelope.setAttack(rate);
 	}
 
-	getAttackRate() {
-		return this.envelope.getAttackRate();
+	getAttack() {
+		return this.envelope.getAttack();
 	}
 
-	setDecayRate(rate) {
-		this.envelope.setDecayRate(rate);
+	setDecay(rate) {
+		this.envelope.setDecay(rate);
 	}
 
-	getDecayRate() {
-		return this.envelope.getDecayRate();
+	getDecay() {
+		return this.envelope.getDecay();
 	}
 
 	setSustainRate(rate) {
@@ -541,12 +556,12 @@ class PMOperator {
 		return this.envelope.getSustainRate();
 	}
 
-	setReleaseRate(rate) {
-		this.envelope.setReleaseRate(rate);
+	setRelease(rate) {
+		this.envelope.setRelease(rate);
 	}
 
-	getReleaseRate() {
-		return this.envelope.getReleaseRate();
+	getRelease() {
+		return this.envelope.getRelease();
 	}
 
 }
