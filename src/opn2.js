@@ -1,4 +1,4 @@
-import {decibelReductionToAmplitude, CLOCK_RATE, LFO_FREQUENCIES, AM_PRESETS, VIBRATO_PRESETS} from './common.js';
+import {decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS} from './common.js';
 
 const MAX_DB = 54;
 
@@ -12,10 +12,6 @@ function logToLinear(x) {
 
 function linearToLog(y) {
 	return y === 0 ? 0 : 20 / MAX_DB * Math.log10(y) + 1;
-}
-
-function amplitudeToDecibels(amplitude) {
-	return -20 * Math.log10(1 - amplitude);
 }
 
 let supportsCancelAndHold;
@@ -321,7 +317,7 @@ class PMOperator {
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
-			const mixer = new GainNode(context, {gain: 0.25});
+			const mixer = new GainNode(context);
 			envelopeGain.connect(mixer);
 			mixer.connect(output);
 			this.mixer = mixer.gain;
@@ -599,6 +595,8 @@ const ALGORITHMS = [
 	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
 ];
 
+const AM_PRESETS = [0, 1.4, 5.9, 11.8];
+
 class PMChannel {
 
 	constructor(synth, context, lfo, output) {
@@ -829,7 +827,8 @@ class PMChannel {
 		return this.amEnabled[operatorNum];
 	}
 
-	setVibratoDepth(depth, time = 0, method = 'setValueAtTime') {
+	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
+		const depth = (2 ** (cents / 1200)) - 1;
 		this.lfoAmp[method](depth, time);
 	}
 

@@ -1,4 +1,4 @@
-import {decibelReductionToAmplitude, CLOCK_RATE as OPN_CLOCK_RATE, LFO_FREQUENCIES, AM_PRESETS, VIBRATO_PRESETS} from './common.js';
+import {decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE as OPN_CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS} from './common.js';
 
 const AMPLITUDES = new Array(16);
 for (let i = 0; i < 16; i++) {
@@ -12,11 +12,13 @@ const CLOCK_RATE = {
 
 const CLOCK_RATIO = OPN_CLOCK_RATE.NTSC / CLOCK_RATE.NTSC;
 
+const AM_PRESETS = [0, 2, 6, 12];
+
 let supportsCancelAndHold;
 
 class PSGChannel {
 
-	constructor(synth, context, lfo, output) {
+	constructor(synth, context, lfo1, lfo2, output) {
 		this.synth = synth;
 		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
 		this.saw = saw;
@@ -29,7 +31,7 @@ class PSGChannel {
 		const fmModGain = new GainNode(context, {gain: 0});
 		fmModGain.connect(fmMod.gain);
 		this.fmModAmp = fmModGain.gain;
-		lfo.connect(fmModGain);
+		lfo1.connect(fmModGain);
 		fmMod.connect(saw.frequency);
 
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
@@ -63,6 +65,14 @@ class PSGChannel {
 		this.constant = constant.offset;
 		this.constantNode = constant;
 
+		const pwm = new GainNode(context, {gain: 0});
+		lfo2.connect(pwm);
+		pwm.connect(dutyCycle.gain);
+		const times2 = new GainNode(context, {gain: 2});
+		pwm.connect(times2);
+		times2.connect(dcOffset.offset);
+		this.pwm = pwm.gain;
+
 		const amMod = new GainNode(context);
 		waveGain.connect(amMod);
 		constant.connect(amMod);
@@ -70,7 +80,7 @@ class PSGChannel {
 		const amModGain = new GainNode(context, {gain: 0});
 		amModGain.connect(amMod.gain);
 		this.amModAmp = amModGain.gain;
-		lfo.connect(amModGain);
+		lfo1.connect(amModGain);
 
 		amMod.connect(output);
 
@@ -130,6 +140,14 @@ class PSGChannel {
 		return (this.dcOffset.offset.value + 1) / 2;
 	}
 
+	setPWMDepth(amount, time = 0, method = 'setValueAtTime') {
+		this.pwm[method](amount, time);
+	}
+
+	getPWMDepth() {
+		return this.pwm.value;
+	}
+
 	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
 		const leftOver = decibelReductionToAmplitude(decibels);
 		this.amModAmp[method](1 - leftOver, time);
@@ -137,7 +155,7 @@ class PSGChannel {
 	}
 
 	getAMDepth() {
-		return this.amModAmp.value;
+		return amplitudeToDecibels(this.amModAmp.value);
 	}
 
 	useAMPreset(presetNum, time = 0) {
@@ -145,10 +163,11 @@ class PSGChannel {
 	}
 
 	getAMPreset() {
-		return AM_PRESETS.indexOf(this.amModAmp.value);
+		return AM_PRESETS.indexOf(Math.round(this.getAMDepth()));
 	}
 
-	setVibratoDepth(depth, time = 0, method = 'setValueAtTime') {
+	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
+		const depth = (2 ** (cents / 1200)) - 1;
 		this.fmModAmp[method](depth, time);
 	}
 
@@ -194,15 +213,17 @@ class PSG {
 		}
 		this.reciprocalTable = reciprocalTable;
 
-		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
-		this.lfo = lfo;
-		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
+		const lfo1 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
+		this.lfo1 = lfo1;
+		supportsCancelAndHold = lfo1.frequency.cancelAndHoldAtTime !== undefined;
+		const lfo2 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
+		this.lfo2 = lfo2;
 
 		const channelGain = new GainNode(context, {gain: 1 / numWaveChannels});
 		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numWaveChannels; i++) {
-			const channel = new PSGChannel(this, context, lfo, channelGain);
+			const channel = new PSGChannel(this, context, lfo1, lfo2, channelGain);
 			channels[i] = channel;
 		}
 		this.channels = channels;
@@ -210,25 +231,27 @@ class PSG {
 	}
 
 	start(time) {
-		this.lfo.start(time);
+		this.lfo1.start(time);
+		this.lfo2.start(time);
 		for (let channel of this.channels) {
 			channel.start(time);
 		}
 	}
 
 	stop(time = 0) {
-		this.lfo.stop(time);
+		this.lfo1.stop(time);
+		this.lfo2.stop(time);
 		for (let channel of this.channels) {
 			channel.stop(time);
 		}
 	}
 
 	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		this.lfo.frequency[method](frequency, time);
+		this.lfo1.frequency[method](frequency, time);
 	}
 
 	getLFOFrequency() {
-		return this.lfo.frequency.value;
+		return this.lfo1.frequency.value;
 	}
 
 	useLFOPreset(n, time = 0) {
@@ -239,6 +262,14 @@ class PSG {
 		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
+	}
+
+	setPWMFrequency(frequency, time = 0, method = 'setValueAtTime') {
+		this.lfo2.frequency[method](frequency, time);
+	}
+
+	getPWMFrequency() {
+		return this.lfo2.frequency.value;
 	}
 
 	tunedMIDINotes(a4Pitch) {
@@ -284,8 +315,8 @@ class PSG {
 		return lb;
 	}
 
-	getLFO() {
-		return this.lfo;
+	getLFO(n) {
+		return n === 1 ? this.lfo1 : this.lfo2;
 	}
 
 	calcKeyCode(frequency) {
