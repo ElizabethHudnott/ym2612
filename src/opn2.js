@@ -74,6 +74,8 @@ class Envelope {
 		this.sustain = 768;		// 0-12dB less than totalLevel
 
 		// Values stored during key on.
+		this.beginAttack = 0;
+		this.prevAttackRate = 0;
 		this.endAttack = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
@@ -164,15 +166,17 @@ class Envelope {
 		} else {
 			attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
 		}
-		if (this.attackRate <= 1) {
-			gain.setValueAtTime(1, time);
+		if (attackRate <= 1) {
+			cancelAndHoldAtTime(gain, 1, time);
 			this.endSustain = time;
 			return;
 		} else if (attackRate < 62) {
-			gain.setValueAtTime(1, time);
-			const target = 1 + ATTACK_TARGET[attackRate - 2] / 1023;
+			cancelAndHoldAtTime(gain, 1, time);
+			const target = 1 + ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
 			gain.setTargetAtTime(target, time, timeConstant);
+			this.beginAttack = time;
+			this.prevAttackRate = attackRate;
 			endAttack += ATTACK_STEPS[attackRate - 2] * this.tickRate;
 		}
 		gain.setValueAtTime(2, endAttack);
@@ -231,7 +235,11 @@ class Envelope {
 				linearValue = 1023 -  timeProportion * (1023 - linearSustain);
 			}
 		} else {
-			return 1023; //temporary
+			const attackRate = this.prevAttackRate;
+			const target = ATTACK_TARGET[attackRate - 2];
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
+			const expValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
+			linearValue = 1023 * linearToLog(expValue);
 		}
 		return linearValue;
 	}
@@ -1156,7 +1164,7 @@ const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
 1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48840023324, 1031.31610973218,
 1031.52352501199, 1031.65420794345, 1033.03574873511, 1033.43041057801, 1033.37306598363,
 1035.4171820433, 1035.39653268357, 1034.15032097183, 1032.96478469666, 1029.17518847789,
-1030.84690128005, 1030.84690128005];
+1030.84690128005, 1030.84690128005].map(x => x / 1023);
 
 const ATTACK_CONSTANT = [63279.2004921133, 63279.2004921133, 31639.6002460567,
 31639.6002460567, 21091.98357754, 21091.98357754, 15819.8001230283, 12657.5084839186,
