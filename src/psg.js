@@ -25,7 +25,7 @@ class PSGChannel {
 		this.saw = saw;
 		const frequency = new ConstantSourceNode(context, {offset: 0});
 		frequency.start();
-		this.frequency = frequency.offset;
+		this.frequencyControl = frequency.offset;
 		const fmMod = new GainNode(context);
 		frequency.connect(fmMod);
 		this.fmMod = fmMod.gain;
@@ -88,6 +88,7 @@ class PSGChannel {
 		envelopeGain.connect(output);
 		this.envelopeGain = envelopeGain;
 
+		this.frequency = 0;
 		this.keyCode = -Infinity;
 	}
 
@@ -103,20 +104,20 @@ class PSGChannel {
 	}
 
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		this.frequency[method](frequency, time);
 		if (frequency === 0) {
 			this.waveAmp[method](0, time);
 			this.constant[method](1, time);
 		} else {
-			this.frequency[method](frequency, time);
+			this.frequencyControl[method](frequency, time);
 			this.waveAmp[method](1, time);
 			this.constant[method](0, time);
 		}
+		this.frequency = frequency;
 		this.keyCode = this.synth.calcKeyCode(frequency);
 	}
 
 	getFrequency() {
-		return this.frequency.value;
+		return this.frequency;
 	}
 
 	setFrequencyNumber(frequencyNumber, time = 0, method = 'setValueAtTime') {
@@ -172,11 +173,11 @@ class PSGChannel {
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
 		const depth = (2 ** (cents / 1200)) - 1;
-		this.fmModAmp[method](depth, time);
+		this.fmModAmp[method](-depth, time);
 	}
 
 	getVibratoDepth() {
-		return this.fmModAmp.value;
+		return -this.fmModAmp.value;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {

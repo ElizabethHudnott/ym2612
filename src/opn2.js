@@ -956,7 +956,7 @@ class PMChannel {
 
 class PMSynth {
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
-		const lfo = new OscillatorNode(context, {frequency: 0});
+		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo = lfo;
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 
