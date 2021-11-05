@@ -128,6 +128,14 @@ class PSGChannel {
 
 	}
 
+	setDetune(cents, time = 0, method = 'setValueAtTime') {
+		this.saw.detune[method](cents, time);
+	}
+
+	getDetune() {
+		return this.saw.detune.value;
+	}
+
 	setWave(value, time = 0, method = 'setValueAtTime') {
 		this.wave[method](-value, time);
 	}
