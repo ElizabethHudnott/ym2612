@@ -1,4 +1,7 @@
-import {decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE as OPN_CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS} from './common.js';
+import {
+	decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE as OPN_CLOCK_RATE,
+	LFO_FREQUENCIES, VIBRATO_PRESETS
+} from './common.js';
 
 const AMPLITUDES = new Array(16);
 for (let i = 0; i < 15; i++) {
@@ -89,6 +92,7 @@ class PSGChannel {
 		this.envelopeGain = envelopeGain;
 
 		this.frequency = 0;
+		this.lastFreqChange = 0;
 		this.keyCode = -Infinity;
 	}
 
@@ -113,6 +117,7 @@ class PSGChannel {
 			this.constant[method](0, time);
 		}
 		this.frequency = frequency;
+		this.lastFreqChange = time;
 		this.keyCode = this.synth.calcKeyCode(frequency);
 	}
 

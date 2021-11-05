@@ -1,4 +1,7 @@
-import {decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS} from './common.js';
+import {
+	decibelReductionToAmplitude, amplitudeToDecibels, TIMER_IMPRECISION, CLOCK_RATE,
+	LFO_FREQUENCIES, VIBRATO_PRESETS
+} from './common.js';
 
 const MAX_DB = 54;
 
@@ -79,7 +82,6 @@ class Envelope {
 		this.endAttack = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
-		this.keyIsOn = false;
 	}
 
 	stop(time) {
@@ -151,13 +153,8 @@ class Envelope {
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(keyCode, time) {
-		if (this.keyIsOn) {
-			return;
-		}
-
 		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
 		const gain = this.gain;
-		this.keyIsOn = true;
 
 		let endAttack = time;
 		let attackRate;
@@ -247,9 +244,6 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(keyCode, time) {
-		if (!this.keyIsOn) {
-			return;
-		}
 		const linearValue = this.linearValueAtTime(time);
 		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
 		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
@@ -257,7 +251,6 @@ class Envelope {
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue, time);
 		gain.exponentialRampToValueAtTime(1, time + releaseTime);
-		this.keyIsOn = false;
 	}
 
 	/**Cuts audio output without going through the envelope's release phase.
@@ -320,7 +313,7 @@ class PMOperator {
 
 		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime:  1 / synth.frequencyStep});
 		sine.connect(delay);
-		this.delay = delay.delayTime;
+		this.delay = delay;
 		const delayAmp = new GainNode(context, {gain: 1 / 440});
 		delayAmp.connect(delay.delayTime);
 		this.delayAmp = delayAmp;
@@ -347,13 +340,14 @@ class PMOperator {
 		}
 
 		this.synth = synth;
+		this.frequency = 440;
+		this.lastFreqChange = 0;
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
 		this.keyCode = calcKeyCode(4, 1093);
 		this.frequencyMultiple = 1;
-
-		// Public fields
 		this.detune = 0;
+		this.keyIsOn = false;
 	}
 
 	/**Starts the operator's oscillator.
@@ -415,9 +409,11 @@ class PMOperator {
 		this.sine.frequency[method](frequency, time);
 		if (frequency > 0) {
 			const period = 1 / frequency;
-			this.delay[method](period, time);
+			this.delay.delayTime[method](period, time);
 			this.delayAmp.gain[method](0.5 * period, time);
 		}
+		this.frequency = frequency;
+		this.lastFreqChange = time;
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
 		this.keyCode = keyCode;
@@ -512,12 +508,37 @@ class PMOperator {
 		return this.mixer.value;
 	}
 
-	keyOn(time) {
-		this.envelope.keyOn(this.keyCode, time);
+	keyOn(context, time) {
+		if (!this.keyIsOn) {
+			let makeNewOscillator = true;
+			if (this.lastFreqChange > time) {
+				makeNewOscillator = false;
+			}
+			const frequency = this.frequency;
+			let period = 0;
+			if (frequency > 0) {
+				period = 1 / frequency;
+				if (context.currentTime + TIMER_IMPRECISION + period >= time) {
+					makeNewOscillator = false;
+				}
+			}
+			if (makeNewOscillator) {
+				const newSine = new OscillatorNode(context, {frequency: frequency});
+				newSine.start(time - period);
+				newSine.connect(this.delay);
+				this.sine.stop(time - period);
+				this.sine = newSine;
+			}
+			this.envelope.keyOn(this.keyCode, time);
+			this.keyIsOn = true;
+		}
 	}
 
 	keyOff(time) {
-		this.envelope.keyOff(this.keyCode, time);
+		if (this.keyIsOn) {
+			this.envelope.keyOff(this.keyCode, time);
+			this.keyIsOn = false;
+		}
 	}
 
 	soundOff(time = 0) {
@@ -877,36 +898,36 @@ class PMChannel {
 		operators[3].setTotalLevel(levels[3] === 0 ? 127 : totalLevel, time);
 	}
 
-	keyOnOff(time, op1, op2 = op1, op3 = op1, op4 = op1) {
+	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
 		const operators = this.operators;
 		if (op1) {
-			operators[0].keyOn(time);
+			operators[0].keyOn(context, time);
 		} else {
 			operators[0].keyOff(time);
 		}
 		if (op2) {
-			operators[1].keyOn(time);
+			operators[1].keyOn(context, time);
 		} else {
 			operators[1].keyOff(time);
 		}
 		if (op3) {
-			operators[2].keyOn(time);
+			operators[2].keyOn(context, time);
 		} else {
 			operators[2].keyOff(time);
 		}
 		if (op4) {
-			operators[3].keyOn(time);
+			operators[3].keyOn(context, time);
 		} else {
 			operators[3].keyOff(time);
 		}
 	}
 
-	keyOn(time) {
-		this.keyOnOff(time, true);
+	keyOn(context, time) {
+		this.keyOnOff(context, time, true);
 	}
 
 	keyOff(time) {
-		this.keyOnOff(time, false);
+		this.keyOnOff(undefined, time, false);
 	}
 
 	soundOff(time = 0) {

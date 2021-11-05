@@ -19,7 +19,7 @@ document.getElementById('btn-init').addEventListener('click', function (event) {
 });
 
 document.getElementById('btn-note').addEventListener('mousedown', function (event) {
-	chan.keyOn(context.currentTime + 0.1);
+	chan.keyOn(context, context.currentTime + 0.1);
 });
 
 document.getElementById('btn-note').addEventListener('mouseup', function (event) {

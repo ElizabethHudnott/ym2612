@@ -1,3 +1,5 @@
+const TIMER_IMPRECISION = 0.002;
+
 const CLOCK_RATE = {
 	PAL: 	7600489,
 	NTSC: 	7670454
@@ -16,6 +18,6 @@ function amplitudeToDecibels(amplitude) {
 }
 
 export {
-	CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS,
+	TIMER_IMPRECISION, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS,
 	decibelReductionToAmplitude, amplitudeToDecibels
 }
