@@ -71,8 +71,7 @@ class Envelope {
 		this.decayRate = 16;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
-		// These have been pre-scaled.
-		this.sustain = 768;		// 0-12dB less than totalLevel
+		this.sustain = 256;		// Already converted into an attenuation value.
 
 		// Values stored during key on.
 		this.beginAttack = 0;
@@ -127,6 +126,17 @@ class Envelope {
 		return this.decayRate;
 	}
 
+	/**
+	 * @param {number} level Between -16 and 16
+	 */
+	setSustain(level) {
+		this.sustain = 512 - level * 32;
+	}
+
+	getSustain() {
+		return (512 - this.sustain) / 32;
+	}
+
 	setSustainRate(rate) {
 		this.sustainRate = rate;
 	}
@@ -166,10 +176,12 @@ class Envelope {
 			attackRate = Math.min(Math.round(2 * this.attackRate) + rateAdjust, 63);
 		}
 		if (attackRate <= 1) {
+			// Level never rises
 			cancelAndHoldAtTime(gain, 1, time);
 			this.endSustain = time;
 			return;
 		} else if (attackRate < 62) {
+			// Non-infinite attack
 			cancelAndHoldAtTime(gain, 1, time);
 			const target = 1 + ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
@@ -193,10 +205,7 @@ class Envelope {
 		const endDecay = endAttack + decay;
 		gain.exponentialRampToValueAtTime(expSustain, endDecay);
 		this.endDecay = endDecay;
-		if (linearSustain === 0) {
-			this.endSustain = endDecay;
-			return;
-		} else if (this.sustainRate === 0) {
+		if (this.sustainRate === 0) {
 			this.endSustain = Infinity;
 			return;
 		}
@@ -578,6 +587,14 @@ class PMOperator {
 
 	getDecay() {
 		return this.envelope.getDecay();
+	}
+
+	setSustain(level) {
+		this.envelope.setSustain(level);
+	}
+
+	getSustain() {
+		return this.envelope.getSustain();
 	}
 
 	setSustainRate(rate) {
