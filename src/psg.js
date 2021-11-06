@@ -64,7 +64,7 @@ class PSGChannel {
 		inverter.connect(waveGain);
 		this.waveAmp = waveGain.gain;
 
-		const constant = new ConstantSourceNode(context);
+		const constant = new ConstantSourceNode(context, {offset: 0.5});
 		constant.start();
 		this.constant = constant.offset;
 		this.constantNode = constant;
@@ -110,7 +110,7 @@ class PSGChannel {
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
 		if (frequency === 0) {
 			this.waveAmp[method](0, time);
-			this.constant[method](1, time);
+			this.constant[method](0.5, time);
 		} else {
 			this.frequencyControl[method](frequency, time);
 			this.waveAmp[method](1, time);
@@ -208,7 +208,6 @@ class PSG {
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL) {
 		const frequencies = new Array(1024);
 		this.frequencies = frequencies;
-		frequencies[0] = 0;
 		const frequencyLimit = context.sampleRate / 2;
 		for (let i = 1; i < 1024; i++) {
 			let frequency = clockRate / (i * 32);
@@ -217,6 +216,7 @@ class PSG {
 			}
 			frequencies[i] = frequency;
 		}
+		frequencies[0] = frequencies[1];
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
 		const opnClock = clockRate * CLOCK_RATIO;

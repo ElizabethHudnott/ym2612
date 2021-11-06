@@ -5,6 +5,8 @@ const LONG_REGISTER = Object.freeze({
 	CH3_FREQUENCY: 6,	// 6-8
 });
 
+const PCM_LEVELS = [0, 1, 6, 6];
+
 const write = [];
 
 export default class YM2612 {
@@ -16,6 +18,7 @@ export default class YM2612 {
 		this.longRegisters = [
 			highFrequencyByte, highFrequencyByte, highFrequencyByte, highFrequencyByte
 		];
+		this.pcmLevelNum = 0;
 	}
 
 	start(time) {
@@ -30,9 +33,17 @@ export default class YM2612 {
 		write[address](this, value, time, port);
 	}
 
+	enablePCM(bit, enabled, time) {
+		this.pcmLevelNum = ((this.pcmLevelNum & ~bit) | (bit * enabled)) & 3;
+		this.synth.mixPCM(PCM_LEVELS[this.pcmLevelNum], time);
+	}
+
 }
 
 write[0x22] = (chip, n, t) => chip.synth.setLFOFrequencyNumber(n, t);
+
+write[0x2b] = (chip, n, t) => chip.enablePCM(1, (n & 128) === 128, t);
+write[0x2c] = (chip, n, t) => chip.enablePCM(2, (n & 16) === 16, t);
 
 write[0x27] = (chip, b, t) => {
 	const channel3Mode = b >> 6;

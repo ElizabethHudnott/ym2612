@@ -153,7 +153,7 @@ class Envelope {
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(keyCode, time) {
-		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
+		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const gain = this.gain;
 
 		let endAttack = time;
@@ -161,7 +161,7 @@ class Envelope {
 		if (this.attackRate === 0) {
 			attackRate = 0;
 		} else {
-			attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
+			attackRate = Math.min(Math.round(2 * this.attackRate) + rateAdjust, 63);
 		}
 		if (attackRate <= 1) {
 			cancelAndHoldAtTime(gain, 1, time);
@@ -245,7 +245,7 @@ class Envelope {
 	 */
 	keyOff(keyCode, time) {
 		const linearValue = this.linearValueAtTime(time);
-		const rateAdjust = keyCode / 2 ** (3 - this.rateScaling);
+		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
 		const currentValue = 1 + logToLinear(linearValue / 1023);
 		const gain = this.gain;
@@ -311,10 +311,10 @@ class PMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 220, maxDelayTime:  1 / synth.frequencyStep});
+		const delay = new DelayNode(context, {delayTime: 1 / 440, maxDelayTime:  1 / synth.frequencyStep});
 		sine.connect(delay);
 		this.delay = delay;
-		const delayAmp = new GainNode(context, {gain: 1 / 440});
+		const delayAmp = new GainNode(context, {gain: 1 / 880});
 		delayAmp.connect(delay.delayTime);
 		this.delayAmp = delayAmp;
 		lfModulator.connect(delayAmp);
@@ -646,10 +646,17 @@ class PMChannel {
 	constructor(synth, context, lfo, output) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
+		const volume = new GainNode(context);
+		shaper.connect(volume);
+		this.volumeControl = volume.gain;
+
 		const panner = new StereoPannerNode(context);
-		shaper.connect(panner);
-		panner.connect(output);
-		this.panControl = panner.pan;
+		volume.connect(panner);
+		this.panner = panner;
+		const mute = new GainNode(context);
+		panner.connect(mute);
+		mute.connect(output);
+		this.muteControl = mute.gain;
 
 		//LFO modulating phase
 		const lfoGain = new GainNode(context, {gain: 0});
@@ -940,37 +947,27 @@ class PMChannel {
 	 * @param {number} panning -1 = left channel only, 0 = centre, 1 = right channel only
 	 */
 	setPan(panning, time = 0, method = 'setValueAtTime') {
-		this.panControl[method](panning, time);
+		this.panner.pan[method](panning, time);
 	}
 
 	getPan() {
-		return this.panControl.value;
+		return this.panner.pan.value;
 	}
 
-	mute(muted, time = 0, method = 'setValueAtTime') {
-		if (muted) {
-			for (let i = 0; i < 4; i++) {
-				this.operators[i].setVolume(0, time, method);
-			}
-		} else {
-			for (let i = 0; i < 4; i++) {
-				this.operators[i].setVolume(this.outputLevels[i], time, method);
-			}
-		}
+	setVolume(volume, time = 0, method = 'setValueAtTime') {
+		this.volumeControl[method](volume, time);
+	}
+
+	getVolume() {
+		return this.volumeControl.value;
+	}
+
+	mute(muted, time = 0) {
+		this.muteControl.setValueAtTime(muted ? 0 : 1, time);
 	}
 
 	isMuted() {
-		for (let i = 0; i < 4; i++) {
-			const expectedLevel = this.outputLevels[i];
-			if (expectedLevel === 0) {
-				continue;
-			}
-			if (this.operators[i].getVolume() === 0) {
-				return true;
-			}
-
-		}
-		return false;
+		return this.muteControl.value === 0;
 	}
 
 }
@@ -987,12 +984,21 @@ class PMSynth {
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
 		channelGain.connect(context.destination);
+
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
 			const channel = new PMChannel(this, context, lfo, channelGain);
 			channels[i] = channel;
 		}
 		this.channels = channels;
+
+
+		const pcmGain = new GainNode(context, {gain: 0});
+		pcmGain.connect(channels[5].panner);
+		this.pcmGain = pcmGain.gain;
+		const dacRegister = new ConstantSourceNode(context, {offset: 0});
+		dacRegister.connect(pcmGain);
+		this.dacRegister = dacRegister;
 
 		/**Provides frequency information for each MIDI note in terms of the YM2612's block and
 		 * frequency number notation. The block number is stored in the first element of each
@@ -1012,17 +1018,19 @@ class PMSynth {
 	}
 
 	start(time) {
-		this.lfo.start(time);
 		for (let channel of this.channels) {
 			channel.start(time);
 		}
+		this.lfo.start(time);
+		this.dacRegister.start(time);
 	}
 
 	stop(time = 0) {
-		this.lfo.stop(time);
 		for (let channel of this.channels) {
 			channel.stop(time);
 		}
+		this.lfo.stop(time);
+		this.dacRegister.stop(time);
 	}
 
 	soundOff(time = 0) {
@@ -1103,6 +1111,36 @@ class PMSynth {
 	setChannel3MIDINote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		const [block, frequencyNumber] = this.noteFrequencies[noteNumber];
 		this.setChannel3Frequency(operatorNum, block, frequencyNumber, time, method);
+	}
+
+	/**
+	 * @param {number} amount The gain to apply to the PCM channel, in the range [0..numChannels].
+	 */
+	mixPCM(amount, time = 0, method = 'setValueAtTime') {
+		let channel6Volume, otherChannelsVolume;
+		if (amount <= 1) {
+			channel6Volume = 1 - amount;
+			otherChannelsVolume = 1;
+		} else {
+			channel6Volume = 0;
+			otherChannelsVolume = 1 - (amount - 1) / (this.channels.length - 1);
+		}
+		this.channels[5].setVolume(channel6Volume, time, method);
+		this.pcmGain[method](amount, time);
+		for (let i = 0; i < this.channels.length; i++) {
+			if (i !== 5) {
+				this.channels[i].setVolume(otherChannelsVolume, time, method);
+			}
+		}
+	}
+
+	getPCMMix() {
+		return this.pcmGain.value;
+	}
+
+	writePCM(value, time) {
+		const floatValue = (value - 128) / 128;
+		this.dacRegister.offset.setValueAtTime(floatValue, time);
 	}
 
 	/**Calculates frequency data for a scale of 128 MIDI notes. The results are expressed in
