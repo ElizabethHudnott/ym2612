@@ -54,18 +54,16 @@ class Envelope {
 	constructor(context, output, tickRate) {
 		output.gain.value = 0;
 		const gain = new ConstantSourceNode(context);
-		gain.start();
 		this.gainNode = gain;
 		this.gain = gain.offset;
-		// -(attenuation + 1)
-		const totalLevelControl = new ConstantSourceNode(context, {offset: -1});
-		totalLevelControl.start();
-		this.totalLevelControl = totalLevelControl.offset;
-		this.totalLevelNode = totalLevelControl;
-		const shaper = new WaveShaperNode(context, {curve: [0, 0, 1]});
-		gain.connect(shaper);
-		totalLevelControl.connect(shaper);
-		shaper.connect(output.gain);
+		const constant = new ConstantSourceNode(context, {offset: -1});
+		this.constant = constant;
+
+		const totalLevel = new GainNode(context);
+		this.totalLevel = totalLevel.gain;
+		gain.connect(totalLevel);
+		constant.connect(totalLevel);
+		totalLevel.connect(output.gain);
 		this.tickRate = tickRate;
 
 		this.rateScaling = 0;
@@ -84,21 +82,25 @@ class Envelope {
 		this.endSustain = 0;
 	}
 
-	stop(time) {
+	start(time = 0) {
+		this.gainNode.start(time);
+		this.constant.start(time);
+	}
+
+	stop(time = 0) {
 		this.gainNode.stop(time);
-		this.totalLevelNode.stop(time);
+		this.constant.stop(time);
 	}
 
 	/**
 	 * For Algorithm 7, set total level to at least 122 to avoid distortion.
 	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		const attenuation = logToLinear(level / 127);
-		this.totalLevelControl[method](-attenuation - 1, time);
+		this.totalLevel[method](logToLinear(level / 127), time);
 	}
 
 	getTotalLevel() {
-		return Math.round(linearToLog(-(this.totalLevelControl.value + 1)) * 127);
+		return Math.round(linearToLog(totalLevelControl.value) * 127);
 	}
 
 	setRateScaling(amount) {
@@ -355,6 +357,7 @@ class PMOperator {
 	 */
 	start(time) {
 		this.sine.start(time);
+		this.envelope.start(time);
 	}
 
 	/**Stops the operator's oscillator so that the operator's system resources can be released.
