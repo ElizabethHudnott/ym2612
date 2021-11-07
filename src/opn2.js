@@ -13,8 +13,10 @@ function logToLinear(x) {
 	return x === 0 ? 0 : 10 ** (MAX_DB / 20 * (x - 1));
 }
 
-function linearToLog(y) {
-	return y === 0 ? 0 : 20 / MAX_DB * Math.log10(y) + 1;
+const DB_CURVE = new Array(2049);
+DB_CURVE.fill(0, 0, 1025);
+for (let i = 1025; i < 2049; i++) {
+	DB_CURVE[i] = logToLinear((i - 1024) / 1023);
 }
 
 let supportsCancelAndHold;
@@ -53,17 +55,20 @@ class Envelope {
 	 */
 	constructor(context, output, tickRate) {
 		output.gain.value = 0;
-		const gain = new ConstantSourceNode(context);
-		this.gainNode = gain;
-		this.gain = gain.offset;
-		const constant = new ConstantSourceNode(context, {offset: -1});
-		this.constant = constant;
+		const gainNode = new ConstantSourceNode(context, {offset: 0});
+		this.gainNode = gainNode;
+		this.gain = gainNode.offset;
 
-		const totalLevel = new GainNode(context);
-		this.totalLevel = totalLevel.gain;
-		gain.connect(totalLevel);
-		constant.connect(totalLevel);
-		totalLevel.connect(output.gain);
+		const totalLevelNode = new ConstantSourceNode(context, {offset: 0});
+		this.totalLevelNode = totalLevelNode;
+		this.totalLevel = totalLevelNode.offset;
+		const scaleNode = new GainNode(context, {gain: 1 / 1024});
+		gainNode.connect(scaleNode);
+		totalLevelNode.connect(scaleNode);
+		const shaper = new WaveShaperNode(context, {curve: DB_CURVE});
+		scaleNode.connect(shaper);
+		shaper.connect(output.gain);
+
 		this.tickRate = tickRate;
 
 		this.rateScaling = 0;
@@ -83,23 +88,23 @@ class Envelope {
 
 	start(time = 0) {
 		this.gainNode.start(time);
-		this.constant.start(time);
+		this.totalLevelNode.start(time);
 	}
 
 	stop(time = 0) {
 		this.gainNode.stop(time);
-		this.constant.stop(time);
+		this.totalLevelNode.stop(time);
 	}
 
 	/**
 	 * For Algorithm 7, set total level to at least 122 to avoid distortion.
 	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		this.totalLevel[method](logToLinear(level / 127), time);
+		this.totalLevel[method](-level * 8, time);
 	}
 
 	getTotalLevel() {
-		return Math.round(linearToLog(totalLevelControl.value) * 127);
+		return -totalLevel.value / 8;
 	}
 
 	setRateScaling(amount) {
@@ -177,20 +182,20 @@ class Envelope {
 		}
 		if (attackRate <= 1) {
 			// Level never rises
-			cancelAndHoldAtTime(gain, 1, time);
+			cancelAndHoldAtTime(gain, 0, time);
 			this.endSustain = time;
 			return;
 		} else if (attackRate < 62) {
 			// Non-infinite attack
-			cancelAndHoldAtTime(gain, 1, time);
-			const target = 1 + ATTACK_TARGET[attackRate - 2];
+			cancelAndHoldAtTime(gain, 0, time);
+			const target = ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
 			gain.setTargetAtTime(target, time, timeConstant);
 			this.beginAttack = time;
 			this.prevAttackRate = attackRate;
 			endAttack += ATTACK_STEPS[attackRate - 2] * this.tickRate;
 		}
-		gain.setValueAtTime(2, endAttack);
+		gain.setValueAtTime(1023, endAttack);
 		this.endAttack = endAttack;
 
 		if (this.decayRate === 0) {
@@ -199,26 +204,23 @@ class Envelope {
 			return;
 		}
 
-		const linearSustain = this.sustain;
-		const expSustain = 1 + logToLinear(linearSustain / 1023);
-		const decay = this.decayTime(1023, linearSustain, this.decayRate, rateAdjust);
+		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust);
 		const endDecay = endAttack + decay;
-		gain.exponentialRampToValueAtTime(expSustain, endDecay);
+		gain.linearRampToValueAtTime(this.sustain, endDecay);
 		this.endDecay = endDecay;
 		if (this.sustainRate === 0) {
 			this.endSustain = Infinity;
 			return;
 		}
 
-		const sustainTime = this.decayTime(linearSustain, 0, this.sustainRate, rateAdjust);
+		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust);
 		const endSustain = endDecay + sustainTime;
-		gain.exponentialRampToValueAtTime(1, endSustain);
+		gain.linearRampToValueAtTime(0, endSustain);
 	}
 
 	linearValueAtTime(time) {
 		const endAttack = this.endAttack;
 		const endDecay = this.endDecay;
-		const linearSustain = this.sustain;
 		const endSustain = this.endSustain;
 		let linearValue;
 
@@ -229,10 +231,10 @@ class Envelope {
 		if (time >= endDecay) {
 			// In the sustain phase
 			if (endSustain === Infinity) {
-				linearValue = linearSustain;
+				linearValue = this.sustain;
 			} else {
 				const timeProportion = (time - endDecay) / (endSustain - endDecay);
-				linearValue = linearSustain * timeProportion;
+				linearValue = this.sustain * (1 - timeProportion);
 			}
 		} else if (time >= endAttack) {
 			// In the decay phase
@@ -240,14 +242,13 @@ class Envelope {
 				linearValue = 1023;
 			} else {
 				const timeProportion = (time - endAttack) / (endDecay - endAttack);
-				linearValue = 1023 -  timeProportion * (1023 - linearSustain);
+				linearValue = 1023 -  timeProportion * (1023 - this.sustain);
 			}
 		} else {
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
-			const expValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
-			linearValue = 1023 * linearToLog(expValue);
+			const linearValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
 		}
 		return linearValue;
 	}
@@ -255,13 +256,12 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(keyCode, time) {
-		const linearValue = this.linearValueAtTime(time);
+		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
-		const releaseTime = this.decayTime(linearValue, 0, this.releaseRate, rateAdjust);
-		const currentValue = 1 + logToLinear(linearValue / 1023);
+		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust);
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue, time);
-		gain.exponentialRampToValueAtTime(1, time + releaseTime);
+		gain.linearRampToValueAtTime(0, time + releaseTime);
 	}
 
 	/**Cuts audio output without going through the envelope's release phase.
@@ -1221,8 +1221,7 @@ class PMSynth {
 
 export {
 	Envelope, PMOperator, PMChannel, PMSynth,
-	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
+	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
 
 const ATTACK_STEPS = [294912, 294912, 147456, 147456, 98304, 98304, 73728, 59392, 49152,
@@ -1243,7 +1242,7 @@ const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
 1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48840023324, 1031.31610973218,
 1031.52352501199, 1031.65420794345, 1033.03574873511, 1033.43041057801, 1033.37306598363,
 1035.4171820433, 1035.39653268357, 1034.15032097183, 1032.96478469666, 1029.17518847789,
-1030.84690128005, 1030.84690128005].map(x => x / 1023);
+1030.84690128005, 1030.84690128005];
 
 const ATTACK_CONSTANT = [63279.2004921133, 63279.2004921133, 31639.6002460567,
 31639.6002460567, 21091.98357754, 21091.98357754, 15819.8001230283, 12657.5084839186,

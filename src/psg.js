@@ -27,7 +27,7 @@ class PSGChannel {
 		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
 		this.saw = saw;
 		const frequency = new ConstantSourceNode(context, {offset: 0});
-		frequency.start();
+		this.frequencyNode = frequency;
 		this.frequencyControl = frequency.offset;
 		const fmMod = new GainNode(context);
 		frequency.connect(fmMod);
@@ -43,7 +43,7 @@ class PSGChannel {
 		const reciprocal = new WaveShaperNode(context, {curve: synth.reciprocalTable});
 		reciprocalInputScaler.connect(reciprocal);
 		const reciprocalShift = new ConstantSourceNode(context, {offset: -1});
-		reciprocalShift.start();
+		this.reciprocalShift = reciprocalShift;
 		reciprocalShift.connect(reciprocal);
 		this.reciprocal = reciprocal;
 		const dutyCycle = new GainNode(context, {gain: 0.5});
@@ -56,7 +56,6 @@ class PSGChannel {
 		delay.connect(inverter);
 		this.wave = inverter.gain;
 		const dcOffset = new ConstantSourceNode(context, {offset: 0});
-		dcOffset.start();
 		dcOffset.connect(inverter);
 		this.dcOffset = dcOffset;
 		const waveGain = new GainNode(context, {gain: 0});
@@ -65,7 +64,6 @@ class PSGChannel {
 		this.waveAmp = waveGain.gain;
 
 		const constant = new ConstantSourceNode(context, {offset: 0.5});
-		constant.start();
 		this.constant = constant.offset;
 		this.constantNode = constant;
 
@@ -96,12 +94,18 @@ class PSGChannel {
 		this.keyCode = -Infinity;
 	}
 
-	start(time) {
+	start(time = 0) {
 		this.saw.start(time);
+		this.frequencyNode.start(time);
+		this.reciprocalShift.start(time);
+		this.dcOffset.start(time);
+		this.constantNode.start(time);
 	}
 
 	stop(time = 0) {
 		this.saw.stop(time);
+		this.frequencyNode.stop(time);
+		this.reciprocalShift.stop(time);
 		this.dcOffset.stop(time);
 		this.constantNode.stop(time);
 		this.reciprocal.disconnect();
