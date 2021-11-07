@@ -518,7 +518,7 @@ class PMOperator {
 		return this.mixer.value;
 	}
 
-	keyOn(context, time) {
+	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
 			let makeNewOscillator = true;
 			if (this.lastFreqChange > time) {
@@ -690,15 +690,19 @@ class PMChannel {
 		mute.connect(output);
 		this.muteControl = mute.gain;
 
+		const lfoEnvelope = new GainNode(context);
+		lfo.connect(lfoEnvelope);
+		this.lfoEnvelope = lfoEnvelope.gain;
+		this.lfoAttack = 0;
 		//LFO modulating phase
-		const lfoGain = new GainNode(context, {gain: 0});
-		lfo.connect(lfoGain);
-		this.lfoAmp = lfoGain.gain;
+		const vibratoGain = new GainNode(context, {gain: 0});
+		lfoEnvelope.connect(vibratoGain);
+		this.vibratoDepth = vibratoGain.gain;
 
-		const op1 = new PMOperator(synth, context, lfoGain, lfo, shaper);
-		const op2 = new PMOperator(synth, context, lfoGain, lfo, shaper);
-		const op3 = new PMOperator(synth, context, lfoGain, lfo, shaper);
-		const op4 = new PMOperator(synth, context, lfoGain, lfo, shaper);
+		const op1 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
+		const op2 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
+		const op3 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
+		const op4 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -880,6 +884,14 @@ class PMChannel {
 		return Math.round(this.getFeedback() * 14);
 	}
 
+	setLFOAttack(seconds) {
+		this.lfoAttack = seconds;
+	}
+
+	getLFOAttack() {
+		return this.lfoAttack;
+	}
+
 	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
 		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
 		for (let i = 0; i < 4; i++) {
@@ -918,11 +930,11 @@ class PMChannel {
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
 		const depth = (2 ** (cents / 1200)) - 1;
-		this.lfoAmp[method](depth, time);
+		this.vibratoDepth[method](depth, time);
 	}
 
 	getVibratoDepth() {
-		return this.lfoAmp.value;
+		return this.vibratoDepth.value;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -931,14 +943,6 @@ class PMChannel {
 
 	getVibratoPreset() {
 		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
-	}
-
-	setVelocity(velocity, time = 0) {
-		const operators = this.operators;
-		const totalLevel = 127 - velocity;
-		for (let i = 0; i < 4; i++) {
-			operators[i].setTotalLevel(totalLevel * this.keyVelocity[i], time);
-		}
 	}
 
 	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
@@ -965,12 +969,32 @@ class PMChannel {
 		}
 	}
 
-	keyOn(context, time) {
+	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
+		if (this.lfoAttack > 0) {
+			this.lfoEnvelope.setValueAtTime(0, time);
+			this.lfoEnvelope.linearRampToValueAtTime(1, time + this.lfoAttack);
+		}
 		this.keyOnOff(context, time, true);
 	}
 
 	keyOff(time) {
 		this.keyOnOff(undefined, time, false);
+	}
+
+	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+		const totalLevel = 127 - velocity;
+		for (let i = 0; i < 4; i++) {
+			this.operators[i].setTotalLevel(totalLevel * this.keyVelocity[i], time);
+		}
+		this.keyOn(context, time);
+	}
+
+	setKeyVelocity(operatorNum, sensitivity) {
+		this.keyVelocity[operatorNum - 1] = sensitivity;
+	}
+
+	getKeyVelocity(operatorNum) {
+		return this.keyVelocity[operatorNum - 1];
 	}
 
 	soundOff(time = 0) {
