@@ -248,7 +248,7 @@ class Envelope {
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
-			const linearValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
+			linearValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
 		}
 		return linearValue;
 	}
@@ -419,11 +419,9 @@ class PMOperator {
 		}
 		const frequency = fullFreqNumber * frequencyMultiple * this.synth.frequencyStep;
 		this.sine.frequency[method](frequency, time);
-		if (frequency > 0) {
-			const period = 1 / frequency;
-			this.delay.delayTime[method](period, time);
-			this.delayAmp.gain[method](0.5 * period, time);
-		}
+		const period = 1 / (frequency === 0 ? this.synth.frequencyStep : frequency);
+		this.delay.delayTime[method](period, time);
+		this.delayAmp.gain[method](0.5 * period, time);
 		this.frequency = frequency;
 		this.lastFreqChange = time;
 		this.freqBlockNumber = blockNumber;
@@ -661,6 +659,20 @@ const ALGORITHMS = [
 
 const AM_PRESETS = [0, 1.4, 5.9, 11.8];
 
+function indexOfGain(modulatorOpNum, carrierOpNum) {
+	if (modulatorOpNum === 1 && carrierOpNum === 1) {
+		return 0;
+	} else if (modulatorOpNum >= 4 || modulatorOpNum >= carrierOpNum) {
+		return -1;
+	}
+	let index = 1;
+	for (let i = modulatorOpNum - 1; i > 0; i--) {
+		index += 4 - i;
+	}
+	index += carrierOpNum - modulatorOpNum - 1;
+	return index;
+}
+
 class PMChannel {
 
 	constructor(synth, context, lfo, output) {
@@ -724,8 +736,8 @@ class PMChannel {
 		this.amDepth = 0;
 		this.amEnabled = [false, false, false, false];
 		this.transpose = 0;
-
-		this.setAlgorithmNumber(7);
+		this.keyVelocity = [1, 1, 1, 1];
+		this.useAlgorithm(7);
 	}
 
 	start(time) {
@@ -749,41 +761,47 @@ class PMChannel {
 			this.gains[i + 1][method](modulations[i], time);
 		}
 		for (let i = 0; i < 4; i++) {
-			this.operators[i].setVolume(outputLevels[i], time, method);
+			const outputLevel = outputLevels[i];
+			this.operators[i].setVolume(outputLevel, time, method);
+			this.keyVelocity[i] = outputLevel === 0 ? 0 : 1;
 		}
-		this.outputLevels = outputLevels.slice();
 	}
 
 	getModulationDepth(modulatorOpNum, carrierOpNum) {
-		if (modulatorOpNum === 1 && carrierOpNum === 1) {
-			return this.gains[0].value * 2;
-		} else if (modulatorOpNum >= 4 || modulatorOpNum >= carrierOpNum) {
-			return 0;
-		} else {
-			let index = 1;
-			for (let i = modulatorOpNum - 1; i > 0; i--) {
-				index += 4 - i;
-			}
-			index += carrierOpNum - modulatorOpNum - 1;
-			return this.gains[index].value;
-		}
+		const index = indexOfGain(modulatorOpNum, carrierOpNum);
+		return index === -1 ? 0 : this.gains[index].value;
 	}
 
-	setAlgorithmNumber(algorithmNum, time = 0, method = 'setValueAtTime') {
+	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
+		this.gains[indexOfGain(modulatorOpNum, carrierOpNum)][method](amount, time);
+	}
+
+	disableOperator(operatorNum) {
+		for (let i = operatorNum + 1; i <= 4; i++) {
+			this.setModulationDepth(operatorNum, i, 0);
+		}
+		this.operators[operatorNum - 1].setVolume(0);
+	}
+
+	enableOperator(operatorNum) {
+		const algorithm = ALGORITHMS[this.algorithmNum];
+		const modulations = algorithm[0];
+		const outputLevels = algorithm[1]
+		for (let i = operatorNum + 1; i <= 4; i++) {
+			const index = indexOfGain(operatorNum, i);
+			this.gains[index].value = modulations[index];
+		}
+		this.operators[operatorNum - 1].setVolume[outputLevels[operatorNum - 1]];
+	}
+
+	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
 		const algorithm = ALGORITHMS[algorithmNum];
 		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
+		this.algorithmNum = algorithmNum;
 	}
 
-	getAlgorithmNumber() {
-		algorithm: for (let i = 0; i < ALGORITHMS.length; i++) {
-			const modulations = ALGORITHMS[i][0];
-			for (let j = 0; j < 6; j++) {
-				if (modulations[j] !== this.gains[j + 1].value) {
-					continue algorithm;
-				}
-			}
-			return i;
-		}
+	getAlgorithm() {
+		return this.algorithmNum;
 	}
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
@@ -854,11 +872,11 @@ class PMChannel {
 		return this.gains[0].value * 2;
 	}
 
-	setFeedbackNumber(n, time = 0) {
+	useFeedbackPreset(n, time = 0) {
 		this.setFeedback(n / 14, time);
 	}
 
-	getFeedbackNumber() {
+	getFeedbackPreset() {
 		return Math.round(this.getFeedback() * 14);
 	}
 
@@ -884,7 +902,7 @@ class PMChannel {
 		return AM_PRESETS.indexOf(this.amDepth);
 	}
 
-	enableAM(operatorNum, enabled, time = 0, method = 'setValueAtTime') {
+	enableAM(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
 		if (enabled) {
 			this.operators[operatorNum - 1].setAMDepth(this.amDepth, time, method);
 			this.amEnabled[operatorNum - 1] = true;
@@ -917,12 +935,10 @@ class PMChannel {
 
 	setVelocity(velocity, time = 0) {
 		const operators = this.operators;
-		const levels = this.outputLevels;
 		const totalLevel = 127 - velocity;
-		operators[0].setTotalLevel(levels[0] === 0 ? 127 : totalLevel, time);
-		operators[1].setTotalLevel(levels[1] === 0 ? 127 : totalLevel, time);
-		operators[2].setTotalLevel(levels[2] === 0 ? 127 : totalLevel, time);
-		operators[3].setTotalLevel(levels[3] === 0 ? 127 : totalLevel, time);
+		for (let i = 0; i < 4; i++) {
+			operators[i].setTotalLevel(totalLevel * this.keyVelocity[i], time);
+		}
 	}
 
 	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
@@ -1061,6 +1077,14 @@ class PMSynth {
 
 	getChannel(channelNum) {
 		return this.channels[channelNum - 1];
+	}
+
+	setLFOShape(shape) {
+		this.lfo.type = shape;
+	}
+
+	getLFOShape() {
+		return this.lfo.type;
 	}
 
 	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
