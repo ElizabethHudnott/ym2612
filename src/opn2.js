@@ -36,6 +36,26 @@ function calcKeyCode(blockNumber, frequencyNumber) {
 	return (blockNumber << 2) + (f11 << 1) + lsb;
 }
 
+function componentsToFullFreq(blockNumber, frequencyNumber) {
+	return Math.trunc(0.5 * (frequencyNumber << blockNumber));
+}
+
+function fullFreqToComponents(fullFrequencyNumber) {
+	let freqNum = fullFrequencyNumber;
+	let block;
+	if (freqNum < 1023.75) {
+		block = 0;
+		freqNum *= 2;
+	} else {
+		block = 1;
+		while (freqNum >= 2047.5) {
+			freqNum /= 2;
+			block++;
+		}
+	}
+	return [block, Math.round(freqNum)];
+}
+
 // For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
 {
@@ -53,7 +73,8 @@ class Envelope {
 	/**Creates an envelope.
 	 * @param {GainNode} output The GainNode to be controlled by the envelope.
 	 */
-	constructor(context, output, tickRate) {
+	constructor(synth, context, output) {
+		this.synth = synth;
 		output.gain.value = 0;
 		const gainNode = new ConstantSourceNode(context, {offset: 0});
 		this.gainNode = gainNode;
@@ -69,14 +90,12 @@ class Envelope {
 		scaleNode.connect(shaper);
 		shaper.connect(output.gain);
 
-		this.tickRate = tickRate;
-
 		this.rateScaling = 0;
 		this.attackRate = 16;
 		this.decayRate = 16;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
-		this.sustain = 256;		// Already converted into an attenuation value.
+		this.sustain = 352;		// Already converted into an attenuation value.
 
 		// Values stored during key on.
 		this.beginAttack = 0;
@@ -164,7 +183,7 @@ class Envelope {
 	decayTime(from, to, basicRate, rateAdjust) {
 		const rate = Math.min(Math.round(2 * basicRate + rateAdjust), 63);
 		const gradient = ENV_INCREMENT[rate];
-		return this.tickRate * (from - to) / gradient;
+		return this.synth.envelopeTick * (from - to) / gradient;
 	}
 
 	/**Opens the envelope at a specified time.
@@ -188,12 +207,13 @@ class Envelope {
 		} else if (attackRate < 62) {
 			// Non-infinite attack
 			cancelAndHoldAtTime(gain, 0, time);
+			const tickRate = this.synth.envelopeTick;
 			const target = ATTACK_TARGET[attackRate - 2];
-			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
 			gain.setTargetAtTime(target, time, timeConstant);
 			this.beginAttack = time;
 			this.prevAttackRate = attackRate;
-			endAttack += ATTACK_STEPS[attackRate - 2] * this.tickRate;
+			endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
 		}
 		gain.setValueAtTime(1023, endAttack);
 		this.endAttack = endAttack;
@@ -247,7 +267,7 @@ class Envelope {
 		} else {
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
-			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.tickRate;
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
 			linearValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
 		}
 		return linearValue;
@@ -340,7 +360,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
-		this.envelope = synth.createEnvelope(context, envelopeGain);
+		this.envelope = new Envelope(synth, context, envelopeGain);
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
@@ -413,7 +433,7 @@ class PMOperator {
 		const detuneSign = (-1) ** (detuneSetting >> 2);
 		const detuneSteps = detuneSign * DETUNE_AMOUNTS[detuneTableOffset + Math.min(keyCode, 31)];
 
-		let fullFreqNumber = Math.trunc(0.5 * (frequencyNumber << blockNumber)) + detuneSteps;
+		let fullFreqNumber = componentsToFullFreq(blockNumber, frequencyNumber) + detuneSteps;
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
 		}
@@ -449,7 +469,7 @@ class PMOperator {
 	 * pitch a little, 2 raises the pitch moderately, 3 raises the pitch a lot. 5 lowers
 	 * the pitch a little, 6 lowers it moderately, 7 lowers it a lot.
 	 * @param {number} [time] When to alter the detuning. Defaults to whenever
-	 * setFrequency() or setMIDINote() is next called.
+	 * setFrequency() is next called.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
 	setDetune(extent, time = undefined, method = 'setValueAtTime') {
@@ -459,31 +479,9 @@ class PMOperator {
 		}
 	}
 
-	/**Returns the most recently used detuning value. */
+	/**Returns the most recently set detuning value. */
 	getDetune() {
 		return this.detune;
-	}
-
-	/**Sets the operator's frequency using a more convenient method than the YM2612's
-	 * block and frequency number notation.
-	 * @param {number} noteNumber The MIDI note number in semitones. 60 = Middle C
-	 * @param {number} [frequencyMultiple] The frequency is derived by multiplying the
-	 * note's normal fundamental frequency by this number. Can be used to create chorus
-	 * effects or dissonant tones. Defaults to 1.
-	 * @param {number} [time
-	 * @param {number} [time] When to change frequency. Defaults to immediately.
-	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
-	 */
-	setMIDINote(noteNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
-		const [block, frequencyNumber] = this.synth.noteFrequencies[noteNumber];
-		this.setFrequency(block, frequencyNumber, frequencyMultiple, time, method);
-	}
-
-	/**Gets the MIDI note number of the note whose frequency is closest to the operator's
-	 * current frequency.
-	 */
-	getMIDINote() {
-		return this.synth.frequencyToNote(this.freqBlockNumber, this.frequencyNumber);
 	}
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
@@ -735,7 +733,10 @@ class PMChannel {
 			op3To4.gain
 		];
 
+		this.freqBlockNumbers = [4, 4, 4, 4];
+		this.frequencyNumbers = [1093, 1093, 1093, 1093];
 		this.frequencyMultiples = [1, 1, 1, 1];
+		this.fixedFrequency = [false, false, false, false];
 
 		this.amDepth = 0;
 		this.amEnabled = [false, false, false, false];
@@ -771,13 +772,23 @@ class PMChannel {
 		}
 	}
 
-	getModulationDepth(modulatorOpNum, carrierOpNum) {
-		const index = indexOfGain(modulatorOpNum, carrierOpNum);
-		return index === -1 ? 0 : this.gains[index].value;
+	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
+		const algorithm = ALGORITHMS[algorithmNum];
+		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
+		this.algorithmNum = algorithmNum;
+	}
+
+	getAlgorithm() {
+		return this.algorithmNum;
 	}
 
 	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
 		this.gains[indexOfGain(modulatorOpNum, carrierOpNum)][method](amount, time);
+	}
+
+	getModulationDepth(modulatorOpNum, carrierOpNum) {
+		const index = indexOfGain(modulatorOpNum, carrierOpNum);
+		return index === -1 ? 0 : this.gains[index].value;
 	}
 
 	disableOperator(operatorNum) {
@@ -798,56 +809,82 @@ class PMChannel {
 		this.operators[operatorNum - 1].setVolume[outputLevels[operatorNum - 1]];
 	}
 
-	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
-		const algorithm = ALGORITHMS[algorithmNum];
-		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
-		this.algorithmNum = algorithmNum;
+	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
+		const fixedFrequencyArr = this.fixedFrequency;
+		const operator = this.operators[operatorNum - 1];
+		const multiple = this.frequencyMultiples[operatorNum - 1];
+		let block = this.freqBlockNumbers[3];
+		let freqNum = this.frequencyNumbers[3];
+
+		if (fixed) {
+			if (preserve) {
+				if (!fixedFrequencyArr[operatorNum - 1] &&
+					(operatorNum !== 4 ||
+						(fixedFrequencyArr[0] && fixedFrequencyArr[1] && fixedFrequencyArr[2])
+					)
+				) {
+					// Turn a frequency multiple into a fixed frequency.
+					fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
+					[block, freqNum] = fullFreqToComponents(fullFreqNumber);
+					this.freqBlockNumbers[operatorNum - 1] = block;
+					this.frequencyNumbers[operatorNum - 1] = freqNum;
+				}
+			} else if (time !== undefined) {
+				// Restore a fixed frequency from a register.
+				block = this.freqBlockNumbers[operatorNum - 1];
+				freqNum = this.frequencyNumbers[operatorNum - 1];
+				operator.setFrequency(block, freqNum, 1, time, method);
+			}
+		} else if (time !== undefined) {
+			// Restore a multiple of Operator 4's frequency.
+			operator.setFrequency(block, freqNum, multiple, time, method);
+		}
+		fixedFrequencyArr[operatorNum - 1] = fixed;
 	}
 
-	getAlgorithm() {
-		return this.algorithmNum;
+	isOperatorFixed(operatorNum) {
+		return this.fixedFrequency[operatorNum - 1];
 	}
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 4; i++) {
-			this.operators[i].setFrequency(blockNumber, frequencyNumber, this.frequencyMultiples[i], time, method);
+			if (!this.fixedFrequency[i]) {
+				const multiple = this.frequencyMultiples[i];
+				this.operators[i].setFrequency(blockNumber, frequencyNumber, multiple, time, method);
+			}
 		}
+		this.freqBlockNumbers[3] = blockNumber;
+		this.frequencyNumbers[3] = frequencyNumber;
 	}
 
-	getFrequencyBlock() {
-		return this.operators[3].getFrequencyBlock();
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+		if (this.fixedFrequency[operatorNum - 1]) {
+			this.operators[operatorNum - 1].setFrequency(blockNumber, frequencyNumber, 1, time, method);
+		}
+		this.freqBlockNumbers[operatorNum - 1] = blockNumber;
+		this.frequencyNumbers[operatorNum - 1] = frequencyNumber;
 	}
 
-	getFrequencyNumber() {
-		return this.operators[3].getFrequencyNumber();
+	getFrequencyBlock(operatorNum = 4) {
+		return this.freqBlockNumbers[operatorNum - 1];
+	}
+
+	getFrequencyNumber(operatorNum = 4) {
+		return this.frequencyNumbers[operatorNum - 1];
 	}
 
 	setFrequencyMultiple(operatorNum, multiple, time = undefined, method = 'setValueAtTime') {
-		this.frequencyMultiples[operatorNum] = multiple;
-		if (time !== undefined) {
-			const op4 = this.operators[3];
-			const block = op4.getFrequencyBlock();
-			const freqNum = op4.getFrequencyNumber();
+		this.frequencyMultiples[operatorNum - 1] = multiple;
+		if (time !== undefined && !this.fixedFrequency[operatorNum - 1]) {
+			const block = this.freqBlockNumbers[3];
+			const freqNum = this.frequencyNumbers[3];
 			const operator = this.operators[operatorNum - 1];
 			operator.setFrequency(block, freqNum, multiple, time, method);
 		}
 	}
 
-	setFrequencyMultiples(op1, op2, op3, op4, time = undefined, method = 'setValueAtTime') {
-		const multiples = [op1, op2, op3, op4];
-		this.frequencyMultiples = multiples;
-		if (time !== undefined) {
-			const op4 = this.operators[3];
-			const block = op4.getFrequencyBlock();
-			const freqNum = op4.getFrequencyNumber();
-			for (let i = 0; i < 4; i++) {
-				this.operators[i].setFrequency(block, freqNum, multiples[i], time, method);
-			}
-		}
-	}
-
 	getFrequencyMultiple(operatorNum) {
-		return this.frequencyMultiples[operatorNum];
+		return this.frequencyMultiples[operatorNum - 1];
 	}
 
 	setTranspose(transpose) {
@@ -859,17 +896,29 @@ class PMChannel {
 	}
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const realNote = noteNumber + this.transpose;
-		const [block, frequencyNumber] = this.synth.noteFrequencies[realNote];
-		this.setFrequency(block, frequencyNumber, time, method);
+		noteNumber += this.transpose;
+		const [block, freqNum] = this.synth.noteFrequencies[noteNumber];
+		this.setFrequency(block, freqNum, time, method);
 	}
 
-	getMIDINote() {
-		return this.operators[3].getMIDINote() - this.transpose;
+	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
+		this.fixedFrequency[operatorNum - 1] = true;
+		const [block, freqNum] = this.synth.noteFrequencies[noteNumber];
+		this.setOperatorFrequency(operatorNum, block, freqNum, time, method);
+	}
+
+	getMIDINote(operatorNum = 4) {
+		const block = this.freqBlockNumbers[operatorNum - 1];
+		const freqNum = this.frequencyNumbers[operatorNum - 1];
+		let note = this.synth.frequencyToNote(block, freqNum);
+		if (!this.fixedFrequency[operatorNum - 1]) {
+			note -= this.transpose;
+		}
+		return note;
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
-		this.gains[0][method](0.5 * amount, time);
+		this.gains[0][method](amount, time);
 	}
 
 	getFeedback() {
@@ -877,11 +926,11 @@ class PMChannel {
 	}
 
 	useFeedbackPreset(n, time = 0) {
-		this.setFeedback(n / 14, time);
+		this.setFeedback(n / 7, time);
 	}
 
 	getFeedbackPreset() {
-		return Math.round(this.getFeedback() * 14);
+		return Math.round(this.getFeedback() * 7);
 	}
 
 	setLFOAttack(seconds) {
@@ -925,7 +974,7 @@ class PMChannel {
 	}
 
 	isAMEnabled(operatorNum) {
-		return this.amEnabled[operatorNum];
+		return this.amEnabled[operatorNum - 1];
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
@@ -981,10 +1030,17 @@ class PMChannel {
 		this.keyOnOff(undefined, time, false);
 	}
 
+
+	/**When this method is used then the overall output level needs to be controlled using
+	 * the channel's setModulationDepth() method rather than setTotalLevel().
+	 */
 	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
 		const totalLevel = 127 - velocity;
 		for (let i = 0; i < 4; i++) {
-			this.operators[i].setTotalLevel(totalLevel * this.keyVelocity[i], time);
+			const sensitivity = this.keyVelocity[i];
+			if (sensitivity > 0) {
+				this.operators[i].setTotalLevel(totalLevel, time);
+			}
 		}
 		this.keyOn(context, time);
 	}
@@ -1037,13 +1093,11 @@ class PMSynth {
 		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo = lfo;
 		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
-
-		this.envelopeTick = 72 * 6 / clockRate;
-		this.frequencyStep = clockRate / (144 * 2 ** 20);
-		this.lfoRateMultiplier = clockRate / 8000000;
+		this.setClockRate(clockRate);
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
-		channelGain.connect(context.destination);
+		channelGain.connect(output);
+		this.channelGain = channelGain.gain;
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
@@ -1071,10 +1125,16 @@ class PMSynth {
 		 * @type {Array<Array<number>>}
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
+	}
 
-		this.ch3FreqBlocks = [4, 4, 4, 4];
-		this.ch3FreqNums = [1093, 1093, 1093, 1093];
-		this.ch3Mode = 0;	// Normal mode
+	setClockRate(clockRate, time = 0) {
+		const lfoPresetNum = this.getLFOPreset();
+		this.envelopeTick = 72 * 6 / clockRate;
+		this.frequencyStep = clockRate / (144 * 2 ** 20);
+		this.lfoRateMultiplier = clockRate / 8000000;
+		if (lfoPresetNum !== -1) {
+			this.useLFOPreset(lfoPresetNum, time);
+		}
 	}
 
 	start(time) {
@@ -1103,14 +1163,6 @@ class PMSynth {
 		return this.channels[channelNum - 1];
 	}
 
-	setLFOShape(shape) {
-		this.lfo.type = shape;
-	}
-
-	getLFOShape() {
-		return this.lfo.type;
-	}
-
 	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
 		this.lfo.frequency[method](frequency, time);
 	}
@@ -1127,58 +1179,6 @@ class PMSynth {
 		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
 		frequency = Math.round(frequency * 100) / 100;
 		return LFO_FREQUENCIES.indexOf(frequency);
-	}
-
-	setChannel3Mode(mode, time = 0) {
-		const channel = this.channels[2];
-		switch (mode) {
-		case 0:
-			// Normal mode
-			const block = channel.getFrequencyBlock();
-			const freqNum = channel.getFrequencyNumber();
-			channel.setFrequency(block, freqNum, time);
-			break;
-
-		case 1:
-			// Separate frequencies mode
-			for (let i = 1; i <= 3; i++) {
-				const operator = channel.getOperator(i);
-				const block = this.ch3FreqBlocks[i - 1];
-				const freqNum = this.ch3FreqNums[i - 1];
-				operator.setFrequency(block, freqNum, 1, time);
-			}
-			break;
-		}
-		this.ch3Mode = mode;
-	}
-
-	getChannel3Mode() {
-		return this.ch3Mode;
-	}
-
-	setChannel3Frequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
-		const channel = this.channels[2];
-		if (this.ch3Mode === 1) {
-			const operator = channel.getOperator(operatorNum);
-			operator.setFrequency(blockNumber, frequencyNumber, 1, time);
-		} else if (operatorNum === 4) {
-			channel.setFrequency(blockNumber, frequencyNumber, time, method);
-		}
-		this.ch3FreqBlocks[operatorNum - 1] = blockNumber;
-		this.ch3FreqNums[operatorNum - 1] = frequencyNumber;
-	}
-
-	getChannel3FrequencyBlock(operatorNum) {
-		return this.ch3FreqBlocks[operatorNum - 1];
-	}
-
-	getChannel3FrequencyNumber(operatorNum) {
-		return this.ch3FreqNums[operatorNum - 1];
-	}
-
-	setChannel3MIDINote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
-		const [block, frequencyNumber] = this.noteFrequencies[noteNumber];
-		this.setChannel3Frequency(operatorNum, block, frequencyNumber, time, method);
 	}
 
 	/**
@@ -1211,27 +1211,19 @@ class PMSynth {
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
 	}
 
+	setChannelGain(level, time = 0, method = 'setValueAtTime') {
+		this.channelGain[method](level / this.channels.length, time);
+	}
+
 	/**Calculates frequency data for a scale of 128 MIDI notes. The results are expressed in
 	 * terms of the YM2612's block and frequency number notation.
 	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
 	 */
-	tunedMIDINotes(a4Pitch) {
+	tunedMIDINotes(a4Pitch = 440) {
 		const frequencyData = new Array(128);
 		for (let i = 0; i < 128; i++) {
 			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
-			let freqNum = frequency / this.frequencyStep;
-			let block;
-			if (freqNum < 1024) {
-				block = 0;
-				freqNum *= 2;
-			} else {
-				block = 1;
-				while (freqNum >= 2047.5) {
-					freqNum /= 2;
-					block++;
-				}
-			}
-			frequencyData[i] = [block, Math.round(freqNum)];
+			frequencyData[i] = fullFreqToComponents(frequency / this.frequencyStep);
 		}
 		return frequencyData;
 	}
@@ -1255,10 +1247,6 @@ class PMSynth {
 			}
 		}
 		return lb;
-	}
-
-	createEnvelope(context, output) {
-		return new Envelope(context, output, this.envelopeTick);
 	}
 
 	getLFO() {

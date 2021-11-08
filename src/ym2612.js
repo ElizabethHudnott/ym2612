@@ -1,4 +1,3 @@
-import {PMSynth, CLOCK_RATE} from './opn2.js';
 
 const LONG_REGISTER = Object.freeze({
 	FREQUENCY: 0,		// 0-5
@@ -10,23 +9,14 @@ const PCM_LEVELS = [0, 1, 6, 6];
 const write = [];
 
 export default class YM2612 {
-	constructor(context, output = context.destination, clockRate = CLOCK_RATE.PAL) {
-		const synth = new PMSynth(context, output, 6, clockRate);
+	constructor(synth) {
 		this.synth = synth;
 		const channel = synth.getChannel(1);
 		const highFrequencyByte = (channel.getFrequencyBlock() << 3) + (channel.getFrequencyNumber() >> 8);
 		this.longRegisters = [
 			highFrequencyByte, highFrequencyByte, highFrequencyByte, highFrequencyByte
 		];
-		this.pcmLevelNum = 0;
-	}
-
-	start(time) {
-		this.synth.start(time);
-	}
-
-	stop(time) {
-		this.synth.stop(time);
+		this.pcmLevel = 0; // Bit 0 = DAC enable, Bit 1 = Loud PCM (test register)
 	}
 
 	write(address, value, port = 0, time = 0) {
@@ -34,8 +24,8 @@ export default class YM2612 {
 	}
 
 	enablePCM(bit, enabled, time) {
-		this.pcmLevelNum = ((this.pcmLevelNum & ~bit) | (bit * enabled)) & 3;
-		this.synth.mixPCM(PCM_LEVELS[this.pcmLevelNum], time);
+		this.pcmLevel = ((this.pcmLevel & ~bit) | (bit * enabled)) & 3;
+		this.synth.mixPCM(PCM_LEVELS[this.pcmLevel], time);
 	}
 
 }
@@ -46,8 +36,11 @@ write[0x2b] = (chip, n, t) => chip.enablePCM(1, (n & 128) === 128, t);
 write[0x2c] = (chip, n, t) => chip.enablePCM(2, (n & 16) === 16, t);
 
 write[0x27] = (chip, b, t) => {
-	const channel3Mode = b >> 6;
-	chip.synth.setChannel3Mode(channel3Mode, t);
+	const fixed = (b & 96) > 0;
+	const channel = chip.synth.getChannel(3);
+	for (let i = 1; i <= 4; i++) {
+		channel.fixFrequency(i, fixed, t, false);
+	}
 }
 
 write[0x28] = (chip, b, t) => {
@@ -66,8 +59,7 @@ function multiplyAndDetune(chip, port, relativeChannelNum, operatorNum, value, t
 	const detune = (value >> 4) & 7;
 	const channel = synth.getChannel(channelNum);
 	channel.getOperator(operatorNum).setDetune(detune, time);
-	const immediate = channelNum !== 3 || synth.getChannel3Mode() === 0;
-	channel.setFrequencyMultiple(operatorNum, multiple, immediate ? time : undefined);
+	channel.setFrequencyMultiple(operatorNum, multiple, time);
 }
 
 write[0x30] = (chip, b, t, port) => multiplyAndDetune(chip, port, 1, 1, b, t);
@@ -94,27 +86,28 @@ function setFrequency(chip, port, relativeChannelNum, lowerByte, time) {
 }
 
 function setCh3Frequency(chip, operatorNum, lowerByte, time) {
-	let index;
-	if (operatorNum === 4) {
-		index = LONG_REGISTER.FREQUENCY + 2;	// Channel 3 main register
-	} else {
-		index = LONG_REGISTER.CH3_FREQUENCY + operatorNum - 1; // Supplementary register
-	}
-	const upperByte = chip.longRegisters[index];
+	const upperByte = chip.longRegisters[LONG_REGISTER.CH3_FREQUENCY + operatorNum - 1];
 	const block = upperByte >> 3;
 	const freqNum = ((upperByte & 7) << 8) + lowerByte;
-	chip.synth.setChannel3Frequency(operatorNum, block ,freqNum, time);
+	chip.synth.getChannel(3).setOperatorFrequency(operatorNum, block, freqNum, time);
 }
 
 write[0xA0] = (chip, b, t, port) => setFrequency(chip, port, 1, b, t);
 write[0xA1] = (chip, b, t, port) => setFrequency(chip, port, 2, b, t);
 write[0xA2] = (chip, b, t, port) => {
-	if (port === 0) {
-		setCh3Frequency(chip, 4, b, t);
+	// Channel 3 main frequency register or Channel 6 frequency register
+	const channelNum = port * 2 + 3;
+	const upperByte = chip.longRegisters[LONG_REGISTER.FREQUENCY + channelNum - 1];
+	const block = upperByte >> 3;
+	const freqNum = ((upperByte & 7) << 8) + b;
+	const channel = chip.synth.getChannel(3);
+	if (channel.isOperatorFixed(4)) {
+		channel.setOperatorFrequency(4, block, freqNum, t);
 	} else {
-		setFrequency(chip, 1, 3, b, t);	// Channel 6
+		channel.setFrequency(block, freqNum, t);
 	}
 }
+
 write[0xA4] = (chip, b, t, port) => chip.longRegisters[LONG_REGISTER.FREQUENCY + port * 3] = b;
 write[0xA5] = (chip, b, t, port) => chip.longRegisters[LONG_REGISTER.FREQUENCY + port * 3 + 1] = b;
 write[0xA6] = (chip, b, t, port) => chip.longRegisters[LONG_REGISTER.FREQUENCY + port * 3 + 2] = b;

@@ -22,7 +22,7 @@ let supportsCancelAndHold;
 
 class PSGChannel {
 
-	constructor(synth, context, lfo1, lfo2, output) {
+	constructor(synth, context, lfo1, lfo2, output, reciprocalTable) {
 		this.synth = synth;
 		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
 		this.saw = saw;
@@ -40,7 +40,7 @@ class PSGChannel {
 
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
 		fmMod.connect(reciprocalInputScaler);
-		const reciprocal = new WaveShaperNode(context, {curve: synth.reciprocalTable});
+		const reciprocal = new WaveShaperNode(context, {curve: reciprocalTable});
 		reciprocalInputScaler.connect(reciprocal);
 		const reciprocalShift = new ConstantSourceNode(context, {offset: -1});
 		this.reciprocalShift = reciprocalShift;
@@ -228,12 +228,11 @@ class PSG {
 		this.opnBaseNote = 256 * opnFrequencyStep;
 		this.lfoRateMultiplier = opnClock / 8000000;
 
-		const reciprocalTable = [];
+		const reciprocalTable = new Float32Array(this.maxFrequency + 1);
 		reciprocalTable[0] = (2 - 2 ** -23) * 2 ** 127;
 		for (let i = 1; i <= this.maxFrequency; i++) {
 			reciprocalTable[i] = 1 / i;
 		}
-		this.reciprocalTable = reciprocalTable;
 
 		const lfo1 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo1 = lfo1;
@@ -245,7 +244,7 @@ class PSG {
 		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numWaveChannels; i++) {
-			const channel = new PSGChannel(this, context, lfo1, lfo2, channelGain);
+			const channel = new PSGChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
 			channels[i] = channel;
 		}
 		this.channels = channels;
@@ -353,4 +352,5 @@ class PSG {
 
 export {
 	PSGChannel, PSG,
+	AM_PRESETS, CLOCK_RATE, CLOCK_RATIO
 }
