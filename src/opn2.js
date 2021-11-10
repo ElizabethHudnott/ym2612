@@ -806,7 +806,7 @@ class PMChannel {
 			const index = indexOfGain(operatorNum, i);
 			this.gains[index].value = modulations[index];
 		}
-		this.operators[operatorNum - 1].setVolume[outputLevels[operatorNum - 1]];
+		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
