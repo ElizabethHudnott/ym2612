@@ -1,12 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-	<title>OPN2 Test</title>
+	<title>Mega Drone</title>
+	<script src="lib/jquery-3.6.0.slim.min.js"></script>
+	<script src="lib/bootstrap.bundle.min.js"></script>
 	<script src="ui.js" type="module"></script>
+	<link rel="stylesheet" href="lib/bootstrap.min.css">
+	<link rel="stylesheet" href="fonts/tangerine.css">
+	<link rel="stylesheet" href="page.css">
+	<meta name="viewport" content="initial-scale=1, minimum-scale=1">
 </head>
 <body>
-	<button id="btn-init" type="button">Initialize</button><br>
-	<button id="btn-note" type="button">Play Note</button><br>
-	<button id="btn-sound-off" type="button">Sound Off</button>
+	<form class="container bg-theme-dark" id="instrument-panel">
+		<fieldset class="panel">
+			<h1>Algorithm</h1>
+			<div class="row mb-5">
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="0" id="algorithm-0" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-0">
+					<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4">
+				</label>
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="1" id="algorithm-1" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-1">
+					<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4">
+				</label>
+			</div>
+			<div class="row mb-5">
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="2" id="algorithm-2" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-2">
+					<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4">
+				</label>
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="3" id="algorithm-3" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-3">
+					<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4">
+				</label>
+			</div>
+			<div class="row mb-5">
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="4" id="algorithm-4" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-4">
+					<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4">
+				</label>
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="5" id="algorithm-5" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-5">
+					<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4">
+				</label>
+			</div>
+			<div class="row form-group">
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="6" id="algorithm-6" class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-6">
+					<img src="img/algorithm-6.png" alt="1&rarr;3">
+				</label>
+				<div class="col-1 my-auto text-center">
+					<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="grayscale">
+				</div>
+				<label class="col-5 my-auto" for="algorithm-7">
+					<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4">
+				</label>
+			</div>
+		</fieldset>
+		<fieldset class="panel">
+			<h1>LFO</h1>
+			<div class="row form-group">
+				<div class="col-6 my-auto">
+					<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-frequency-slider">
+				</div>
+				<div class="col-auto">
+					<div class="input-group">
+						<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control text-right" id="lfo-frequency" disabled>
+						<div class="input-group-append">
+							<span class="input-group-text">Hz</span>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row form-group">
+				<div class="col-auto">
+					<div class="mb-1">
+						Slow
+						<div class="custom-control custom-switch custom-control-inline">
+							<input type="checkbox" class="custom-control-input" id="fast-lfo">
+							<label class="custom-control-label" for="fast-lfo">Fast</label>
+						</div>
+					</div>
+					<div class="form-check">
+						<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
+						<label for="lfo-frequency-free">Free Choice</label>
+					</div>
+				</div>
+			</div>
+		</fieldset>
+	</form>
 </body>
 </html>

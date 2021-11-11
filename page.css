@@ -1,0 +1,108 @@
+:root {
+	--border-color: hsl(300, 100%, 60%);
+}
+body {
+	background-color:  #e6e6e6;
+}
+
+#instrument-panel {
+	max-width:  800px;
+	min-height:  100vh;
+	padding:  12px;
+}
+
+h1 {
+	font-size:  2.75rem;
+}
+
+input[type="range"] {
+	-webkit-appearance: none;
+	background: transparent;
+	width: 100%;
+}
+
+input[type=range]:focus-visible {
+	border-radius:  11px 5px;
+	outline: var(--border-color) solid 1px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+	-webkit-appearance: none;
+	background: linear-gradient(to right, hsl(305, 65%, 6%), hsl(305, 65%, 15%));
+	border-radius:  11px 5px;
+	cursor: pointer;
+	height: 16px;
+}
+
+input[type="range"]:hover::-webkit-slider-runnable-track {
+	background: linear-gradient(to right, hsl(305, 50%, 4%), hsl(300, 50%, 12%));
+}
+
+input[type="range"]::-moz-range-track {
+	background-image: linear-gradient(to right, hsl(305, 65%, 6%), hsl(305, 65%, 15%));
+	border-radius:  11px 5px;
+}
+
+input[type="range"]:hover::-moz-range-track {
+	background: linear-gradient(to right, hsl(305, 50%, 4%), hsl(300, 50%, 12%));
+}
+
+input[type=range]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	border: 1px solid #1c1c1c;
+	height: 28px;
+	width: 44px;
+	border-radius: 5px;
+	background-color: black;
+	cursor: pointer;
+	margin-top:  -7px;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+	background: #222;
+	border-color: #444;
+}
+
+input[type=range]::-moz-range-thumb {
+	border: 1px solid #111;
+	height: 28px;
+	width: 44px;
+	border-radius: 3px;
+	background-color: black;
+	cursor: pointer;
+}
+
+input[type=range]::-moz-slider-thumb:hover {
+	background: #222;
+	border-color: #444;
+}
+
+.bg-theme-dark {
+	background-color:  hsl(305, 65%, 19%);
+}
+
+.custom-control-input:checked~.custom-control-label::before {
+	border-color:  #557799;
+	background-color: #557799;
+}
+
+.grayscale {
+	filter:  grayscale(1);
+}
+
+.panel {
+	background-color:  hsl(305, 57%, 23%);
+	border-color:  var(--border-color);
+	border-radius:  30px 17px;
+	border-style:  solid;
+	border-width:  1px;
+	color:  hsl(300, 100%, 73%);
+	margin-bottom:  1.5rem;
+	padding:  0.25rem 0.75rem;
+}
+
+.panel h1 {
+	font-family: Tangerine, cursive;
+	font-style:  italic;
+	font-weight: bold;
+}
