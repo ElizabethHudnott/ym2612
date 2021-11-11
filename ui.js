@@ -151,3 +151,19 @@ document.getElementById('lfo-frequency-free').addEventListener('input', function
 		synth.useLFOPreset(presetNum);
 	}
 });
+
+document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	document.getElementById('lfo-delay').value = value;
+	channels.map(c => c.setLFOAttack(value));
+});
+
+document.getElementById('lfo-delay').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	if (value >= 0) {
+		document.getElementById('lfo-delay-slider').value = value;
+		channels.map(c => c.setLFOAttack(value));
+	}
+});
