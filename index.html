@@ -6,7 +6,6 @@
 	<script src="lib/bootstrap.bundle.min.js"></script>
 	<script src="ui.js" type="module"></script>
 	<link rel="stylesheet" href="lib/bootstrap.min.css">
-	<link rel="stylesheet" href="fonts/tangerine.css">
 	<link rel="stylesheet" href="page.css">
 	<meta name="viewport" content="initial-scale=1, minimum-scale=1">
 </head>
@@ -84,23 +83,23 @@
 				</div>
 				<div class="col-6 col-md-3 mb-3 mb-md-0">
 					<div class="input-group">
-						<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control text-right" id="lfo-frequency" disabled>
+						<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display text-right" id="lfo-frequency" disabled>
 						<div class="input-group-append">
-							<span class="input-group-text">Hz</span>
+							<span class="input-group-text led-label">Hz</span>
 						</div>
 					</div>
 				</div>
 			</div>
 			<div class="row form-group">
-				<div class="col-6 small">
+				<div class="col-auto small">
 					Slow
 					<div class="custom-control custom-switch custom-control-inline">
 						<input type="checkbox" class="custom-control-input" id="fast-lfo">
 						<label class="custom-control-label" for="fast-lfo">Fast</label>
 					</div>
 				</div>
-				<div class="col-6">
-					<div class="form-check">
+				<div class="col-auto">
+					<div class="form-check small">
 						<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
 						<label for="lfo-frequency-free">Free Choice</label>
 					</div>
@@ -117,10 +116,36 @@
 				</div>
 				<div class="col-6 col-md-3">
 					<div class="input-group">
-						<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control text-right" id="lfo-delay">
+						<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control led-display text-right" id="lfo-delay">
 						<div class="input-group-append">
-							<span class="input-group-text">seconds</span>
+							<span class="input-group-text led-label">seconds</span>
 						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<label class="col-auto" for="vibrato-slider">
+					Vibrato
+				</label>
+			</div>
+			<div class="row">
+				<div class="col-12 col-md-6 mb-3 my-md-auto">
+					<input type="range" min="0" max="7" value="0" class="form-control-range mt-1" id="vibrato-slider">
+				</div>
+				<div class="col-6 col-md-3">
+					<div class="input-group">
+						<input type="number" min="-999.9" max="999.9" step="0.1" value="0" class="form-control led-display text-right" id="vibrato" disabled>
+						<div class="input-group-append">
+							<span class="input-group-text led-label">cents</span>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row form-group">
+				<div class="col-6">
+					<div class="form-check small">
+						<input type="checkbox" id="vibrato-free" class="form-check-input">
+						<label for="vibrato-free">Free Choice</label>
 					</div>
 				</div>
 			</div>

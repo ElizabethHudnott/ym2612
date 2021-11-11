@@ -983,7 +983,7 @@ class PMChannel {
 	}
 
 	getVibratoDepth() {
-		return this.vibratoDepth.value;
+		return Math.log2(this.vibratoDepth.value + 1) * 1200;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {

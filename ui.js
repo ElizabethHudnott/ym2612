@@ -1,4 +1,4 @@
-import {LFO_FREQUENCIES} from './src/common.js';
+import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './src/common.js';
 import GenesisSound from './src/genesis.js';
 import YM2612 from './src/ym2612.js';
 let context, channels;
@@ -166,4 +166,84 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 		document.getElementById('lfo-delay-slider').value = value;
 		channels.map(c => c.setLFOAttack(value));
 	}
+});
+
+function vibratoPresetToCents(x) {
+	if (x === 0) {
+		return 0;
+	} else if (x <= 3) {
+		return 3.3 * x + 0.1;
+	} else if (x < 5) {
+		return 10 * 2 ** ((x - 3) / 2);
+	} else {
+		return 10 * 2 ** (x - 4);
+	}
+}
+
+function centsToVibratoPreset(cents) {
+	cents = Math.abs(cents);
+	if (cents <= 0.1) {
+		return 0;
+	} else if (cents <= 10) {
+		return (cents - 0.1) / 3.3;
+	} else if (cents < 20) {
+		return Math.log2(cents / 10) * 2 + 3;
+	} else {
+		return Math.log2(cents / 10) + 4;
+	}
+}
+
+document.getElementById('vibrato-slider').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	const free = document.getElementById('vibrato-free').checked;
+	const box = document.getElementById('vibrato');
+	let cents;
+	if (free) {
+		const sign = channels[0].getVibratoDepth() < 0 ? -1 : 1;
+		cents = sign * vibratoPresetToCents(value);
+	} else {
+		cents = VIBRATO_PRESETS[value];
+	}
+	box.value = Math.round(cents * 10) / 10;
+	channels.map(c => c.setVibratoDepth(cents));
+});
+
+document.getElementById('vibrato-free').addEventListener('input', function (event) {
+	const slider = document.getElementById('vibrato-slider');
+	const box = document.getElementById('vibrato');
+	const free = this.checked;
+	box.disabled = !free;
+	if (free) {
+		slider.step = 0.02;
+	} else {
+		let cents = Math.abs(channels[0].getVibratoDepth());
+		let presetNum = centsToVibratoPreset(cents);
+		const lowerPresetNum = Math.trunc(presetNum);
+		const upperPresetNum = Math.ceil(presetNum);
+		const lowerCents = VIBRATO_PRESETS[lowerPresetNum];
+		const upperCents = VIBRATO_PRESETS[upperPresetNum];
+		const lowerDelta = cents - lowerCents;
+		const upperDelta = upperCents - cents;
+		if (upperDelta <= lowerDelta) {
+			presetNum = upperPresetNum;
+			cents = upperCents;
+		} else {
+			presetNum = lowerPresetNum;
+			cents = lowerCents;
+		}
+		slider.step = 1;
+		slider.value = presetNum;
+		box.value = cents;
+		channels.map(c => c.setVibratoDepth(cents));
+	}
+});
+
+document.getElementById('vibrato').addEventListener('input', function (event) {
+	const cents = parseFloat(this.value);
+	if (!Number.isFinite(cents)) {
+		return;
+	}
+	document.getElementById('vibrato-slider').value = centsToVibratoPreset(cents);
+	channels.map(c => c.setVibratoDepth(cents));
 });

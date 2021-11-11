@@ -1,11 +1,28 @@
+@font-face {
+	font-family: 'Genos';
+	font-display: swap;
+	font-style: italic;
+	font-weight: 100;
+	src: url('fonts/genos.woff2');
+}
+
+@font-face {
+	font-family: 'Digital 7';
+	font-display: swap;
+	src: url('fonts/digital-7-monoitalic.ttf');
+}
+
 :root {
 	--border-color: hsl(300, 100%, 60%);
 }
 body {
-	background-color:  #e6e6e6;
+	background-image: url('img/wood.jpg');
+	background-position: left center;
+	background-repeat: repeat-x;
 }
 
 #instrument-panel {
+	border-radius: 14px;
 	max-width:  800px;
 	min-height:  100vh;
 	padding:  12px;
@@ -13,6 +30,11 @@ body {
 
 h1 {
 	font-size:  2.75rem;
+}
+
+.form-check.small>.form-check-input {
+	width:  11px;
+	height:  11px;
 }
 
 input[type="range"] {
@@ -49,32 +71,52 @@ input[type="range"]:hover::-moz-range-track {
 
 input[type=range]::-webkit-slider-thumb {
 	-webkit-appearance: none;
-	border: 1px solid #1c1c1c;
 	height: 28px;
 	width: 44px;
-	border-radius: 5px;
-	background-color: black;
+	border-radius: 3px;
+	background-image: linear-gradient(to right, #000, #222 38%, #000 50%, #222 62%, #000 100%);
 	cursor: pointer;
 	margin-top:  -7px;
 }
 
 input[type=range]::-webkit-slider-thumb:hover {
-	background: #222;
-	border-color: #444;
+	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
 }
 
 input[type=range]::-moz-range-thumb {
-	border: 1px solid #111;
 	height: 28px;
 	width: 44px;
 	border-radius: 3px;
-	background-color: black;
+	background-color: linear-gradient(to right, #000, #222 38%, #000 50%, #222 62%, #000 100%);
 	cursor: pointer;
 }
 
 input[type=range]::-moz-slider-thumb:hover {
-	background: #222;
-	border-color: #444;
+	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
+}
+
+.led-display, .led-display:disabled, .led-display:focus {
+	background-color: black;
+	border-radius: 0;
+	color: #fbb;
+	text-shadow:
+		0 0 7px #ff9999,
+		0 0 10px #804c4c
+}
+
+.led-display {
+	border-color: #777 #3c3c3c #777 #3c3c3c;
+	border-style: inset;
+	border-width: 2px;
+	font-family: 'Digital 7', monospace;
+	font-size:  110%;
+}
+
+.led-label {
+	background-color: black;
+	border: 0;
+	border-radius: 0;
+	color: #ddd;
 }
 
 .bg-theme-dark {
@@ -93,7 +135,6 @@ input[type=range]::-moz-slider-thumb:hover {
 .panel {
 	background-color:  hsl(305, 57%, 23%);
 	border-color:  var(--border-color);
-	border-radius:  30px 17px;
 	border-style:  solid;
 	border-width:  1px;
 	color:  hsl(300, 100%, 73%);
@@ -102,7 +143,7 @@ input[type=range]::-moz-slider-thumb:hover {
 }
 
 .panel h1 {
-	font-family: Tangerine, cursive;
+	font-family: Genos, sans-serif;
 	font-style:  italic;
 	font-weight: bold;
 }
