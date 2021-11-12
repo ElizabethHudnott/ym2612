@@ -16,20 +16,16 @@
 	--border-color: hsl(300, 100%, 60%);
 }
 body {
+	background-color: #270400;
 	background-image: url('img/wood.jpg');
-	background-position: left center;
 	background-repeat: repeat-x;
+	overflow-y: scroll;
 }
 
 #instrument-panel {
-	border-radius: 14px;
 	max-width:  800px;
 	min-height:  100vh;
 	padding:  12px;
-}
-
-h1 {
-	font-size:  2.75rem;
 }
 
 .form-check.small>.form-check-input {
@@ -95,6 +91,31 @@ input[type=range]::-moz-slider-thumb:hover {
 	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
 }
 
+.nav {
+	margin-bottom: 0.7rem;
+}
+
+.nav-pills .nav-link {
+	border-radius: 0;
+	font-family: Genos, sans-serif;
+	font-size: 1.1rem;
+	font-weight: bold;
+}
+
+.nav-pills .nav-link:not(.active) {
+	color: #808080;
+	background-color: hsl(305, 65%, 15%);
+}
+
+.nav-pills .nav-item:not(:last-child) {
+	margin-right: 10px;
+}
+
+.nav-pills .nav-link.active, .nav-pills .show>.nav-link {
+	color: #ddd;
+	background-color: hsl(305deg 65% 37%);
+}
+
 .led-display, .led-display:disabled, .led-display:focus {
 	background-color: black;
 	border-radius: 0;
@@ -139,7 +160,7 @@ input[type=range]::-moz-slider-thumb:hover {
 	border-width:  1px;
 	color:  hsl(300, 100%, 73%);
 	margin-bottom:  1.5rem;
-	padding:  0.25rem 0.75rem;
+	padding: 15px 0.75rem;
 }
 
 .panel h1 {

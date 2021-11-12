@@ -11,145 +11,164 @@
 </head>
 <body>
 	<form class="container bg-theme-dark" id="instrument-panel">
-		<fieldset class="panel">
-			<h1>Algorithm</h1>
-			<div class="row">
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="0" id="algorithm-0" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-0">
-					<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4">
-				</label>
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="1" id="algorithm-1" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-1">
-					<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100">
-				</label>
-			</div>
-			<div class="row">
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="2" id="algorithm-2" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-2">
-					<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100">
-				</label>
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="3" id="algorithm-3" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-3">
-					<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100">
-				</label>
-			</div>
-			<div class="row">
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="4" id="algorithm-4" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-4">
-					<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4">
-				</label>
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="5" id="algorithm-5" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-5">
-					<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100">
-				</label>
-			</div>
-			<div class="row form-group">
-				<div class="col-2 col-md-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="6" id="algorithm-6" class="grayscale">
-				</div>
-				<label class="col-10 col-md-5 my-4" for="algorithm-6">
-					<img src="img/algorithm-6.png" alt="1&rarr;3">
-				</label>
-				<div class="col-1 my-auto text-center">
-					<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="grayscale">
-				</div>
-				<label class="col-5 my-auto" for="algorithm-7">
-					<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4">
-				</label>
-			</div>
-		</fieldset>
-		<fieldset class="panel">
-			<h1>LFO</h1>
-			<div class="row">
-				<label class="col-auto" for="lfo-frequency-slider">
-					Frequency
-				</label>
-			</div>
-			<div class="row mb-md-2">
-				<div class="col-12 col-md-6 mb-3 my-md-auto">
-					<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-frequency-slider">
-				</div>
-				<div class="col-6 col-md-3 mb-3 mb-md-0">
-					<div class="input-group">
-						<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display text-right" id="lfo-frequency" disabled>
-						<div class="input-group-append">
-							<span class="input-group-text led-label">Hz</span>
+		<ul class="nav nav-pills nav-fill" role="tablist">
+			<li class="nav-item" role="presentation">
+				<a class="nav-link active" id="instrument-tab" data-toggle="tab" href="#instrument" role="tab" aria-controls="home" aria-selected="true">
+					Instrument
+				</a>
+			</li>
+			<li class="nav-item" role="presentation">
+				<a class="nav-link" id="operator-4-tab" data-toggle="tab" href="#operator-4" role="tab" aria-controls="home" aria-selected="false">
+					Operator 4
+				</a>
+			</li>
+		</ul>
+		<div class="tab-content">
+			<div class="tab-pane fade show active" id="instrument" role="tabpanel" aria-labelledby="instrument-tab">
+				<fieldset class="panel">
+					<h1>Algorithm</h1>
+					<div class="row">
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="0" id="algorithm-0" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-0">
+							<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4">
+						</label>
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="1" id="algorithm-1" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-1">
+							<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100">
+						</label>
+					</div>
+					<div class="row">
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="2" id="algorithm-2" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-2">
+							<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100">
+						</label>
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="3" id="algorithm-3" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-3">
+							<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100">
+						</label>
+					</div>
+					<div class="row">
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="4" id="algorithm-4" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-4">
+							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4">
+						</label>
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="5" id="algorithm-5" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-5">
+							<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100">
+						</label>
+					</div>
+					<div class="row form-group">
+						<div class="col-2 col-md-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="6" id="algorithm-6" class="grayscale">
+						</div>
+						<label class="col-10 col-md-5 my-4" for="algorithm-6">
+							<img src="img/algorithm-6.png" alt="1&rarr;3">
+						</label>
+						<div class="col-1 my-auto text-center">
+							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="grayscale">
+						</div>
+						<label class="col-5 my-auto" for="algorithm-7">
+							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4">
+						</label>
+					</div>
+				</fieldset>
+				<fieldset class="panel">
+					<h1>LFO</h1>
+					<div class="row">
+						<label class="col-auto" for="lfo-frequency-slider">
+							Frequency
+						</label>
+					</div>
+					<div class="row mb-md-2">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-frequency-slider">
+						</div>
+						<div class="col-6 col-md-3 mb-3 mb-md-0">
+							<div class="input-group">
+								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display text-right" id="lfo-frequency" disabled>
+								<div class="input-group-append">
+									<span class="input-group-text led-label">Hz</span>
+								</div>
+							</div>
 						</div>
 					</div>
-				</div>
-			</div>
-			<div class="row form-group">
-				<div class="col-auto small">
-					Slow
-					<div class="custom-control custom-switch custom-control-inline">
-						<input type="checkbox" class="custom-control-input" id="fast-lfo">
-						<label class="custom-control-label" for="fast-lfo">Fast</label>
-					</div>
-				</div>
-				<div class="col-auto">
-					<div class="form-check small">
-						<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
-						<label for="lfo-frequency-free">Free Choice</label>
-					</div>
-				</div>
-			</div>
-			<div class="row">
-				<label class="col-auto" for="lfo-delay-slider">
-					Delay
-				</label>
-			</div>
-			<div class="row form-group">
-				<div class="col-12 col-md-6 mb-3 my-md-auto">
-					<input type="range" min="0" max="10.7" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
-				</div>
-				<div class="col-6 col-md-3">
-					<div class="input-group">
-						<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control led-display text-right" id="lfo-delay">
-						<div class="input-group-append">
-							<span class="input-group-text led-label">seconds</span>
+					<div class="row form-group">
+						<div class="col-auto small">
+							Slow
+							<div class="custom-control custom-switch custom-control-inline">
+								<input type="checkbox" class="custom-control-input" id="fast-lfo">
+								<label class="custom-control-label" for="fast-lfo">Fast</label>
+							</div>
+						</div>
+						<div class="col-auto">
+							<div class="form-check small">
+								<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
+								<label for="lfo-frequency-free">Free Choice</label>
+							</div>
 						</div>
 					</div>
-				</div>
-			</div>
-			<div class="row">
-				<label class="col-auto" for="vibrato-slider">
-					Vibrato
-				</label>
-			</div>
-			<div class="row">
-				<div class="col-12 col-md-6 mb-3 my-md-auto">
-					<input type="range" min="0" max="7" value="0" class="form-control-range mt-1" id="vibrato-slider">
-				</div>
-				<div class="col-6 col-md-3">
-					<div class="input-group">
-						<input type="number" min="-999.9" max="999.9" step="0.1" value="0" class="form-control led-display text-right" id="vibrato" disabled>
-						<div class="input-group-append">
-							<span class="input-group-text led-label">cents</span>
+					<div class="row">
+						<label class="col-auto" for="lfo-delay-slider">
+							Delay
+						</label>
+					</div>
+					<div class="row form-group">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="10.7" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="input-group">
+								<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control led-display text-right" id="lfo-delay">
+								<div class="input-group-append">
+									<span class="input-group-text led-label">seconds</span>
+								</div>
+							</div>
 						</div>
 					</div>
-				</div>
-			</div>
-			<div class="row form-group">
-				<div class="col-6">
-					<div class="form-check small">
-						<input type="checkbox" id="vibrato-free" class="form-check-input">
-						<label for="vibrato-free">Free Choice</label>
+					<div class="row">
+						<label class="col-auto" for="vibrato-slider">
+							Vibrato
+						</label>
 					</div>
-				</div>
+					<div class="row">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="7" value="0" class="form-control-range mt-1" id="vibrato-slider">
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="input-group">
+								<input type="number" min="-999.9" max="999.9" step="0.1" value="0" class="form-control led-display text-right" id="vibrato" disabled>
+								<div class="input-group-append">
+									<span class="input-group-text led-label">cents</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<div class="col-6">
+							<div class="form-check small">
+								<input type="checkbox" id="vibrato-free" class="form-check-input">
+								<label for="vibrato-free">Free Choice</label>
+							</div>
+						</div>
+					</div>
+				</fieldset>
 			</div>
-		</fieldset>
+
+			<div class="tab-pane fade show" id="operator-4" role="tabpanel" aria-labelledby="operator-4-tab">
+			</div>
+		</div>
 	</form>
 </body>
 </html>
