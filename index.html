@@ -11,19 +11,14 @@
 </head>
 <body>
 	<form class="container bg-theme-dark" id="instrument-panel">
-		<ul class="nav nav-pills nav-fill" role="tablist">
+		<ul class="nav nav-pills nav-fill" role="tablist" id="instrument-tablist">
 			<li class="nav-item" role="presentation">
-				<a class="nav-link active" id="instrument-tab" data-toggle="tab" href="#instrument" role="tab" aria-controls="home" aria-selected="true">
+				<a class="nav-link active" id="instrument-tab" data-toggle="tab" href="#instrument" role="tab" aria-controls="instrument" aria-selected="true">
 					Instrument
 				</a>
 			</li>
-			<li class="nav-item" role="presentation">
-				<a class="nav-link" id="operator-4-tab" data-toggle="tab" href="#operator-4" role="tab" aria-controls="home" aria-selected="false">
-					Operator 4
-				</a>
-			</li>
 		</ul>
-		<div class="tab-content">
+		<div class="tab-content" id="instrument-tabs">
 			<div class="tab-pane fade show active" id="instrument" role="tabpanel" aria-labelledby="instrument-tab">
 				<fieldset class="panel">
 					<h1>Algorithm</h1>
@@ -166,9 +161,42 @@
 				</fieldset>
 			</div>
 
-			<div class="tab-pane fade show" id="operator-4" role="tabpanel" aria-labelledby="operator-4-tab">
-			</div>
 		</div>
+		<template id="operator-template">
+			<div class="tab-pane fade show" id="operator-$" role="tabpanel" aria-labelledby="operator-$-tab" data-operator="$">
+				<fieldset class="panel">
+					<h1>Frequency</h1>
+					<div class="row">
+						<div class="col-4 col-md-2 my-auto">
+							<div class="form-check">
+								<input type="radio" name="op$-freq-fixed" id="op$-freq-unfixed" class="form-check-input" checked>
+								<label for="op$-freq-unfixed">Multiple</label>
+							</div>
+						</div>
+						<div class="col-auto">
+							<select id="op$-multiple-preset" class="form-control led-display text-right">
+								<option value="0.5">0.5</option>
+								<option value="1" selected>1</option>
+								<option value="2">2</option>
+								<option value="3">3</option>
+								<option value="4">4</option>
+								<option value="5">5</option>
+								<option value="6">6</option>
+								<option value="7">7</option>
+								<option value="8">8</option>
+								<option value="9">9</option>
+								<option value="10">10</option>
+								<option value="11">11</option>
+								<option value="12">12</option>
+								<option value="13">13</option>
+								<option value="14">14</option>
+								<option value="15">15</option>
+							</select>
+						</div>
+					</div>
+				</fieldset>
+			</div>
+		</template>
 	</form>
 </body>
 </html>

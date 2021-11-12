@@ -247,3 +247,49 @@ document.getElementById('vibrato').addEventListener('input', function (event) {
 	document.getElementById('vibrato-slider').value = centsToVibratoPreset(cents);
 	channels.map(c => c.setVibratoDepth(cents));
 });
+
+function getOperator(element) {
+	while (element !== null) {
+		if ('operator' in element.dataset) {
+			return parseInt(element.dataset.operator);
+		}
+		element = element.parentElement;
+	}
+}
+
+function setFrequencyMultiple(event) {
+	initialize();
+	const value = parseFloat(this.value);
+	if (Number.isFinite(value)) {
+		const opNum = getOperator(this);
+		channels.map(c => c.setFrequencyMultiple(opNum, value, 0));
+	}
+}
+
+let domParser = new DOMParser();
+
+function createOperatorPage(n) {
+	const li = document.createElement('LI');
+	li.className = 'nav-item';
+	const anchor = document.createElement('A');
+	anchor.innerHTML = 'Operator ' + n;
+	anchor.className = 'nav-link';
+	const id = 'operator-' + n + '-tab';
+	anchor.id = id;
+	anchor.dataset.toggle = 'tab';
+	anchor.href = '#operator-' + n;
+	li.appendChild(anchor);
+	document.getElementById('instrument-tablist').appendChild(li);
+
+	let html = document.getElementById('operator-template').innerHTML;
+	html = html.replace(/\$/g, n);
+	const doc = domParser.parseFromString(html, 'text/html');
+	doc.getElementById('op' + n + '-multiple-preset').addEventListener('input', setFrequencyMultiple);
+	document.getElementById('instrument-tabs').append(doc.body.children[0]);
+}
+
+createOperatorPage(1);
+createOperatorPage(2);
+createOperatorPage(3);
+createOperatorPage(4);
+domParser = undefined;
