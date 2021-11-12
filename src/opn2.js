@@ -379,6 +379,7 @@ class PMOperator {
 		this.frequencyMultiple = 1;
 		this.detune = 0;
 		this.keyIsOn = false;
+		this.freeRunning = false;
 	}
 
 	/**Starts the operator's oscillator.
@@ -518,7 +519,7 @@ class PMOperator {
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
-			let makeNewOscillator = true;
+			let makeNewOscillator = !this.freeRunning;
 			if (this.lastFreqChange > time) {
 				makeNewOscillator = false;
 			}
@@ -607,6 +608,14 @@ class PMOperator {
 
 	getRelease() {
 		return this.envelope.getRelease();
+	}
+
+	setFreeRunning(enabled) {
+		this.freeRunning = enabled;
+	}
+
+	getFreeRunning() {
+		return this.freeRunning;
 	}
 
 }
@@ -824,7 +833,7 @@ class PMChannel {
 					)
 				) {
 					// Turn a frequency multiple into a fixed frequency.
-					fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
+					const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
 					[block, freqNum] = fullFreqToComponents(fullFreqNumber);
 					this.freqBlockNumbers[operatorNum - 1] = block;
 					this.frequencyNumbers[operatorNum - 1] = freqNum;

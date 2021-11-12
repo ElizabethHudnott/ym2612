@@ -15,8 +15,9 @@
 :root {
 	--border-color: hsl(300, 100%, 60%);
 }
+
 body {
-	background-color: #270400;
+	background-color: #270000;
 	background-image: url('img/wood.jpg');
 	background-repeat: repeat-x;
 	overflow-y: scroll;
@@ -91,15 +92,12 @@ input[type=range]::-moz-slider-thumb:hover {
 	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
 }
 
-.nav {
-	margin-bottom: 0.7rem;
-}
-
 .nav-pills .nav-link {
 	border-radius: 0;
 	font-family: Genos, sans-serif;
 	font-size: 1.1rem;
 	font-weight: bold;
+	margin-bottom:  4px;
 }
 
 .nav-pills .nav-link:not(.active) {
@@ -131,6 +129,7 @@ input[type=range]::-moz-slider-thumb:hover {
 	border-width: 2px;
 	font-family: 'Digital 7', monospace;
 	font-size:  110%;
+	text-align: right;
 }
 
 .led-label {
@@ -142,6 +141,10 @@ input[type=range]::-moz-slider-thumb:hover {
 
 .bg-theme-dark {
 	background-color:  hsl(305, 65%, 19%);
+}
+
+.w-fit {
+	width: fit-content;
 }
 
 .custom-control-input:checked~.custom-control-label::before {

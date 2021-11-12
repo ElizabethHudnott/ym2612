@@ -257,13 +257,34 @@ function getOperator(element) {
 	}
 }
 
-function setFrequencyMultiple(event) {
+function frequencyMultipleSlider(event) {
 	initialize();
-	const value = parseFloat(this.value);
-	if (Number.isFinite(value)) {
-		const opNum = getOperator(this);
-		channels.map(c => c.setFrequencyMultiple(opNum, value, 0));
+	let value = parseFloat(this.value);
+	if (value === 0) {
+		value = 0.5;
 	}
+	const opNum = getOperator(this);
+	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
+	document.getElementById('op' + opNum + '-multiple').value = value;
+	channels.map(c => {
+		c.fixFrequency(opNum, false);
+		c.setFrequencyMultiple(opNum, value, 0)
+	});
+}
+
+function setFrequency(event) {
+	initialize();
+	const opNum = getOperator(this);
+	document.getElementById('op' + opNum + '-freq-fixed').checked = true;
+	const block = parseInt(document.getElementById('op' + opNum + '-block').value);
+	let freqNum = parseInt(document.getElementById('op' + opNum + '-freq-num').value);
+	if (!(freqNum >= 0 && freqNum <= 2047)) {
+		freqNum = synth.getOperator(opNum).getFrequencyNumber();
+	}
+	channels.map(c => {
+		c.fixFrequency(opNum, true);
+		c.setOperatorFrequency(opNum, block, freqNum);
+	});
 }
 
 let domParser = new DOMParser();
@@ -284,7 +305,9 @@ function createOperatorPage(n) {
 	let html = document.getElementById('operator-template').innerHTML;
 	html = html.replace(/\$/g, n);
 	const doc = domParser.parseFromString(html, 'text/html');
-	doc.getElementById('op' + n + '-multiple-preset').addEventListener('input', setFrequencyMultiple);
+	doc.getElementById('op' + n + '-multiple-slider').addEventListener('input', frequencyMultipleSlider);
+	doc.getElementById('op' + n + '-block').addEventListener('input', setFrequency);
+	doc.getElementById('op' + n + '-freq-num').addEventListener('input', setFrequency);
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
 }
 
