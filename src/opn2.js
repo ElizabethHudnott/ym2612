@@ -3,22 +3,6 @@ import {
 	LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
-const MAX_DB = 54;
-
-/**
- * @param {number} x A number between 0 and 1
- * @return {number} A number between 0 and 1.
- */
-function logToLinear(x) {
-	return x === 0 ? 0 : 10 ** (MAX_DB / 20 * (x - 1));
-}
-
-const DB_CURVE = new Array(2049);
-DB_CURVE.fill(0, 0, 1025);
-for (let i = 1025; i < 2049; i++) {
-	DB_CURVE[i] = logToLinear((i - 1024) / 1023);
-}
-
 let supportsCancelAndHold;
 
 function cancelAndHoldAtTime(param, holdValue, time) {
@@ -73,7 +57,7 @@ class Envelope {
 	/**Creates an envelope.
 	 * @param {GainNode} output The GainNode to be controlled by the envelope.
 	 */
-	constructor(synth, context, output) {
+	constructor(synth, context, output, dbCurve) {
 		this.synth = synth;
 		output.gain.value = 0;
 		const gainNode = new ConstantSourceNode(context, {offset: 0});
@@ -86,16 +70,16 @@ class Envelope {
 		const scaleNode = new GainNode(context, {gain: 1 / 1024});
 		gainNode.connect(scaleNode);
 		totalLevelNode.connect(scaleNode);
-		const shaper = new WaveShaperNode(context, {curve: DB_CURVE});
+		const shaper = new WaveShaperNode(context, {curve: dbCurve});
 		scaleNode.connect(shaper);
 		shaper.connect(output.gain);
 
 		this.rateScaling = 0;
 		this.attackRate = 16;
-		this.decayRate = 16;
+		this.decayRate = 12;
 		this.sustainRate = 0;
 		this.releaseRate = 16;
-		this.sustain = 352;		// Already converted into an attenuation value.
+		this.sustain = 576;		// Already converted into an attenuation value.
 
 		// Values stored during key on.
 		this.beginAttack = 0;
@@ -151,14 +135,24 @@ class Envelope {
 	}
 
 	/**
-	 * @param {number} level Between -16 and 16
+	 * @param {number} level Between 0 and 16
 	 */
 	setSustain(level) {
-		this.sustain = 512 - level * 32;
+		let gain = level === 0 ? 1023 : 1024 - level * 32;
+		if (level > 14) {
+			gain -= 512;
+		}
+		this.sustain = gain;
 	}
 
 	getSustain() {
-		return (512 - this.sustain) / 32;
+		let gain = this.sustain;
+		if (gain === 1023) {
+			return 0;
+		} else if (gain < 512) {
+			gain += 512;
+		}
+		return (1024 - gain) / 32;
 	}
 
 	setSustainRate(rate) {
@@ -288,7 +282,7 @@ class Envelope {
 	 * @param {number} time When to stop outputting audio. Defaults to ceasing sound production immediately.
 	 */
 	soundOff(time = 0) {
-		cancelAndHoldAtTime(this.gain, 1, time);
+		cancelAndHoldAtTime(this.gain, 0, time);
 	}
 
 }
@@ -338,7 +332,7 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(synth, context, lfModulator, amModulator, output) {
+	constructor(synth, context, lfModulator, amModulator, output, dbCurve) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
@@ -360,7 +354,7 @@ class PMOperator {
 
 		const envelopeGain = new GainNode(context);
 		amMod.connect(envelopeGain);
-		this.envelope = new Envelope(synth, context, envelopeGain);
+		this.envelope = new Envelope(synth, context, envelopeGain, dbCurve);
 		this.envelopeGain = envelopeGain;
 
 		if (output !== undefined) {
@@ -682,7 +676,7 @@ function indexOfGain(modulatorOpNum, carrierOpNum) {
 
 class PMChannel {
 
-	constructor(synth, context, lfo, output) {
+	constructor(synth, context, lfo, output, dbCurve) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const volume = new GainNode(context);
@@ -706,10 +700,10 @@ class PMChannel {
 		lfoEnvelope.connect(vibratoGain);
 		this.vibratoDepth = vibratoGain.gain;
 
-		const op1 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
-		const op2 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
-		const op3 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
-		const op4 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper);
+		const op1 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op2 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op3 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op4 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -1108,9 +1102,19 @@ class PMSynth {
 		channelGain.connect(output);
 		this.channelGain = channelGain.gain;
 
+		function logToLinear(x) {
+			return x === 0 ? 0 : 10 ** (54 / 20 * (x - 1));
+		}
+
+		const dbCurve = new Array(2049);
+		dbCurve.fill(0, 0, 1025);
+		for (let i = 1025; i < 2049; i++) {
+			dbCurve[i] = logToLinear((i - 1024) / 1023);
+		}
+
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, channelGain);
+			const channel = new PMChannel(this, context, lfo, channelGain, dbCurve);
 			channels[i] = channel;
 		}
 		this.channels = channels;
@@ -1266,7 +1270,7 @@ class PMSynth {
 
 export {
 	Envelope, PMOperator, PMChannel, PMSynth,
-	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
+	decibelReductionToAmplitude, amplitudeToDecibels, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
 
 const ATTACK_STEPS = [294912, 294912, 147456, 147456, 98304, 98304, 73728, 59392, 49152,

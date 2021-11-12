@@ -1,0 +1,12 @@
+
+Pitch bend
+Bigger detune
+Level scaling
+Master tune
+
+Envelopes
+	Frequency (channel)
+	Frequency multiple
+	Frequency (operator)
+	ADSR, linear, 3 rates (no sustain rate), 2 levels (+begin/end level)
+		see DX11 manual
