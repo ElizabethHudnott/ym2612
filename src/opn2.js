@@ -80,6 +80,8 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 16;
 		this.sustain = 576;		// Already converted into an attenuation value.
+		this.inverted = false;
+		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 
 		// Values stored during key on.
 		this.beginAttack = 0;
@@ -171,6 +173,17 @@ class Envelope {
 		return (this.releaseRate - 1) / 2;
 	}
 
+	setSSG(mode) {
+		if (mode < 8) {
+			this.inverted = false;
+			this.jump = false;
+			return;
+		}
+		mode -= 8;
+		this.inverted = mode >= 4;
+		this.jump = [0, 3, 4, 7].includes(mode);
+	}
+
 	/**
 	 * Don't call with rate = 0, because that means infinite time.
 	 */
@@ -184,52 +197,65 @@ class Envelope {
 	 */
 	keyOn(keyCode, time) {
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
+		const tickRate = this.synth.envelopeTick;
 		const gain = this.gain;
+		const invert = this.inverted;
+		const ssgScale = invert || this.jump ? 6 : 1;
 
 		let endAttack = time;
-		let attackRate;
-		if (this.attackRate === 0) {
-			attackRate = 0;
+		if (invert) {
+			cancelAndHoldAtTime(gain, 0, time);
 		} else {
-			attackRate = Math.min(Math.round(2 * this.attackRate) + rateAdjust, 63);
+			let attackRate;
+			if (this.attackRate === 0) {
+				attackRate = 0;
+			} else {
+				attackRate = Math.min(Math.round(2 * this.attackRate) + rateAdjust, 63);
+			}
+			if (attackRate <= 1) {
+				// Level never rises
+				cancelAndHoldAtTime(gain, 0, time);
+				this.endSustain = time;
+				return;
+			} else if (attackRate < 62) {
+				// Non-infinite attack
+				cancelAndHoldAtTime(gain, 0, time);
+				const target = ATTACK_TARGET[attackRate - 2];
+				const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
+				gain.setTargetAtTime(target, time, timeConstant);
+				this.beginAttack = time;
+				this.prevAttackRate = attackRate;
+				endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
+			}
+			gain.setValueAtTime(1023, endAttack);
 		}
-		if (attackRate <= 1) {
-			// Level never rises
-			cancelAndHoldAtTime(gain, 0, time);
-			this.endSustain = time;
-			return;
-		} else if (attackRate < 62) {
-			// Non-infinite attack
-			cancelAndHoldAtTime(gain, 0, time);
-			const tickRate = this.synth.envelopeTick;
-			const target = ATTACK_TARGET[attackRate - 2];
-			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
-			gain.setTargetAtTime(target, time, timeConstant);
-			this.beginAttack = time;
-			this.prevAttackRate = attackRate;
-			endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
-		}
-		gain.setValueAtTime(1023, endAttack);
 		this.endAttack = endAttack;
 
 		if (this.decayRate === 0) {
-			this.endDecay = Infinity;
-			this.endSustain = Infinity;
+			const endTime = invert ? time : Infinity;
+			this.endDecay = endTime;
+			this.endSustain = endTime;
 			return;
 		}
 
-		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust);
+		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / ssgScale;
 		const endDecay = endAttack + decay;
-		gain.linearRampToValueAtTime(this.sustain, endDecay);
+		const sustain = invert ? 1023 - this.sustain : this.sustain;
+		gain.linearRampToValueAtTime(sustain, endDecay);
 		this.endDecay = endDecay;
 		if (this.sustainRate === 0) {
 			this.endSustain = Infinity;
 			return;
 		}
 
-		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust);
+		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
 		const endSustain = endDecay + sustainTime;
-		gain.linearRampToValueAtTime(0, endSustain);
+		gain.linearRampToValueAtTime(invert ? 1023 : 0, endSustain);
+		this.endSustain = endSustain;
+
+		if (this.jump) {
+			gain.linearRampToValueAtTime(invert ? 0 : 1023, endSustain + tickRate);
+		}
 	}
 
 	linearValueAtTime(time) {
@@ -239,11 +265,11 @@ class Envelope {
 		let linearValue;
 
 		if (time >= endSustain) {
-			return 0;
+			return this.jump ^ this.inverted ? 1023 : 0;
 		}
 
 		if (time >= endDecay) {
-			// In the sustain phase
+			// In the sustain phase.
 			if (endSustain === Infinity) {
 				linearValue = this.sustain;
 			} else {
@@ -251,7 +277,7 @@ class Envelope {
 				linearValue = this.sustain * (1 - timeProportion);
 			}
 		} else if (time >= endAttack) {
-			// In the decay phase
+			// In the decay phase.
 			if (endDecay === Infinity) {
 				linearValue = 1023;
 			} else {
@@ -259,10 +285,14 @@ class Envelope {
 				linearValue = 1023 -  timeProportion * (1023 - this.sustain);
 			}
 		} else {
+			// In the attack phase.
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
-			linearValue = target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
+			return target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
+		}
+		if (this.inverted) {
+			linearValue = 1023 - linearValue;
 		}
 		return linearValue;
 	}
@@ -272,7 +302,8 @@ class Envelope {
 	keyOff(keyCode, time) {
 		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
-		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust);
+		const ssgScale = this.inverted || this.jump ? 6 : 1;
+		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue, time);
 		gain.linearRampToValueAtTime(0, time + releaseTime);
@@ -602,6 +633,10 @@ class PMOperator {
 
 	getRelease() {
 		return this.envelope.getRelease();
+	}
+
+	setSSG(mode) {
+		this.envelope.setSSG(mode);
 	}
 
 	setFreeRunning(enabled) {
