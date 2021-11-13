@@ -10,3 +10,6 @@ Envelopes
 	Frequency (operator)
 	ADSR, linear, 3 rates (no sustain rate), 2 levels (+begin/end level)
 		see DX11 manual
+
+Bugs
+	initial envelope value should not be forced to zero

@@ -1,8 +1,8 @@
 const TIMER_IMPRECISION = 0.002;
 
 const CLOCK_RATE = {
-	PAL: 	7600489,
-	NTSC: 	7670454
+	PAL: 	53203424 / 7,
+	NTSC: 	53693175 / 7
 }
 
 const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0, 0, 0, 0, 0, 0];

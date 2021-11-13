@@ -67,11 +67,9 @@ class Envelope {
 		const totalLevelNode = new ConstantSourceNode(context, {offset: 0});
 		this.totalLevelNode = totalLevelNode;
 		this.totalLevel = totalLevelNode.offset;
-		const scaleNode = new GainNode(context, {gain: 1 / 1024});
-		gainNode.connect(scaleNode);
-		totalLevelNode.connect(scaleNode);
 		const shaper = new WaveShaperNode(context, {curve: dbCurve});
-		scaleNode.connect(shaper);
+		gainNode.connect(shaper);
+		totalLevelNode.connect(shaper);
 		shaper.connect(output.gain);
 
 		this.rateScaling = 0;
@@ -105,11 +103,11 @@ class Envelope {
 	 * For Algorithm 7, set total level to at least 122 to avoid distortion.
 	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		this.totalLevel[method](-level * 8, time);
+		this.totalLevel[method](-level / 128, time);
 	}
 
 	getTotalLevel() {
-		return -totalLevel.value / 8;
+		return -Math.round(totalLevel.value * 128);
 	}
 
 	setRateScaling(amount) {
@@ -220,14 +218,14 @@ class Envelope {
 			} else if (attackRate < 62) {
 				// Non-infinite attack
 				cancelAndHoldAtTime(gain, 0, time);
-				const target = ATTACK_TARGET[attackRate - 2];
+				const target = ATTACK_TARGET[attackRate - 2] / 1023;
 				const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
 				gain.setTargetAtTime(target, time, timeConstant);
 				this.beginAttack = time;
 				this.prevAttackRate = attackRate;
 				endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
 			}
-			cancelAndHoldAtTime(gain, 1023, endAttack);
+			cancelAndHoldAtTime(gain, 1, endAttack);
 		}
 		this.endAttack = endAttack;
 
@@ -241,7 +239,7 @@ class Envelope {
 		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / ssgScale;
 		const endDecay = endAttack + decay;
 		const sustain = invert ? 1023 - this.sustain : this.sustain;
-		gain.linearRampToValueAtTime(sustain, endDecay);
+		gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		this.endDecay = endDecay;
 		if (this.sustainRate === 0) {
 			this.endSustain = Infinity;
@@ -250,11 +248,11 @@ class Envelope {
 
 		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
 		const endSustain = endDecay + sustainTime;
-		gain.linearRampToValueAtTime(invert ? 1023 : 0, endSustain);
+		gain.linearRampToValueAtTime(invert ? 1 : 0, endSustain);
 		this.endSustain = endSustain;
 
 		if (this.jump) {
-			gain.linearRampToValueAtTime(invert ? 0 : 1023, endSustain + tickRate);
+			gain.linearRampToValueAtTime(invert ? 0 : 1, endSustain + tickRate);
 		}
 	}
 
@@ -305,7 +303,7 @@ class Envelope {
 		const ssgScale = this.inverted || this.jump ? 6 : 1;
 		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
 		const gain = this.gain;
-		cancelAndHoldAtTime(gain, currentValue, time);
+		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		gain.linearRampToValueAtTime(0, time + releaseTime);
 	}
 
@@ -549,8 +547,10 @@ class PMOperator {
 				makeNewOscillator = false;
 			}
 			const frequency = this.frequency;
-			let period = 0;
-			if (frequency > 0) {
+			let period;
+			if (frequency === 0) {
+				period = this.synth.frequencyStep;
+			} else {
 				period = 1 / frequency;
 				if (context.currentTime + TIMER_IMPRECISION + period >= time) {
 					makeNewOscillator = false;
