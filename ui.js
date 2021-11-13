@@ -272,7 +272,54 @@ function frequencyMultipleSlider(event) {
 	});
 }
 
-function setFrequency(event) {
+function frequencyMultiple(event) {
+	const opNum = getOperator(this);
+	const valueStr = this.value;
+	let numerator = parseFloat(valueStr);
+	if (!(numerator >= 0)) {
+		return;
+	}
+	let denominator = 1;
+	const slashIndex = valueStr.indexOf('/');
+	if (slashIndex !== -1) {
+		denominator = parseInt(valueStr.slice(slashIndex + 1));
+		if (!(denominator > 0)) {
+			return;
+		}
+	}
+	const value = numerator / denominator;
+	document.getElementById('op' + opNum + '-multiple-slider').value = value;
+	channels.map(c => c.setFrequencyMultiple(opNum, value, 0));
+}
+
+function frequencyFreeMultiple(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const slider = document.getElementById('op' + opNum + '-multiple-slider');
+	const box = document.getElementById('op' + opNum + '-multiple');
+	let value = channels[0].getFrequencyMultiple(opNum);
+	box.disabled = !this.checked;
+	if (this.checked) {
+		slider.step = 0.01;
+		if (value < 1) {
+			slider.value = value; // 0..1 on the slider represent those exact values.
+		}
+		return;
+	}
+	slider.step = 1;
+	if (value < 0.75) {
+		value = 0.5;
+	} else if (value > 15) {
+		value = 15;
+	} else {
+		value = Math.round(value);
+	}
+	slider.value = value === 0.5 ? 0 : value;	// 0 on the slider represents 0.5.
+	box.value = value;
+	channels.map(c => c.setFrequencyMultiple(opNum, value, 0));
+}
+
+function frequency(event) {
 	initialize();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-fixed').checked = true;
@@ -305,9 +352,12 @@ function createOperatorPage(n) {
 	let html = document.getElementById('operator-template').innerHTML;
 	html = html.replace(/\$/g, n);
 	const doc = domParser.parseFromString(html, 'text/html');
-	doc.getElementById('op' + n + '-multiple-slider').addEventListener('input', frequencyMultipleSlider);
-	doc.getElementById('op' + n + '-block').addEventListener('input', setFrequency);
-	doc.getElementById('op' + n + '-freq-num').addEventListener('input', setFrequency);
+	const opStr = 'op' + n;
+	doc.getElementById(opStr + '-multiple-slider').addEventListener('input', frequencyMultipleSlider);
+	doc.getElementById(opStr + '-multiple').addEventListener('input', frequencyMultiple);
+	doc.getElementById(opStr + '-multiple-free').addEventListener('input', frequencyFreeMultiple);
+	doc.getElementById(opStr + '-block').addEventListener('input', frequency);
+	doc.getElementById(opStr + '-freq-num').addEventListener('input', frequency);
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
 }
 

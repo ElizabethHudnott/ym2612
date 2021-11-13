@@ -227,7 +227,7 @@ class Envelope {
 				this.prevAttackRate = attackRate;
 				endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
 			}
-			gain.setValueAtTime(1023, endAttack);
+			cancelAndHoldAtTime(gain, 1023, endAttack);
 		}
 		this.endAttack = endAttack;
 
@@ -1138,10 +1138,10 @@ class PMSynth {
 		this.channelGain = channelGain.gain;
 
 		function logToLinear(x) {
-			return x === 0 ? 0 : 10 ** (54 / 20 * (x - 1));
+			return 10 ** (54 / 20 * (x - 1));
 		}
 
-		const dbCurve = new Array(2049);
+		const dbCurve = new Float32Array(2049);
 		dbCurve.fill(0, 0, 1025);
 		for (let i = 1025; i < 2049; i++) {
 			dbCurve[i] = logToLinear((i - 1024) / 1023);

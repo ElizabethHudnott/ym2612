@@ -29,11 +29,6 @@ body {
 	padding:  12px;
 }
 
-.form-check.small>.form-check-input {
-	width:  11px;
-	height:  11px;
-}
-
 input[type="range"] {
 	-webkit-appearance: none;
 	background: transparent;
