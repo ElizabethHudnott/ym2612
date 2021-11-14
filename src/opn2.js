@@ -82,11 +82,16 @@ class Envelope {
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 
 		// Values stored during key on.
+		this.beginLevel = 0;
+		this.hasAttack = true;
 		this.beginAttack = 0;
 		this.prevAttackRate = 0;
 		this.endAttack = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
+		this.beginRelease = 0;
+		this.releaseLevel = 0;
+		this.endRelease = 0;
 	}
 
 	start(time = 0) {
@@ -200,6 +205,26 @@ class Envelope {
 		const invert = this.inverted;
 		const ssgScale = invert || this.jump ? 6 : 1;
 
+		let beginLevel = 0;
+		const endRelease = this.endRelease;
+		if (endRelease > 0) {
+			//I.e. it's not the first time the envelope ran.
+			if (time >= endRelease) {
+				// Release phase ended.
+				beginLevel = this.jump ? 1023 : 0;
+			} else {
+				// Still in the release phase
+				const beginRelease = this.beginRelease;
+				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
+				beginLevel = this.releaseLevel * (1 - timeProportion);
+			}
+			if (invert) {
+				beginLevel = 1023 - beginLevel;
+			}
+		}
+
+		this.beginLevel = beginLevel;
+		this.hasAttack = true;
 		let endAttack = time;
 		if (invert) {
 			cancelAndHoldAtTime(gain, 0, time);
@@ -212,18 +237,26 @@ class Envelope {
 			}
 			if (attackRate <= 1) {
 				// Level never rises
-				cancelAndHoldAtTime(gain, 0, time);
-				this.endSustain = time;
+				if (beginLevel === 0) {
+					this.endSustain = time;
+				} else {
+					cancelAndHoldAtTime(gain, beginLevel, time);
+					this.hasAttack = false;
+					this.endAttack = time;
+					this.endDecay = Infinity;
+					this.endSustain = Infinity;
+				}
 				return;
-			} else if (attackRate < 62) {
+			} else if (attackRate < 62 && beginLevel < 1023) {
 				// Non-infinite attack
-				cancelAndHoldAtTime(gain, 0, time);
-				const target = ATTACK_TARGET[attackRate - 2] / 1023;
+				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+				const target = ATTACK_TARGET[attackRate - 2];
 				const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
-				gain.setTargetAtTime(target, time, timeConstant);
+				gain.setTargetAtTime(target / 1023, time, timeConstant);
 				this.beginAttack = time;
 				this.prevAttackRate = attackRate;
-				endAttack += ATTACK_STEPS[attackRate - 2] * tickRate;
+				const attackTime = -timeConstant * Math.log((1023 - target) / (beginLevel - target));
+				endAttack += attackTime;
 			}
 			cancelAndHoldAtTime(gain, 1, endAttack);
 		}
@@ -263,10 +296,12 @@ class Envelope {
 		let linearValue;
 
 		if (time >= endSustain) {
-			return this.jump ^ this.inverted ? 1023 : 0;
-		}
 
-		if (time >= endDecay) {
+			// Sustain decayed to zero
+			linearValue = this.jump ? 1023 : 0;
+
+		} else if (time >= endDecay) {
+
 			// In the sustain phase.
 			if (endSustain === Infinity) {
 				linearValue = this.sustain;
@@ -274,7 +309,9 @@ class Envelope {
 				const timeProportion = (time - endDecay) / (endSustain - endDecay);
 				linearValue = this.sustain * (1 - timeProportion);
 			}
+
 		} else if (time >= endAttack) {
+
 			// In the decay phase.
 			if (endDecay === Infinity) {
 				linearValue = 1023;
@@ -282,13 +319,24 @@ class Envelope {
 				const timeProportion = (time - endAttack) / (endDecay - endAttack);
 				linearValue = 1023 -  timeProportion * (1023 - this.sustain);
 			}
+
+		} else if (!this.hasAttack) {
+
+			// Attack rate was 0.
+			return this.beginLevel;
+
 		} else {
+
 			// In the attack phase.
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
-			return target * (1 - Math.exp(-(time - this.beginAttack) / timeConstant));
+			const beginAttack = this.beginAttack;
+			const beginLevel = this.beginLevel;
+			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
+
 		}
+
 		if (this.inverted) {
 			linearValue = 1023 - linearValue;
 		}
@@ -304,7 +352,11 @@ class Envelope {
 		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
-		gain.linearRampToValueAtTime(0, time + releaseTime);
+		const endRelease = time + releaseTime;
+		gain.linearRampToValueAtTime(0, endRelease);
+		this.beginRelease = time;
+		this.releaseLevel = currentValue;
+		this.endRelease = endRelease;
 	}
 
 	/**Cuts audio output without going through the envelope's release phase.
@@ -1141,10 +1193,10 @@ class PMSynth {
 			return 10 ** (54 / 20 * (x - 1));
 		}
 
-		const dbCurve = new Float32Array(2049);
-		dbCurve.fill(0, 0, 1025);
-		for (let i = 1025; i < 2049; i++) {
-			dbCurve[i] = logToLinear((i - 1024) / 1023);
+		const dbCurve = new Float32Array(2047);
+		dbCurve.fill(0, 0, 1024);
+		for (let i = 1024; i < 2047; i++) {
+			dbCurve[i] = logToLinear((i - 1023) / 1023);
 		}
 
 		const channels = [];
@@ -1307,12 +1359,6 @@ export {
 	Envelope, PMOperator, PMChannel, PMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
-
-const ATTACK_STEPS = [294912, 294912, 147456, 147456, 98304, 98304, 73728, 59392, 49152,
-42496, 36864, 29696, 24576, 21248, 18432, 14848, 12288, 10624, 9216, 7424, 6144, 5312,
-4608, 3712, 3072, 2656, 2304, 1856, 1536, 1328, 1152, 928, 768, 664, 576, 464, 384, 332,
-288, 232, 192, 166, 144, 116, 96, 83, 72, 58, 48, 41, 35, 28, 23, 19, 16, 12, 10, 9, 7,
-7];
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
 1032.48838867428, 1032.53583418919, 1032.53583418919, 1032.48838867428, 1032.47884850242,
