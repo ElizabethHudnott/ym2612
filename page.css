@@ -87,6 +87,14 @@ input[type=range]::-moz-slider-thumb:hover {
 	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
 }
 
+.btn-group-toggle .btn {
+	border-width: 2px;
+}
+
+.btn-group-toggle .active {
+	border-style: inset;
+}
+
 .nav-pills .nav-link {
 	border-radius: 0;
 	font-family: Genos, sans-serif;

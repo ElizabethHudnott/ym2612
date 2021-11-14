@@ -4,7 +4,7 @@ import {PSG, CLOCK_RATIO} from './psg.js';
 export default class GenesisSound {
 
 	constructor(context, output = context.destination, ymClockRate = CLOCK_RATE.PAL, psgClockRate = ymClockRate / CLOCK_RATIO) {
-		const filter = new BiquadFilterNode(context, {frequency: 10000});
+		const filter = new BiquadFilterNode(context, {frequency: 10000, Q: 0});
 		filter.connect(output);
 		this.filter = filter;
 		this.fm = new PMSynth(context, filter, 6, ymClockRate);
@@ -27,14 +27,6 @@ export default class GenesisSound {
 
 	getFilterCutoff() {
 		return this.filter.frequency.value;
-	}
-
-	setFilterResonance(decibels, time = 0, method = 'setValueAtTime') {
-		this.filter.Q[method](decibels, time);
-	}
-
-	getFilterResonance() {
-		return this.filter.Q.value;
 	}
 
 }

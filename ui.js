@@ -366,3 +366,21 @@ createOperatorPage(2);
 createOperatorPage(3);
 createOperatorPage(4);
 domParser = undefined;
+
+function enableOperator(event) {
+	const opNum = parseInt(this.id[2]);
+	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = false;
+	channels.map(c => c.enableOperator(opNum));
+}
+
+function disableOperator(event) {
+	initialize();
+	const opNum = parseInt(this.id[2]);
+	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = true;
+	channels.map(c => c.disableOperator(opNum));
+}
+
+for (let i = 1; i <=4; i++) {
+	document.getElementById('op' + i + '-enabled').addEventListener('input', enableOperator);
+	document.getElementById('op' + i + '-disabled').addEventListener('input', disableOperator);
+}
