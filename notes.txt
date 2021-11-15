@@ -3,6 +3,7 @@ Pitch bend
 Bigger detune
 Level scaling
 Master tune
+Initial phase offset
 
 Envelopes
 	Frequency (channel)

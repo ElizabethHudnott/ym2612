@@ -13,6 +13,11 @@
 	<form class="container bg-theme-dark" id="instrument-panel">
 		<ul class="nav nav-pills nav-fill mb-1" role="tablist" id="instrument-tablist">
 			<li class="nav-item" role="presentation">
+				<a class="nav-link" id="ym2612-system-tab" data-toggle="tab" href="#ym2612-system" role="tab" aria-controls="ym2612-system">
+					System
+				</a>
+			</li>
+			<li class="nav-item" role="presentation">
 				<a class="nav-link active" id="instrument-tab" data-toggle="tab" href="#instrument" role="tab" aria-controls="instrument" aria-selected="true">
 					Instrument
 				</a>
@@ -217,9 +222,64 @@
 				</fieldset>
 			</div>
 
+			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
+				<fieldset class="panel">
+					<h1>Filter</h1>
+					<div class="row form-group">
+						<div class="col-auto">
+							<div class="custom-control custom-switch">
+								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
+								<label class="custom-control-label" for="filter-enable">
+									Low Pass Filter
+								</label>
+							</div>
+						</div>
+					</div>
+					<div id="filter-config" class="collapse show">
+						<div class="row">
+							<label class="col-auto" for="filter-cutoff-slider">
+								Cutoff
+							</label>
+						</div>
+						<div class="row form-group">
+							<div class="col-12 col-md-6 mb-3 my-md-auto">
+								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="input-group">
+									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">Hz</span>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<label class="col-auto" for="filter-q-slider">
+								Resonance
+							</label>
+						</div>
+						<div class="row form-group">
+							<div class="col-12 col-md-6 mb-3 my-md-auto">
+								<input type="range" min="-20" max="20" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="input-group">
+									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">dB</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</fieldset>
+			</div>
+
 		</div>
+
 		<template id="operator-template">
-			<div class="tab-pane fade show" id="operator-$" role="tabpanel" aria-labelledby="operator-$-tab" data-operator="$">
+			<div class="tab-pane fade" id="operator-$" role="tabpanel" aria-labelledby="operator-$-tab" data-operator="$">
 				<fieldset class="panel">
 					<h1>Frequency</h1>
 					<div class="row">
@@ -229,7 +289,7 @@
 								<label for="op$-freq-unfixed">Multiple</label>
 							</div>
 						</div>
-						<div class="col-12 col-md-6 mb-3 my-md-auto pl-0">
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="15" value="1" class="form-control-range mt-1" id="op$-multiple-slider">
 						</div>
 						<div class="col-4 col-md-2">
@@ -237,8 +297,8 @@
 						</div>
 					</div>
 					<div class="row form-group">
-						<div class="col-4 col-md-2"></div>
-						<div class="col-auto">
+						<div class="d-none d-md-block col-2"></div>
+						<div class="col-auto pl-md-0">
 							<div class="form-check small">
 								<input type="checkbox" id="op$-multiple-free" class="form-check-input">
 								<label for="op$-multiple-free">Free Choice</label>
@@ -247,8 +307,8 @@
 					</div>
 					<div class="row">
 						<div class="col-4 col-md-2"></div>
-						<div class="col-2 col-md-1 px-0">Octave</div>
-						<div class="col-auto">Note</div>
+						<div class="col-2 col-md-1 px-0 text-center">Octave</div>
+						<div class="col-2 text-center">Note</div>
 					</div>
 					<div class="row form-group">
 						<div class="col-4 col-md-2 my-auto">
@@ -269,8 +329,32 @@
 								<option>7&nbsp;</option>
 							</select>
 						</div>
-						<div class="col-auto">
+						<div class="col-2">
 							<input type="number" min="0" max="2047" value="1093" class="form-control led-display" id="op$-freq-num">
+						</div>
+					</div>
+				</fieldset>
+				<fieldset class="panel">
+					<h1>Volume Envelope</h1>
+					<div class="row">
+						<label class="col-auto" for="op$-rate-scale-slider">
+							Rate Scaling
+						</label>
+					</div>
+					<div class="row">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="3" value="0" class="form-control-range mt-1" id="op$-rate-scale-slider">
+						</div>
+						<div class="col-4 col-md-2">
+							<input type="number" min="-1" max="8.9" step="0.1" value="0" class="form-control led-display" id="op$-rate-scale" disabled>
+						</div>
+					</div>
+					<div class="row form-group">
+						<div class="col-auto">
+							<div class="form-check small">
+								<input type="checkbox" id="op$-rate-scale-free" class="form-check-input">
+								<label for="op$-rate-scale-free">Free Choice</label>
+							</div>
 						</div>
 					</div>
 				</fieldset>

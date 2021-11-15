@@ -417,7 +417,13 @@ class PMOperator {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		const delay = new DelayNode(context, {delayTime: 1 / 440, maxDelayTime:  1 / synth.frequencyStep});
+		/* Smallest frequency (longest period) is 1/2 of the frequency step (operator multiple = 0.5)
+		 * Two modulators can modulate a single carrier, doubling the maximum phase offset
+		 * Plus the LFO too. Allow +-1/2 cycle for that, which is more than needed but it
+		 * makes the numbers easier.
+		 */
+		const maxDelay = 3 * 2 / synth.frequencyStep;
+		const delay = new DelayNode(context, {delayTime: 1.5 / 440, maxDelayTime:  maxDelay});
 		sine.connect(delay);
 		this.delay = delay;
 		const delayAmp = new GainNode(context, {gain: 1 / 880});
@@ -513,10 +519,11 @@ class PMOperator {
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
 		}
-		const frequency = fullFreqNumber * frequencyMultiple * this.synth.frequencyStep;
+		const frequencyStep = this.synth.frequencyStep;
+		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 		this.sine.frequency[method](frequency, time);
-		const period = 1 / (frequency === 0 ? this.synth.frequencyStep : frequency);
-		this.delay.delayTime[method](period, time);
+		const period = 1 / Math.max(frequency, 0.5 * frequencyStep);
+		this.delay.delayTime[method](1.5 * period, time);
 		this.delayAmp.gain[method](0.5 * period, time);
 		this.frequency = frequency;
 		this.lastFreqChange = time;
@@ -594,27 +601,25 @@ class PMOperator {
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
-			let makeNewOscillator = !this.freeRunning;
-			if (this.lastFreqChange > time) {
-				makeNewOscillator = false;
-			}
 			const frequency = this.frequency;
-			let period;
-			if (frequency === 0) {
-				period = this.synth.frequencyStep;
-			} else {
-				period = 1 / frequency;
-				if (context.currentTime + TIMER_IMPRECISION + period >= time) {
-					makeNewOscillator = false;
+
+			let makeNewOscillator =
+				!this.freeRunning &&
+				frequency !== 0 &&
+				this.lastFreqChange <= time;
+
+			if (makeNewOscillator) {
+				const maxDelay = 3 / frequency;
+				if (context.currentTime + TIMER_IMPRECISION + maxDelay < time) {
+					const newSine = new OscillatorNode(context, {frequency: frequency});
+					const switchOverTime = time - maxDelay;
+					newSine.start(switchOverTime);
+					newSine.connect(this.delay);
+					this.sine.stop(switchOverTime);
+					this.sine = newSine;
 				}
 			}
-			if (makeNewOscillator) {
-				const newSine = new OscillatorNode(context, {frequency: frequency});
-				newSine.start(time - period);
-				newSine.connect(this.delay);
-				this.sine.stop(time - period);
-				this.sine = newSine;
-			}
+
 			this.envelope.keyOn(this.keyCode, time);
 			this.keyIsOn = true;
 		}
@@ -894,7 +899,7 @@ class PMChannel {
 		const outputLevels = algorithm[1]
 		for (let i = operatorNum + 1; i <= 4; i++) {
 			const index = indexOfGain(operatorNum, i);
-			this.gains[index].value = modulations[index];
+			this.gains[index].value = modulations[index - 1];
 		}
 		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
 	}

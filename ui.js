@@ -18,7 +18,6 @@ function initialize() {
 	window.ym2612 = new YM2612(soundSystem.fm);
 
 	soundSystem.start(context.currentTime + 0.01);
-	soundSystem.setFilterCutoff(20000);
 	synth.setChannelGain(6);
 }
 
@@ -35,8 +34,65 @@ document.body.addEventListener('keyup', function (event) {
 	channels[0].keyOff(context.currentTime + 0.1);
 });
 
+let filterFrequency, filterQ;
+
+document.getElementById('filter-enable').addEventListener('input', function (event) {
+	initialize();
+	if (this.checked) {
+		soundSystem.setFilterCutoff(filterFrequency);
+		soundSystem.setFilterResonance(filterQ);
+	} else {
+		filterFrequency = soundSystem.getFilterCutoff();
+		soundSystem.setFilterCutoff(21050);
+		filterQ = soundSystem.getFilterResonance();
+		soundSystem.setFilterResonance(0);
+	}
+});
+
+document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
+	initialize();
+	filterFrequency = parseInt(this.value);
+	const box = document.getElementById('filter-cutoff');
+	box.value = filterFrequency;
+	soundSystem.setFilterCutoff(filterFrequency);
+});
+
+document.getElementById('filter-cutoff').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	if (value >= 0) {
+		document.getElementById('filter-cutoff-slider').value = value;
+		soundSystem.setFilterCutoff(value);
+		filterFrequency = value;
+	}
+});
+
+document.getElementById('filter-q-slider').addEventListener('input', function (event) {
+	initialize();
+	filterQ = parseFloat(this.value);
+	const box = document.getElementById('filter-q');
+	box.value = filterQ;
+	soundSystem.setFilterResonance(filterQ);
+});
+
+document.getElementById('filter-q').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	if (value >= -770.63678 && value <= 770.63678) {
+		document.getElementById('filter-q-slider').value = value;
+		soundSystem.setFilterResonance(value);
+		filterQ = value;
+	}
+});
+
 function algorithmRadio(event) {
 	initialize();
+	for (let i = 1; i <=4; i++) {
+		const checkbox = document.getElementById('op' + i + '-enabled');
+		if (!checkbox.checked) {
+			checkbox.click();
+		}
+	}
 	const algorithmNumber = parseInt(this.id.slice(-1));
 	channels.map(c => c.useAlgorithm(algorithmNumber));
 }
@@ -210,6 +266,7 @@ document.getElementById('vibrato-slider').addEventListener('input', function (ev
 });
 
 document.getElementById('vibrato-free').addEventListener('input', function (event) {
+	initialize();
 	const slider = document.getElementById('vibrato-slider');
 	const box = document.getElementById('vibrato');
 	const free = this.checked;
@@ -326,12 +383,29 @@ function frequency(event) {
 	const block = parseInt(document.getElementById('op' + opNum + '-block').value);
 	let freqNum = parseInt(document.getElementById('op' + opNum + '-freq-num').value);
 	if (!(freqNum >= 0 && freqNum <= 2047)) {
-		freqNum = synth.getOperator(opNum).getFrequencyNumber();
+		freqNum = channels[0].getOperator(opNum).getFrequencyNumber();
 	}
 	channels.map(c => {
 		c.fixFrequency(opNum, true);
 		c.setOperatorFrequency(opNum, block, freqNum);
 	});
+}
+
+function rateScaleSlider(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	document.getElementById('op' + opNum + '-rate-scale').value = value;
+	channels.map(c => c.getOperator(opNum).setRateScaling(value));
+}
+
+function rateScale(event) {
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	if (Number.isFinite(value)) {
+		document.getElementById('op' + opNum + '-rate-scale-slider').value = value;
+		channels.map(c => c.getOperator(opNum).setRateScaling(value));
+	}
 }
 
 let domParser = new DOMParser();
@@ -358,6 +432,8 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-multiple-free').addEventListener('input', frequencyFreeMultiple);
 	doc.getElementById(opStr + '-block').addEventListener('input', frequency);
 	doc.getElementById(opStr + '-freq-num').addEventListener('input', frequency);
+	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaleSlider);
+	doc.getElementById(opStr + '-rate-scale').addEventListener('input', rateScale);
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
 }
 

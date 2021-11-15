@@ -53,8 +53,10 @@ input[type="range"]:hover::-webkit-slider-runnable-track {
 }
 
 input[type="range"]::-moz-range-track {
-	background-image: linear-gradient(to right, hsl(305, 65%, 6%), hsl(305, 65%, 15%));
+	background: linear-gradient(to right, hsl(305, 65%, 6%), hsl(305, 65%, 15%));
 	border-radius:  11px 5px;
+	cursor: pointer;
+	height: 16px;
 }
 
 input[type="range"]:hover::-moz-range-track {
@@ -79,20 +81,21 @@ input[type=range]::-moz-range-thumb {
 	height: 28px;
 	width: 44px;
 	border-radius: 3px;
-	background-color: linear-gradient(to right, #000, #222 38%, #000 50%, #222 62%, #000 100%);
+	border-color: #181818;
+	background-color: #000;
 	cursor: pointer;
 }
 
-input[type=range]::-moz-slider-thumb:hover {
-	background: linear-gradient(to right, #222, #444 38%, #222 50%, #444 62%, #222 100%);
-}
-
 .btn-group-toggle .btn {
-	border-width: 2px;
+	border-width: 3px;
 }
 
-.btn-group-toggle .active {
+.btn-group-toggle .btn.active {
 	border-style: inset;
+}
+
+.btn-group-toggle .btn:not(.active) {
+	border-style: outset;
 }
 
 .nav-pills .nav-link {
@@ -133,6 +136,11 @@ input[type=range]::-moz-slider-thumb:hover {
 	font-family: 'Digital 7', monospace;
 	font-size:  110%;
 	text-align: right;
+}
+
+input[type="number"].led-display::-webkit-outer-spin-button,
+input[type="number"].led-display::-webkit-inner-spin-button {
+	margin-left: 6px;
 }
 
 .led-label {
