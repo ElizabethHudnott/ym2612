@@ -408,6 +408,29 @@ function rateScale(event) {
 	}
 }
 
+function rateScaleFree(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const slider = document.getElementById('op' + opNum + '-rate-scale-slider');
+	const box = document.getElementById('op' + opNum + '-rate-scale');
+	const free = this.checked;
+	box.disabled = !free;
+	if (free) {
+		slider.step = 0.05;
+	} else {
+		let scaling = Math.round(channels[0].getOperator(opNum).getRateScaling());
+		if (scaling > 3) {
+			scaling = 3;
+		} else if (scaling < 0) {
+			scaling = 0;
+		}
+		slider.step = 1;
+		slider.value = scaling;
+		box.value = scaling;
+		channels.map(c => c.getOperator(opNum).setRateScaling(scaling));
+	}
+}
+
 let domParser = new DOMParser();
 
 function createOperatorPage(n) {
@@ -434,6 +457,7 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-freq-num').addEventListener('input', frequency);
 	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaleSlider);
 	doc.getElementById(opStr + '-rate-scale').addEventListener('input', rateScale);
+	doc.getElementById(opStr + '-rate-scale-free').addEventListener('input', rateScaleFree);
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
 }
 

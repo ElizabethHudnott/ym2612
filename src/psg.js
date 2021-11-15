@@ -112,7 +112,9 @@ class PSGChannel {
 	}
 
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		if (frequency === 0) {
+		const limit = this.synth.frequencyLimit;
+		if (frequency > limit) {
+			this.frequencyControl[method](limit, time);
 			this.waveAmp[method](0, time);
 			this.constant[method](0.5, time);
 		} else {
@@ -211,16 +213,23 @@ class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL) {
 		const frequencies = new Array(1024);
-		this.frequencies = frequencies;
-		const frequencyLimit = context.sampleRate / 2;
 		for (let i = 1; i < 1024; i++) {
 			let frequency = clockRate / (i * 32);
-			if (frequency > frequencyLimit) {
-				frequency = 0;
-			}
 			frequencies[i] = frequency;
 		}
 		frequencies[0] = frequencies[1];
+		this.frequencies = frequencies;
+
+		const frequencyLimit = context.sampleRate / 2;
+		let maxFrequency;
+		for (let i = 1; i < 1024; i++) {
+			if (frequencies[i] <= frequencyLimit) {
+				maxFrequency = frequencies[i];
+				break;
+			}
+		}
+		this.frequencyLimit = frequencyLimit;
+		this.maxFrequency = maxFrequency;
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
 		const opnClock = clockRate * CLOCK_RATIO;
@@ -228,9 +237,9 @@ class PSG {
 		this.opnBaseNote = 256 * opnFrequencyStep;
 		this.lfoRateMultiplier = opnClock / 8000000;
 
-		const reciprocalTable = new Float32Array(this.maxFrequency + 1);
+		const reciprocalTable = new Float32Array(maxFrequency + 1);
 		reciprocalTable[0] = (2 - 2 ** -23) * 2 ** 127;
-		for (let i = 1; i <= this.maxFrequency; i++) {
+		for (let i = 1; i <= maxFrequency; i++) {
 			reciprocalTable[i] = 1 / i;
 		}
 
@@ -296,10 +305,6 @@ class PSG {
 	tunedMIDINotes(a4Pitch) {
 		const frequencyNums = new Array(128);
 		let freqNum = 1;
-		while (this.frequencies[freqNum] === 0) {
-			freqNum++;
-		}
-		this.maxFrequency = Math.ceil(this.frequencies[freqNum]);
 		for (let i = 127; i >= 0; i--) {
 			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
 			let upperFreqNum = freqNum;
