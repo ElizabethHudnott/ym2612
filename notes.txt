@@ -2,8 +2,6 @@
 Pitch bend
 Bigger detune
 Level scaling
-Master tune
-Initial phase offset
 
 Envelopes
 	Frequency (channel)
@@ -11,5 +9,7 @@ Envelopes
 	Frequency (operator)
 	ADSR, linear, 3 rates (no sustain rate), 2 levels (+begin/end level)
 		see DX11 manual
+	Scaled by velocity?
 
-Envelope shift (like DX11)?
+Envelope shift (like DX11)
+Custom envelope on key on after attack phase using setValuesAtTime

@@ -112,7 +112,7 @@ class Envelope {
 	}
 
 	getTotalLevel() {
-		return -Math.round(totalLevel.value * 128);
+		return -Math.round(this.totalLevel.value * 128);
 	}
 
 	setRateScaling(amount) {
