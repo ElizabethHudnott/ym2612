@@ -76,7 +76,7 @@ class Envelope {
 		this.attackRate = 16;
 		this.decayRate = 12;
 		this.sustainRate = 0;
-		this.releaseRate = 16;
+		this.releaseRate = 17;
 		this.sustain = 576;		// Already converted into an attenuation value.
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
@@ -402,10 +402,10 @@ const DETUNE_AMOUNTS = [
  * using phase modulation (PM). There are 4 operators per sound channel and 6 independent
  * channels by default.
  */
-class PMOperator {
+class Operator {
 
 	/**Constructs an instance of an operator. Operators are normally created by
-	 * invoking the {@link PMSynth} constructor.
+	 * invoking the {@link FMSynth} constructor.
 	 * @param {AudioContext} context The Web Audio context.
 	 * @param {AudioNode} lfModulator The signal used as an LFO to control the operator's phase.
 	 * @param {AudioNode} amModulator The signal used to apply amplitude modulation to the oscillator's output.
@@ -413,26 +413,12 @@ class PMOperator {
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(synth, context, lfModulator, amModulator, output, dbCurve) {
+	constructor(synth, context, amModulator, output, dbCurve) {
 		const sine = new OscillatorNode(context);
 		this.sine = sine;
 
-		/* Smallest frequency (longest period) is 1/2 of the frequency step (operator multiple = 0.5)
-		 * Two modulators can modulate a single carrier, doubling the maximum phase offset
-		 * Plus the LFO too. Allow +-1/2 cycle for that, which is more than needed but it
-		 * makes the numbers easier.
-		 */
-		const maxDelay = 3 * 2 / synth.frequencyStep;
-		const delay = new DelayNode(context, {delayTime: 1.5 / 440, maxDelayTime:  maxDelay});
-		sine.connect(delay);
-		this.delay = delay;
-		const delayAmp = new GainNode(context, {gain: 1 / 880});
-		delayAmp.connect(delay.delayTime);
-		this.delayAmp = delayAmp;
-		lfModulator.connect(delayAmp);
-
 		const amMod = new GainNode(context);
-		delay.connect(amMod);
+		this.amModNode = amMod;
 		this.amMod = amMod.gain;
 		const amModGain = new GainNode(context, {gain: 0});
 		amModGain.connect(amMod.gain);
@@ -463,8 +449,9 @@ class PMOperator {
 		this.freeRunning = false;
 	}
 
+
 	/**Starts the operator's oscillator.
-	 * Operators are normally started by calling start() on an instance of {@link PMSynth}.
+	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
 	start(time) {
 		this.sine.start(time);
@@ -472,23 +459,15 @@ class PMOperator {
 	}
 
 	/**Stops the operator's oscillator so that the operator's system resources can be released.
-	 * Operators are normally stopped by calling stop() on an instance of {@link PMSynth}.
+	 * Operators are normally stopped by calling stop() on an instance of {@link FMSynth}.
 	 */
 	stop(time = 0) {
 		this.sine.stop(time);
 		this.envelope.stop(time);
 	}
 
-	/**Configures this operator to have its phase modulated from an external source (usually another operator).
-	 * This method is usually called by the {@link PMChannel} constructor.
-	 * @param {AudioNode} source The source to use to modulate this operator's oscillator.
-	 */
-	connectIn(source) {
-		source.connect(this.delayAmp);
-	}
-
 	/**Configures this operator to modulate an external source (usually another operator).
-	 * This method is usually called by the {@link PMChannel} constructor.
+	 * This method is usually called by the {@link Channel} constructor.
 	 * @param {AudioNode} destination The signal to modulate.
 	 */
 	connectOut(destination) {
@@ -496,10 +475,10 @@ class PMOperator {
 	}
 
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
-	 * {@link PMChannel} (e.g. by its setFrequency() method) but it can also be useful to
+	 * {@link Channel} (e.g. by its setFrequency() method) but it can also be useful to
 	 * invoke this method directly for individual operators to create dissonant sounds.
-	 * @param {number} blockNumber A kind of octave measurement. See {@link PMSynth.noteFrequencies}.
-	 * @param {number} frequencyNumber A linear frequency measurement. See {@link PMSynth.noteFrequencies}.
+	 * @param {number} blockNumber A kind of octave measurement. See {@link FMSynth.noteFrequencies}.
+	 * @param {number} frequencyNumber A linear frequency measurement. See {@link FMSynth.noteFrequencies}.
 	 * @param {number} [frequencyMultiple] After the basic frequency in Hertz is calculated
 	 * from the block number and frequency number the result is then multiplied by this
 	 * number. Defaults to 1.
@@ -522,9 +501,6 @@ class PMOperator {
 		const frequencyStep = this.synth.frequencyStep;
 		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 		this.sine.frequency[method](frequency, time);
-		const period = 1 / Math.max(frequency, 0.5 * frequencyStep);
-		this.delay.delayTime[method](1.5 * period, time);
-		this.delayAmp.gain[method](0.5 * period, time);
 		this.frequency = frequency;
 		this.lastFreqChange = time;
 		this.freqBlockNumber = blockNumber;
@@ -533,15 +509,16 @@ class PMOperator {
 		this.frequencyMultiple = frequencyMultiple;
 	}
 
+
 	/**Returns the block number associated with the operator's current frequency.
-	 * See {@link PMSynth.noteFrequencies}.
+	 * See {@link FMSynth.noteFrequencies}.
 	 */
 	getFrequencyBlock() {
 		return this.freqBlockNumber;
 	}
 
 	/**Returns the frequency number associated with the operator's current frequency.
-	 * See {@link PMSynth.noteFrequencies}.
+	 * See {@link FMSynth.noteFrequencies}.
 	 */
 	getFrequencyNumber() {
 		return this.frequencyNumber;
@@ -569,12 +546,12 @@ class PMOperator {
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
 	 * modulation from the synthesizer's LFO. This method is usually invoked by an instance
-	 * of {@link PMChannel}. Use its enableAM(), useAMPreset() and setAMDepth() methods to
+	 * of {@link Channel}. Use its enableAM(), useAMPreset() and setAMDepth() methods to
 	 * configure amplitude modulation for the operators. However, if you wish then you can
 	 * instead manually initiate amplitude modulation by invoking this method directly. This
 	 * allows different operators to have differing levels of amplitude modulation.
 	 * @param {number} linearAmount The amount of amplitude modulation to apply between 0
-	 * and 1. Unlike the {@link PMChannel} methods this method uses a linear scale. You'll
+	 * and 1. Unlike the {@link Channel} methods this method uses a linear scale. You'll
 	 * probably first want to convert from an exponential (decibels) scale to a linear scale
 	 * using the decibelReductionToAmplitude() function in order to match human perception of
 	 * loudness.
@@ -599,30 +576,9 @@ class PMOperator {
 		return this.mixer.value;
 	}
 
-	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		if (!this.keyIsOn) {
-			const frequency = this.frequency;
-
-			let makeNewOscillator =
-				!this.freeRunning &&
-				frequency !== 0 &&
-				this.lastFreqChange <= time;
-
-			if (makeNewOscillator) {
-				const maxDelay = 3 / frequency;
-				if (context.currentTime + TIMER_IMPRECISION + maxDelay < time) {
-					const newSine = new OscillatorNode(context, {frequency: frequency});
-					const switchOverTime = time - maxDelay;
-					newSine.start(switchOverTime);
-					newSine.connect(this.delay);
-					this.sine.stop(switchOverTime);
-					this.sine = newSine;
-				}
-			}
-
-			this.envelope.keyOn(this.keyCode, time);
-			this.keyIsOn = true;
-		}
+	keyOn(time) {
+		this.envelope.keyOn(this.keyCode, time);
+		this.keyIsOn = true;
 	}
 
 	keyOff(time) {
@@ -706,6 +662,50 @@ class PMOperator {
 
 }
 
+class FMOperator extends Operator {
+
+	constructor(synth, context, lfModulator, amModulator, output, dbCurve) {
+		super(synth, context, amModulator, output, dbCurve);
+		this.sine.connect(this.amModNode);
+		const fmModAmp = new GainNode(context, {gain: 440});
+		fmModAmp.connect(this.sine.frequency);
+		lfModulator.connect(fmModAmp);
+		this.fmModAmp = fmModAmp;
+	}
+
+	connectIn(source) {
+		source.connect(this.fmModAmp);
+	}
+
+	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
+		super.setFrequency(blockNumber, frequencyNumber, frequencyMultiple, time, method);
+		this.fmModAmp.gain[method](this.frequency, time);
+	}
+
+	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
+		if (!this.keyIsOn) {
+			const frequency = this.frequency;
+
+			const makeNewOscillator =
+				!this.freeRunning &&
+				frequency !== 0 &&
+				this.lastFreqChange <= time &&
+				context.currentTime + TIMER_IMPRECISION <= time;
+
+			if (makeNewOscillator) {
+				const newSine = new OscillatorNode(context, {frequency: frequency});
+				newSine.start(time);
+				newSine.connect(this.amModNode);
+				this.sine.stop(time);
+				this.fmModAmp.connect(newSine.frequency);
+				this.sine = newSine;
+			}
+			super.keyOn(time);
+		}
+	}
+
+}
+
 const ALGORITHMS = [
 	/*	[
 			[op1To2Gain, op1To3Gain, op1To4Gain, op2To3Gain, op2To4Gain, op3To4Gain],
@@ -766,7 +766,7 @@ function indexOfGain(modulatorOpNum, carrierOpNum) {
 	return index;
 }
 
-class PMChannel {
+class Channel {
 
 	constructor(synth, context, lfo, output, dbCurve) {
 		this.synth = synth;
@@ -787,15 +787,14 @@ class PMChannel {
 		lfo.connect(lfoEnvelope);
 		this.lfoEnvelope = lfoEnvelope.gain;
 		this.lfoAttack = 0;
-		//LFO modulating phase
 		const vibratoGain = new GainNode(context, {gain: 0});
 		lfoEnvelope.connect(vibratoGain);
 		this.vibratoDepth = vibratoGain.gain;
 
-		const op1 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op2 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op3 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op4 = new PMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op1 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op2 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op3 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op4 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -1183,7 +1182,7 @@ class PMChannel {
 
 }
 
-class PMSynth {
+class FMSynth {
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo = lfo;
@@ -1206,7 +1205,7 @@ class PMSynth {
 
 		const channels = [];
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new PMChannel(this, context, lfo, channelGain, dbCurve);
+			const channel = new Channel(this, context, lfo, channelGain, dbCurve);
 			channels[i] = channel;
 		}
 		this.channels = channels;
@@ -1361,7 +1360,7 @@ class PMSynth {
 }
 
 export {
-	Envelope, PMOperator, PMChannel, PMSynth,
+	Envelope, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
 

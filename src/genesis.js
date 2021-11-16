@@ -1,4 +1,4 @@
-import {PMSynth, CLOCK_RATE} from './opn2.js';
+import {FMSynth, CLOCK_RATE} from './opn2.js';
 import {PSG, CLOCK_RATIO} from './psg.js';
 
 export default class GenesisSound {
@@ -7,7 +7,7 @@ export default class GenesisSound {
 		const filter = new BiquadFilterNode(context, {frequency: 4000, Q: 0});
 		filter.connect(output);
 		this.filter = filter;
-		this.fm = new PMSynth(context, filter, 6, ymClockRate);
+		this.fm = new FMSynth(context, filter, 6, ymClockRate);
 		this.psg = new PSG(context, filter, 3, psgClockRate);
 	}
 
