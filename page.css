@@ -136,6 +136,7 @@ input[type=range]::-moz-range-thumb {
 	font-family: 'Digital 7', monospace;
 	font-size:  110%;
 	text-align: right;
+	min-width:  59px;
 }
 
 input[type="number"].led-display::-webkit-outer-spin-button,
@@ -148,6 +149,16 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	border: 0;
 	border-radius: 0;
 	color: #ddd;
+}
+
+.table-striped-cols th:nth-child(2n),
+.table-striped-cols td:nth-child(2n){
+	background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table-striped-cols th:nth-child(2n + 1),
+.table-striped-cols td:nth-child(2n + 1){
+	background-color: rgba(0, 0, 0, 0.17);
 }
 
 .bg-theme-dark {
@@ -181,4 +192,8 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	font-family: Genos, sans-serif;
 	font-style:  italic;
 	font-weight: bold;
+}
+
+.panel .table {
+	color: inherit;
 }

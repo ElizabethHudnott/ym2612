@@ -1,6 +1,8 @@
 import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './src/common.js';
 import GenesisSound from './src/genesis.js';
 import YM2612 from './src/ym2612.js';
+import {logToLinear} from './src/opn2.js';
+
 let context, channels;
 
 function initialize() {
@@ -85,6 +87,21 @@ document.getElementById('filter-q').addEventListener('input', function (event) {
 	}
 });
 
+function updateAlgorithmDetails() {
+	for (let i = 1; i <= 3; i ++) {
+		for (let j = i + 1; j <= 4; j++) {
+			const depth = channels[0].getModulationDepth(i, j);
+			const box = document.getElementById('modulation-' + i + '-' + j);
+			box.value = depth * 100;
+		}
+	}
+	for (let i = 1; i <= 4; i++) {
+		const volume = channels[0].getOperator(i).getVolume();
+		const box = document.getElementById('output-level-' + i);
+		box.value = volume * 100;
+	}
+}
+
 function algorithmRadio(event) {
 	initialize();
 	for (let i = 1; i <=4; i++) {
@@ -95,10 +112,40 @@ function algorithmRadio(event) {
 	}
 	const algorithmNumber = parseInt(this.id.slice(-1));
 	channels.map(c => c.useAlgorithm(algorithmNumber));
+	setTimeout(updateAlgorithmDetails, 20);
 }
 
 for (let i = 0; i <= 7; i++) {
 	document.getElementById('algorithm-' + i).addEventListener('input', algorithmRadio);
+}
+
+function modulationDepth(event) {
+	const value = parseFloat(this.value) / 100;
+	if (Number.isFinite(value)) {
+		const id = this.id;
+		const from = parseInt(id.slide(-3));
+		const to = parseInt(id.slice(-1));
+		channels.map(c => c.setModulationDepth(from, to, value));
+	}
+}
+
+for (let i = 1; i <= 3; i++) {
+	for (let j = i + 1; j <= 4; j++) {
+		document.getElementById('modulation-' + i + '-' + j).addEventListener('input', modulationDepth);
+	}
+}
+
+function outputLevel(event) {
+	const value = parseFloat(this.value);
+	if (Number.isFinite(value)) {
+		const opNum = parseInt(id.slice(-1));
+		const volume = logToLinear(value / 100);
+		channels.map(c => c.getOperator(opNum).setVolume(volume));
+	}
+}
+
+for (let i = 1; i <= 4; i++) {
+	document.getElementById('output-level-' + i).addEventListener('input', outputLevel);
 }
 
 document.getElementById('lfo-frequency-slider').addEventListener('input', function (event) {
@@ -471,6 +518,7 @@ function enableOperator(event) {
 	const opNum = parseInt(this.id[2]);
 	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = false;
 	channels.map(c => c.enableOperator(opNum));
+	setTimeout(updateAlgorithmDetails, 20);
 }
 
 function disableOperator(event) {
@@ -478,6 +526,10 @@ function disableOperator(event) {
 	const opNum = parseInt(this.id[2]);
 	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = true;
 	channels.map(c => c.disableOperator(opNum));
+	for (let i = opNum + 1; i <= 4; i++) {
+		document.getElementById('modulation-' + opNum + '-' + i).value = 0;
+	}
+	document.getElementById('output-level-' + opNum).value = 0;
 }
 
 for (let i = 1; i <=4; i++) {
