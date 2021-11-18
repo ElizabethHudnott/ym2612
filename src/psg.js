@@ -136,15 +136,7 @@ class PSGChannel {
 	}
 
 	getFrequencyNumber() {
-
-	}
-
-	setDetune(cents, time = 0, method = 'setValueAtTime') {
-		this.saw.detune[method](cents, time);
-	}
-
-	getDetune() {
-		return this.saw.detune.value;
+		return Math.round(100000 * this.synth.clockRate / (this.frequency * 32)) / 100000;
 	}
 
 	setWave(value, time = 0, method = 'setValueAtTime') {
@@ -212,6 +204,7 @@ class PSGChannel {
 class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL) {
+		this.clockRate = clockRate;
 		const frequencies = new Array(1024);
 		for (let i = 1; i < 1024; i++) {
 			let frequency = clockRate / (i * 32);
@@ -312,16 +305,52 @@ class PSG {
 			do {
 				upperFreqNum++;
 				upperFrequency = this.frequencies[upperFreqNum];
-			} while (upperFrequency >= frequency && upperFreqNum < 1022);
-			upperFreqNum = Math.min(upperFreqNum - 1, 1022);
-			upperFrequency = this.frequencies[upperFreqNum];
-			const upperFreqDiff = upperFrequency - frequency;
-			const lowerFrequency = this.frequencies[upperFreqNum + 1];
-			const lowerFreqDiff = frequency - lowerFrequency;
-			freqNum = upperFreqDiff < lowerFreqDiff ? upperFreqNum : upperFreqNum + 1;
-			frequencyNums[i] = freqNum;
+			} while (upperFrequency >= frequency && upperFreqNum < 1023);
+			upperFreqNum--;
+			if (upperFreqNum < 1023) {
+				upperFrequency = this.frequencies[upperFreqNum];
+				const upperFreqDiff = upperFrequency - frequency;
+				const lowerFrequency = this.frequencies[upperFreqNum + 1];
+				const lowerFreqDiff = frequency - lowerFrequency;
+				freqNum = upperFreqDiff < lowerFreqDiff ? upperFreqNum : upperFreqNum + 1;
+				frequencyNums[i] = freqNum;
+			} else {
+				break;
+			}
 		}
-		return frequencyNums;
+		const frequencies = new Array(128);
+		for (let i = 0; i < 128; i++) {
+			const idealFrequency = frequencies[i] || a4Pitch * (2 ** ((i - 69) / 12));
+			const freqNum = frequencyNums[i];
+			const approxFrequency = this.frequencies[freqNum];
+
+			if (freqNum === undefined) {
+				// Low notes are outside the range of the original chip
+				frequencies[i] = idealFrequency;
+			} else if (freqNum === frequencyNums[i - 1]) {
+				const error = Math.abs((approxFrequency - idealFrequency) / idealFrequency);
+				const prevIdealFrequency = a4Pitch * (2 ** ((i - 70) / 12))
+				const prevError = Math.abs((approxFrequency - prevIdealFrequency) / prevIdealFrequency);
+				if (error > prevError && idealFrequency > approxFrequency) {
+					// Use ideal frequency
+					frequencyNums[i] = undefined;
+				} else {
+					// Use original chip frequency, previous note uses ideal frequency
+					frequencies[i] = approxFrequency;
+					frequencies[i - 1] = prevIdealFrequency;
+				}
+			} else if (frequencyNums[i - 1] === undefined) {
+				if (approxFrequency > frequencies[i - 1]) {
+					frequencies[i] = approxFrequency;
+				} else {
+					frequencies[i] = idealFrequency;
+					frequencyNums[i] = undefined;
+				}
+			} else {
+				frequencies[i] = approxFrequency;
+			}
+		}
+		return frequencies;
 	}
 
 	frequencyNumToNote(frequencyNum) {
@@ -331,9 +360,9 @@ class PSG {
 			let mid = Math.trunc((lb + ub) / 2);
 			const noteFreqNum = this.noteFrequencies[mid];
 			if (frequencyNum < noteFreqNum) {
-				ub = mid - 1;
-			} else if (frequencyNum > noteFreqNum) {
 				lb = mid + 1;
+			} else if (frequencyNum > noteFreqNum) {
+				ub = mid - 1;
 			} else {
 				return mid;
 			}

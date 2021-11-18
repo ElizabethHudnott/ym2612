@@ -19,7 +19,7 @@
 body {
 	background-color: #270000;
 	background-image: url('img/wood.jpg');
-	background-repeat: repeat-x;
+	background-repeat: repeat;
 	overflow-y: scroll;
 }
 

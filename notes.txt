@@ -7,7 +7,7 @@ Envelopes
 	Frequency (channel)
 	Frequency multiple
 	Frequency (operator)
-	ADSR, linear, 3 rates (no sustain rate), 2 levels (+begin/end level)
+	ADSR, linear with, 3 rates (no sustain rate), 2 levels (+begin/end level)
 		see DX11 manual
 	Scaled by velocity?
 
