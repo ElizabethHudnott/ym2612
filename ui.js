@@ -1,7 +1,7 @@
 import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './src/common.js';
 import GenesisSound from './src/genesis.js';
 import YM2612 from './src/ym2612.js';
-import {logToLinear} from './src/opn2.js';
+import {logToLinear, linearToLog} from './src/opn2.js';
 
 let context, channels;
 
@@ -9,7 +9,7 @@ function initialize() {
 	if (context !== undefined) {
 		return;
 	}
-	context = new AudioContext();
+	context = new AudioContext({sampleRate: 96000});
 	window.audioContext = context;
 	const soundSystem = new GenesisSound(context);
 	window.soundSystem = soundSystem;
@@ -35,6 +35,13 @@ document.body.addEventListener('keyup', function (event) {
 	initialize();
 	channels[0].keyOff(context.currentTime + 0.1);
 });
+
+let dynamicStyleSheet;
+{
+	const styleTag = document.createElement('STYLE');
+	document.head.appendChild(styleTag);
+	dynamicStyleSheet = styleTag.sheet;
+}
 
 let filterFrequency, filterQ;
 
@@ -96,9 +103,9 @@ function updateAlgorithmDetails() {
 		}
 	}
 	for (let i = 1; i <= 4; i++) {
-		const volume = channels[0].getOperator(i).getVolume();
+		const outputLevel = channels[0].getOperator(i).getVolume();
 		const box = document.getElementById('output-level-' + i);
-		box.value = volume * 100;
+		box.value = Math.round(linearToLog(outputLevel) * 200) / 2;
 	}
 }
 
@@ -116,14 +123,14 @@ function algorithmRadio(event) {
 }
 
 for (let i = 0; i <= 7; i++) {
-	document.getElementById('algorithm-' + i).addEventListener('input', algorithmRadio);
+	document.getElementById('algorithm-' + i).addEventListener('click', algorithmRadio);
 }
 
 function modulationDepth(event) {
 	const value = parseFloat(this.value) / 100;
 	if (Number.isFinite(value)) {
 		const id = this.id;
-		const from = parseInt(id.slide(-3));
+		const from = parseInt(id.slice(-3));
 		const to = parseInt(id.slice(-1));
 		channels.map(c => c.setModulationDepth(from, to, value));
 	}
@@ -135,10 +142,10 @@ for (let i = 1; i <= 3; i++) {
 	}
 }
 
-function outputLevel(event) {
+function outputLevel() {
 	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
-		const opNum = parseInt(id.slice(-1));
+		const opNum = parseInt(this.id.slice(-1));
 		const volume = logToLinear(value / 100);
 		channels.map(c => c.getOperator(opNum).setVolume(volume));
 	}
@@ -482,7 +489,7 @@ let domParser = new DOMParser();
 
 function createOperatorPage(n) {
 	const li = document.createElement('LI');
-	li.className = 'nav-item';
+	li.className = 'nav-item operator-' + n;
 	const anchor = document.createElement('A');
 	anchor.innerHTML = 'Operator ' + n;
 	anchor.className = 'nav-link';
@@ -516,20 +523,28 @@ domParser = undefined;
 
 function enableOperator(event) {
 	const opNum = parseInt(this.id[2]);
-	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = false;
-	channels.map(c => c.enableOperator(opNum));
+	for (let i = opNum + 1; i <= 4; i++) {
+		document.getElementById('modulation-' + opNum + '-' + i).value = 0;
+	}
+	const rules = dynamicStyleSheet.cssRules;
+	const selector = '.operator-' + opNum;
+	for (let i = 0; i < rules.length; i++) {
+		if (rules[i].selectorText === selector) {
+			dynamicStyleSheet.deleteRule(i);
+			break;
+		}
+	}
+	const volumeBox = document.getElementById('output-level-' + opNum);
+	const volume = logToLinear(parseFloat(volumeBox.value) / 100) || 1;
+	channels.map(c => c.enableOperator(opNum, volume));
 	setTimeout(updateAlgorithmDetails, 20);
 }
 
 function disableOperator(event) {
 	initialize();
 	const opNum = parseInt(this.id[2]);
-	document.getElementById('operator-' + opNum + '-tab').parentNode.hidden = true;
 	channels.map(c => c.disableOperator(opNum));
-	for (let i = opNum + 1; i <= 4; i++) {
-		document.getElementById('modulation-' + opNum + '-' + i).value = 0;
-	}
-	document.getElementById('output-level-' + opNum).value = 0;
+	dynamicStyleSheet.insertRule('.operator-' + opNum + ' { display: none; }');
 }
 
 for (let i = 1; i <=4; i++) {

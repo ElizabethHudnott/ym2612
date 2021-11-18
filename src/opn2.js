@@ -15,7 +15,11 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 }
 
 function logToLinear(x) {
-	return 10 ** (54 / 20 * (x - 1));
+	return x === 0 ? 0 : 10 ** (54 / 20 * (x - 1));
+}
+
+function linearToLog(y) {
+	return y == 0 ? 0 : 20 / 54 * Math.log10(y) + 1;
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -896,7 +900,7 @@ class Channel {
 		this.operators[operatorNum - 1].setVolume(0);
 	}
 
-	enableOperator(operatorNum) {
+	enableOperator(operatorNum, outputLevel = 1) {
 		const algorithm = ALGORITHMS[this.algorithmNum];
 		const modulations = algorithm[0];
 		const outputLevels = algorithm[1]
@@ -904,7 +908,10 @@ class Channel {
 			const index = indexOfGain(operatorNum, i);
 			this.gains[index].value = modulations[index - 1];
 		}
-		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
+		if (outputLevels[operatorNum - 1] === 0) {
+			outputLevel = 0;
+		}
+		this.operators[operatorNum - 1].setVolume(outputLevel);
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
@@ -1361,7 +1368,8 @@ class FMSynth {
 
 export {
 	Envelope, FMOperator, Channel, FMSynth,
-	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
+	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
+	DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,

@@ -136,7 +136,7 @@ input[type=range]::-moz-range-thumb {
 	font-family: 'Digital 7', monospace;
 	font-size:  110%;
 	text-align: right;
-	min-width:  59px;
+	min-width:  74px;
 }
 
 input[type="number"].led-display::-webkit-outer-spin-button,

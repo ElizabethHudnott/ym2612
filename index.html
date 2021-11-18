@@ -24,6 +24,60 @@
 			</li>
 		</ul>
 		<div class="tab-content" id="instrument-tabs">
+			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
+				<fieldset class="panel">
+					<h1>Filter</h1>
+					<div class="row form-group">
+						<div class="col-auto">
+							<div class="custom-control custom-switch">
+								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
+								<label class="custom-control-label" for="filter-enable">
+									Low Pass Filter
+								</label>
+							</div>
+						</div>
+					</div>
+					<div id="filter-config" class="collapse show">
+						<div class="row">
+							<label class="col-auto" for="filter-cutoff-slider">
+								Cutoff
+							</label>
+						</div>
+						<div class="row form-group">
+							<div class="col-12 col-md-6 mb-3 my-md-auto">
+								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="input-group">
+									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">Hz</span>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<label class="col-auto" for="filter-q-slider">
+								Resonance
+							</label>
+						</div>
+						<div class="row form-group">
+							<div class="col-12 col-md-6 mb-3 my-md-auto">
+								<input type="range" min="-20" max="20" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="input-group">
+									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">dB</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</fieldset>
+			</div>
+
 			<div class="tab-pane fade show active" id="instrument" role="tabpanel" aria-labelledby="instrument-tab">
 				<fieldset class="panel">
 					<h1>Algorithm</h1>
@@ -146,68 +200,68 @@
 							</tr>
 							<tr class="text-center">
 								<th class="text-center py-1 px-0">To</th>
-								<th class="py-1">1</th>
-								<th class="py-1">2</th>
-								<th class="py-1">3</th>
-								<th class="py-1">4</th>
+								<th class="py-1 operator-1">1</th>
+								<th class="py-1 operator-2">2</th>
+								<th class="py-1 operator-3">3</th>
+								<th class="py-1 operator-4">4</th>
 							</tr>
-							<tr>
+							<tr class="operator-1">
 								<th class="align-middle text-center px-0">1</th>
 								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-1-1">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-1-1">
 								</td>
-								<td></td>
-								<td></td>
-								<td></td>
+								<td class="operator-2"></td>
+								<td class="operator-3"></td>
+								<td class="operator-4"></td>
 							</tr>
-							<tr>
+							<tr class="operator-1 operator-2">
 								<th class="align-middle text-center px-0">2</th>
 								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-1-2">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-1-2">
 								</td>
-								<td></td>
-								<td></td>
-								<td></td>
+								<td class="operator-2"></td>
+								<td class="operator-3"></td>
+								<td class="operator-4"></td>
 							</tr>
 							<tr>
 								<th class="align-middle text-center px-0">3</th>
-								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-1-3">
+								<td class="operator-1">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-1-3">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-2-3">
+								<td class="operator-2">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-2-3">
 								</td>
-								<td></td>
-								<td></td>
+								<td class="operator-3"></td>
+								<td class="operator-4"></td>
 							</tr>
 							<tr>
 								<th class="align-middle text-center px-0">4</th>
-								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-1-4">
+								<td class="operator-1">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-1-4">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-2-4">
+								<td class="operator-2">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-2-4">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="0" class="form-control led-display" id="modulation-3-4">
+								<td class="operator-3">
+									<input type="number" min="0" max="100" step="0.5" value="0" class="form-control led-display" id="modulation-3-4">
 								</td>
-								<td></td>
+								<td class="operator-4"></td>
 							</tr>
 							<tr>
-								<th>
-
+								<th class="align-middle text-center px-0">
+									<img src="img/sound.png" width="32" height="32" alt="Speaker">
 								</th>
-								<td>
-									<input type="number" min="0" max="100" value="100" class="form-control led-display" id="output-level-1">
+								<td class="operator-1">
+									<input type="number" min="0" max="100" step="0.5" value="100" class="form-control led-display" id="output-level-1">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="100" class="form-control led-display" id="output-level-2">
+								<td class="operator-2">
+									<input type="number" min="0" max="100" step="0.5" value="100" class="form-control led-display" id="output-level-2">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="100" class="form-control led-display" id="output-level-3">
+								<td class="operator-3">
+									<input type="number" min="0" max="100" step="0.5" value="100" class="form-control led-display" id="output-level-3">
 								</td>
-								<td>
-									<input type="number" min="0" max="100" value="100" class="form-control led-display" id="output-level-4">
+								<td class="operator-4">
+									<input type="number" min="0" max="100" step="0.5" value="100" class="form-control led-display" id="output-level-4">
 								</td>
 							</tr>
 						</table>
@@ -289,60 +343,6 @@
 							<div class="form-check small">
 								<input type="checkbox" id="vibrato-free" class="form-check-input">
 								<label for="vibrato-free">Free Choice</label>
-							</div>
-						</div>
-					</div>
-				</fieldset>
-			</div>
-
-			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
-				<fieldset class="panel">
-					<h1>Filter</h1>
-					<div class="row form-group">
-						<div class="col-auto">
-							<div class="custom-control custom-switch">
-								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
-								<label class="custom-control-label" for="filter-enable">
-									Low Pass Filter
-								</label>
-							</div>
-						</div>
-					</div>
-					<div id="filter-config" class="collapse show">
-						<div class="row">
-							<label class="col-auto" for="filter-cutoff-slider">
-								Cutoff
-							</label>
-						</div>
-						<div class="row form-group">
-							<div class="col-12 col-md-6 mb-3 my-md-auto">
-								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
-							</div>
-							<div class="col-6 col-md-3">
-								<div class="input-group">
-									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">Hz</span>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="row">
-							<label class="col-auto" for="filter-q-slider">
-								Resonance
-							</label>
-						</div>
-						<div class="row form-group">
-							<div class="col-12 col-md-6 mb-3 my-md-auto">
-								<input type="range" min="-20" max="20" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
-							</div>
-							<div class="col-6 col-md-3">
-								<div class="input-group">
-									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">dB</span>
-									</div>
-								</div>
 							</div>
 						</div>
 					</div>
