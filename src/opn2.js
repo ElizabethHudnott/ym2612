@@ -422,8 +422,9 @@ class Operator {
 	 *
 	 */
 	constructor(synth, context, amModulator, output, dbCurve) {
-		const sine = new OscillatorNode(context);
-		this.sine = sine;
+		this.frequency = 440;
+		this.sourceType = 'sine';
+		this.source = this.makeSource(context);
 
 		const amMod = new GainNode(context);
 		this.amModNode = amMod;
@@ -446,7 +447,6 @@ class Operator {
 		}
 
 		this.synth = synth;
-		this.frequency = 440;
 		this.lastFreqChange = 0;
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
@@ -457,12 +457,21 @@ class Operator {
 		this.freeRunning = false;
 	}
 
+	makeSource(context) {
+		const oscillator = new OscillatorNode(
+			context,
+			{frequency: this.frequency, type: this.sourceType}
+		);
+		this.frequencyParam = oscillator.frequency;
+		return oscillator;
+	}
+
 
 	/**Starts the operator's oscillator.
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
 	start(time) {
-		this.sine.start(time);
+		this.source.start(time);
 		this.envelope.start(time);
 	}
 
@@ -470,7 +479,7 @@ class Operator {
 	 * Operators are normally stopped by calling stop() on an instance of {@link FMSynth}.
 	 */
 	stop(time = 0) {
-		this.sine.stop(time);
+		this.source.stop(time);
 		this.envelope.stop(time);
 	}
 
@@ -508,7 +517,7 @@ class Operator {
 		}
 		const frequencyStep = this.synth.frequencyStep;
 		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
-		this.sine.frequency[method](frequency, time);
+		this.frequencyParam[method](frequency, time);
 		this.frequency = frequency;
 		this.lastFreqChange = time;
 		this.freqBlockNumber = blockNumber;
@@ -674,9 +683,9 @@ class FMOperator extends Operator {
 
 	constructor(synth, context, lfModulator, amModulator, output, dbCurve) {
 		super(synth, context, amModulator, output, dbCurve);
-		this.sine.connect(this.amModNode);
+		this.source.connect(this.amModNode);
 		const fmModAmp = new GainNode(context, {gain: 440});
-		fmModAmp.connect(this.sine.frequency);
+		fmModAmp.connect(this.frequencyParam);
 		lfModulator.connect(fmModAmp);
 		this.fmModAmp = fmModAmp;
 	}
@@ -690,6 +699,15 @@ class FMOperator extends Operator {
 		this.fmModAmp.gain[method](this.frequency, time);
 	}
 
+	changeSource(context, time) {
+		const newSource = this.makeSource(context)
+		newSource.start(time);
+		newSource.connect(this.amModNode);
+		this.source.stop(time);
+		this.fmModAmp.connect(this.frequencyParam);
+		this.source = newSource;
+	}
+
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
 			const frequency = this.frequency;
@@ -701,14 +719,16 @@ class FMOperator extends Operator {
 				context.currentTime + TIMER_IMPRECISION <= time;
 
 			if (makeNewOscillator) {
-				const newSine = new OscillatorNode(context, {frequency: frequency});
-				newSine.start(time);
-				newSine.connect(this.amModNode);
-				this.sine.stop(time);
-				this.fmModAmp.connect(newSine.frequency);
-				this.sine = newSine;
+				this.changeSource(context, time);
 			}
 			super.keyOn(time);
+		}
+	}
+
+	setWaveform(context, type, time = 0) {
+		this.sourceType = type;
+		if (this.freeRunning) {
+			this.changeSource(context, time);
 		}
 	}
 
