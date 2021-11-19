@@ -36,13 +36,6 @@ document.body.addEventListener('keyup', function (event) {
 	channels[0].keyOff(context.currentTime + 0.1);
 });
 
-let dynamicStyleSheet;
-{
-	const styleTag = document.createElement('STYLE');
-	document.head.appendChild(styleTag);
-	dynamicStyleSheet = styleTag.sheet;
-}
-
 let filterFrequency, filterQ;
 
 document.getElementById('filter-enable').addEventListener('input', function (event) {
@@ -526,13 +519,8 @@ function enableOperator(event) {
 	for (let i = opNum + 1; i <= 4; i++) {
 		document.getElementById('modulation-' + opNum + '-' + i).value = 0;
 	}
-	const rules = dynamicStyleSheet.cssRules;
-	const selector = '.operator-' + opNum;
-	for (let i = 0; i < rules.length; i++) {
-		if (rules[i].selectorText === selector) {
-			dynamicStyleSheet.deleteRule(i);
-			break;
-		}
+	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
+		elem.hidden = false;
 	}
 	const volumeBox = document.getElementById('output-level-' + opNum);
 	const volume = logToLinear(parseFloat(volumeBox.value) / 100) || 1;
@@ -544,7 +532,9 @@ function disableOperator(event) {
 	initialize();
 	const opNum = parseInt(this.id[2]);
 	channels.map(c => c.disableOperator(opNum));
-	dynamicStyleSheet.insertRule('.operator-' + opNum + ' { display: none; }');
+	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
+		elem.hidden = true;
+	}
 }
 
 for (let i = 1; i <=4; i++) {
