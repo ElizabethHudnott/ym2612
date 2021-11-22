@@ -577,7 +577,7 @@ class Operator {
 	 */
 	setAMDepth(linearAmount, time = 0, method = 'setValueAtTime') {
 		this.amModAmp[method](linearAmount, time);
-		this.amMod[method](1 - linearAmount, time);
+		this.amMod[method](-(1 - linearAmount), time);
 	}
 
 	/**Gets the amount of amplitude modulation being applied to the operator on a 0..1 linear scale. */
@@ -732,6 +732,10 @@ class FMOperator extends Operator {
 		}
 	}
 
+	getWaveform() {
+		return this.sourceType;
+	}
+
 }
 
 const ALGORITHMS = [
@@ -769,13 +773,17 @@ const ALGORITHMS = [
 	//   \--> 4
 	[[1, 1, 1, 0, 0, 0], [0, 1, 1, 1]],
 
-	//      2
-	// 1 -> 3
+	// 1 -> 2
+	//      3
 	//      4
-	[[0, 1, 0, 0, 0, 0], [0, 1, 1, 1]],
+	[[1, 0, 0, 0, 0, 0], [0, 1, 1, 1]],
 
 	// No modulation
 	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
+
+	//           1
+	// 2 -> 3 -> 4
+	[[0, 0, 0, 1, 0, 1], [1, 0, 0, 1]],
 ];
 
 const AM_PRESETS = [0, 1.4, 5.9, 11.8];
@@ -1047,15 +1055,17 @@ class Channel {
 	}
 
 	getFeedback() {
-		return this.gains[0].value * 2;
+		return this.gains[0].value;
 	}
 
 	useFeedbackPreset(n, time = 0) {
-		this.setFeedback(n / 7, time);
+		const amount = n === 0 ? 0 : 2 ** (n - 6);
+		this.setFeedback(amount, time);
 	}
 
 	getFeedbackPreset() {
-		return Math.round(this.getFeedback() * 7);
+		const amount = this.getFeedback();
+		return amount === 0 ? 0 : Math.round(Math.log2(amount) + 6);
 	}
 
 	setLFOAttack(seconds) {

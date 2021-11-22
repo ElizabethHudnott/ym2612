@@ -1,7 +1,20 @@
-
 Pitch bend
 Bigger detune
 Level scaling
+
+PeriodicWave
+
+OPM-like features
+	LFO waveform choice
+	Noise?
+
+OPL2/3-like features
+	2 op / 4 op selector UI
+	Waveforms: half wave, rectified
+	Vibrato per operator
+	Additional feedback on Operator 3
+	Ability to set two separate frequencies / notes
+	Drums
 
 Envelopes
 	Frequency (channel)
