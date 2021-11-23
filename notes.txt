@@ -9,9 +9,9 @@ OPM-like features
 
 OPL2/3-like features
 	2 op / 4 op selector UI
-	Vibrato per operator
 	Additional feedback on Operator 3
 	Ability to set two separate frequencies / notes
+	Ability to key on / key off the two halves.
 
 Envelopes
 	Frequency (channel)

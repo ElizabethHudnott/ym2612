@@ -113,7 +113,7 @@ class Envelope {
 	}
 
 	/**
-	 * For Algorithm 7, set total level to at least 122 to avoid distortion.
+	 * For Algorithm 7, set total level to at least 29 to avoid distortion.
 	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.totalLevel[method](-level / 128, time);
@@ -415,25 +415,24 @@ class Operator {
 	/**Constructs an instance of an operator. Operators are normally created by
 	 * invoking the {@link FMSynth} constructor.
 	 * @param {AudioContext} context The Web Audio context.
-	 * @param {AudioNode} lfModulator The signal used as an LFO to control the operator's phase.
-	 * @param {AudioNode} amModulator The signal used to apply amplitude modulation to the oscillator's output.
+	 * @param {AudioNode} lfo The signal used to control the operator's vibrato and tremolo effects.
 	 * @param {AudioNode} output The destination to route the operator's audio output to
 	 * or undefined if the operator will always be used as a modulator.
 	 *
 	 */
-	constructor(synth, context, amModulator, output, dbCurve) {
+	constructor(synth, context, lfo, output, dbCurve) {
 		this.frequency = 440;
 		this.sourceType = 'sine';
 		this.periodicWave = undefined;
 		this.source = this.makeSource(context);
 
-		const amMod = new GainNode(context);
-		this.amModNode = amMod;
-		this.amMod = amMod.gain;
-		const amModGain = new GainNode(context, {gain: 0});
-		amModGain.connect(amMod.gain);
-		this.amModAmp = amModGain.gain;
-		amModulator.connect(amModGain);
+		const tremolo = new GainNode(context);
+		this.tremoloNode = tremolo;
+		this.tremolo = tremolo.gain;
+		const tremoloGain = new GainNode(context, {gain: 0});
+		tremoloGain.connect(tremolo.gain);
+		this.tremoloAmp = tremoloGain.gain;
+		lfo.connect(tremoloGain);
 
 		const noDistortionGain = new GainNode(context);
 		const halfWaveShaper = new WaveShaperNode(context, {curve: Float32Array.from([-1, -1, 1])});
@@ -444,9 +443,9 @@ class Operator {
 		absShaper.connect(absGain);
 		this.distortionGains = [noDistortionGain.gain, halfWaveGain.gain, absGain.gain];
 
-		amMod.connect(noDistortionGain);
-		amMod.connect(halfWaveShaper);
-		amMod.connect(absShaper);
+		tremolo.connect(noDistortionGain);
+		tremolo.connect(halfWaveShaper);
+		tremolo.connect(absShaper);
 
 		const envelopeGain = new GainNode(context);
 		noDistortionGain.connect(envelopeGain);
@@ -582,7 +581,7 @@ class Operator {
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
 	 * modulation from the synthesizer's LFO. This method is usually invoked by an instance
-	 * of {@link Channel}. Use its enableAM(), useAMPreset() and setAMDepth() methods to
+	 * of {@link Channel}. Use its enableTremolo(), useTremoloPreset() and setTremoloDepth() methods to
 	 * configure amplitude modulation for the operators. However, if you wish then you can
 	 * instead manually initiate amplitude modulation by invoking this method directly. This
 	 * allows different operators to have differing levels of amplitude modulation.
@@ -594,14 +593,14 @@ class Operator {
 	 * @param {number} [time] When to change the amplitude modulation depth. Defaults to immediately.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
-	setAMDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		this.amModAmp[method](linearAmount, time);
-		this.amMod[method](-(1 - linearAmount), time);
+	setTremoloDepth(linearAmount, time = 0, method = 'setValueAtTime') {
+		this.tremoloAmp[method](-linearAmount, time);
+		this.tremolo[method](1 - linearAmount, time);
 	}
 
 	/**Gets the amount of amplitude modulation being applied to the operator on a 0..1 linear scale. */
-	getAMDepth() {
-		return this.amModAmp.value;
+	getTremoloDepth() {
+		return this.tremoloAmp.value;
 	}
 
 	setVolume(level, time = 0, method = 'setValueAtTime') {
@@ -700,13 +699,18 @@ class Operator {
 
 class FMOperator extends Operator {
 
-	constructor(synth, context, lfModulator, amModulator, output, dbCurve) {
-		super(synth, context, amModulator, output, dbCurve);
-		this.source.connect(this.amModNode);
+	constructor(synth, context, lfo, output, dbCurve) {
+		super(synth, context, lfo, output, dbCurve);
+		this.source.connect(this.tremoloNode);
+
 		const fmModAmp = new GainNode(context, {gain: 440});
 		fmModAmp.connect(this.frequencyParam);
-		lfModulator.connect(fmModAmp);
 		this.fmModAmp = fmModAmp;
+
+		const vibratoGain = new GainNode(context, {gain: 0});
+		lfo.connect(vibratoGain);
+		vibratoGain.connect(fmModAmp);
+		this.vibratoAmp = vibratoGain.gain;
 	}
 
 	connectIn(source) {
@@ -721,10 +725,18 @@ class FMOperator extends Operator {
 	changeSource(context, time) {
 		const newSource = this.makeSource(context)
 		newSource.start(time);
-		newSource.connect(this.amModNode);
+		newSource.connect(this.tremoloNode);
 		this.source.stop(time);
 		this.fmModAmp.connect(this.frequencyParam);
 		this.source = newSource;
+	}
+
+	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
+		this.vibratoAmp[method](linearAmount, time);
+	}
+
+	getVibratoDepth() {
+		return this.vibratoAmp.value;
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
@@ -843,7 +855,7 @@ const ALGORITHMS = [
 	[[0, 0, 0, 1, 0, 1], [1, 0, 0, 1]],
 ];
 
-const AM_PRESETS = [0, 1.4, 5.9, 11.8];
+const TREMOLO_PRESETS = [0, 1.4, 5.9, 11.8];
 
 function indexOfGain(modulatorOpNum, carrierOpNum) {
 	if (modulatorOpNum === 1 && carrierOpNum === 1) {
@@ -880,14 +892,11 @@ class Channel {
 		lfo.connect(lfoEnvelope);
 		this.lfoEnvelope = lfoEnvelope.gain;
 		this.lfoAttack = 0;
-		const vibratoGain = new GainNode(context, {gain: 0});
-		lfoEnvelope.connect(vibratoGain);
-		this.vibratoDepth = vibratoGain.gain;
 
-		const op1 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op2 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op3 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
-		const op4 = new FMOperator(synth, context, vibratoGain, lfoEnvelope, shaper, dbCurve);
+		const op1 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
+		const op2 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
+		const op3 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
+		const op4 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
 		this.operators = [op1, op2, op3, op4];
 
 		const op1To1 = new GainNode(context, {gain: 0});
@@ -925,8 +934,10 @@ class Channel {
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.fixedFrequency = [false, false, false, false];
 
-		this.amDepth = 0;
-		this.amEnabled = [false, false, false, false];
+		this.tremoloDepth = 0;
+		this.tremoloEnabled = [false, false, false, false];
+		this.vibratoDepth = 0;
+		this.vibratoEnabled = [true, true, true, true];
 		this.transpose = 0;
 		this.keyVelocity = [1, 1, 1, 1];
 		this.useAlgorithm(7);
@@ -1133,49 +1144,55 @@ class Channel {
 		return this.lfoAttack;
 	}
 
-	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
+	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
 		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
 		for (let i = 0; i < 4; i++) {
-			if (this.amEnabled[i]) {
-				this.operators[i].setAMDepth(linearAmount, time, method);
+			if (this.tremoloEnabled[i]) {
+				this.operators[i].setTremoloDepth(linearAmount, time, method);
 			}
 		}
-		this.amDepth = linearAmount;
+		this.tremoloDepth = linearAmount;
 	}
 
-	getAMDepth() {
-		return amplitudeToDecibels(this.amDepth);
+	getTremoloDepth() {
+		return amplitudeToDecibels(this.tremoloDepth);
 	}
 
-	useAMPreset(presetNum, time = 0) {
-		this.setAMDepth(AM_PRESETS[presetNum], time);
+	useTremoloPreset(presetNum, time = 0) {
+		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
 	}
 
-	getAMPreset() {
-		return AM_PRESETS.indexOf(this.amDepth);
+	getTremoloPreset() {
+		const depth = Math.round(this.getTremoloDepth() * 10) / 10;
+		return TREMOLO_PRESETS.indexOf(depth);
 	}
 
-	enableAM(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
+	enableTremolo(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
 		if (enabled) {
-			this.operators[operatorNum - 1].setAMDepth(this.amDepth, time, method);
-			this.amEnabled[operatorNum - 1] = true;
+			this.operators[operatorNum - 1].setTremoloDepth(this.tremoloDepth, time, method);
+			this.tremoloEnabled[operatorNum - 1] = true;
 		} else {
-			this.operators[operatorNum - 1].setAMDepth(0, time, method);
-			this.amEnabled[operatorNum - 1] = false;
+			this.operators[operatorNum - 1].setTremoloDepth(0, time, method);
+			this.tremoloEnabled[operatorNum - 1] = false;
 		}
 	}
 
-	isAMEnabled(operatorNum) {
-		return this.amEnabled[operatorNum - 1];
+	isTremoloEnabled(operatorNum) {
+		return this.tremoloEnabled[operatorNum - 1];
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
-		const depth = (2 ** (cents / 1200)) - 1;
-		this.vibratoDepth[method](depth, time);
+		const linearAmount = (2 ** (cents / 1200)) - 1;
+		for (let i = 0; i < 4; i++) {
+			if (this.vibratoEnabled[i]) {
+				this.operators[i].setVibratoDepth(linearAmount, time, method);
+			}
+		}
+		this.vibratoDepth = linearAmount;
 	}
 
 	getVibratoDepth() {
-		return Math.log2(this.vibratoDepth.value + 1) * 1200;
+		return Math.log2(this.vibratoDepth + 1) * 1200;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -1183,9 +1200,35 @@ class Channel {
 	}
 
 	getVibratoPreset() {
-		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
+		const depth = Math.round(this.getVibratoDepth() * 10) / 10;
+		return VIBRATO_PRESETS.indexOf(depth);
 	}
 
+	enableVibrato(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
+		if (enabled) {
+			this.operators[operatorNum - 1].setVibratoDepth(this.vibratoDepth, time, method);
+			this.vibratoEnabled[operatorNum - 1] = true;
+		} else {
+			this.operators[operatorNum - 1].setVibratoDepth(0, time, method);
+			this.vibratoEnabled[operatorNum - 1] = false;
+		}
+	}
+
+	isVibratoEnabled(operatorNum) {
+		return this.vibratoEnabled[operatorNum - 1];
+	}
+
+	triggerLFO(time) {
+		if (this.lfoAttack > 0) {
+			this.lfoEnvelope.setValueAtTime(0, time);
+			this.lfoEnvelope.linearRampToValueAtTime(1, time + this.lfoAttack);
+		}
+	}
+
+	/**
+	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} or
+	 * {@link Channel.keyOnWithVelocity} for that.
+	 */
 	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
 		const operators = this.operators;
 		if (op1) {
@@ -1211,10 +1254,7 @@ class Channel {
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		if (this.lfoAttack > 0) {
-			this.lfoEnvelope.setValueAtTime(0, time);
-			this.lfoEnvelope.linearRampToValueAtTime(1, time + this.lfoAttack);
-		}
+		this.triggerLFO(time);
 		this.keyOnOff(context, time, true);
 	}
 
@@ -1456,7 +1496,7 @@ class FMSynth {
 export {
 	Envelope, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	DETUNE_AMOUNTS, AM_PRESETS, CLOCK_RATE
+	DETUNE_AMOUNTS, TREMOLO_PRESETS, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
