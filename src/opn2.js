@@ -424,6 +424,7 @@ class Operator {
 	constructor(synth, context, amModulator, output, dbCurve) {
 		this.frequency = 440;
 		this.sourceType = 'sine';
+		this.periodicWave = undefined;
 		this.source = this.makeSource(context);
 
 		const amMod = new GainNode(context);
@@ -434,8 +435,23 @@ class Operator {
 		this.amModAmp = amModGain.gain;
 		amModulator.connect(amModGain);
 
+		const noDistortionGain = new GainNode(context);
+		const halfWaveShaper = new WaveShaperNode(context, {curve: Float32Array.from([-1, -1, 1])});
+		const halfWaveGain = new GainNode(context, {gain: 0});
+		halfWaveShaper.connect(halfWaveGain);
+		const absShaper = new WaveShaperNode(context, {curve: Float32Array.from([1, -1, 1])});
+		const absGain = new GainNode(context, {gain: 0});
+		absShaper.connect(absGain);
+		this.distortionGains = [noDistortionGain.gain, halfWaveGain.gain, absGain.gain];
+
+		amMod.connect(noDistortionGain);
+		amMod.connect(halfWaveShaper);
+		amMod.connect(absShaper);
+
 		const envelopeGain = new GainNode(context);
-		amMod.connect(envelopeGain);
+		noDistortionGain.connect(envelopeGain);
+		halfWaveGain.connect(envelopeGain);
+		absGain.connect(envelopeGain);
 		this.envelope = new Envelope(synth, context, envelopeGain, dbCurve);
 		this.envelopeGain = envelopeGain;
 
@@ -462,6 +478,9 @@ class Operator {
 			context,
 			{frequency: this.frequency, type: this.sourceType}
 		);
+		if (this.periodicWave !== undefined) {
+			oscillator.setPeriodicWave(this.periodicWave);
+		}
 		this.frequencyParam = oscillator.frequency;
 		return oscillator;
 	}
@@ -726,14 +745,52 @@ class FMOperator extends Operator {
 	}
 
 	setWaveform(context, type, time = 0) {
+		if (type === undefined) throw new Error('Parameters: context, type, [time]')
 		this.sourceType = type;
+		this.periodicWave = undefined;
 		if (this.freeRunning) {
 			this.changeSource(context, time);
 		}
 	}
 
 	getWaveform() {
-		return this.sourceType;
+		return this.periodicWave !== undefined ? 'custom' : this.sourceType;
+	}
+
+	setPeriodicWave(context, wave, time = 0) {
+		this.periodicWave = wave;
+		if (this.freeRunning) {
+			this.changeSource(context, time);
+		}
+	}
+
+	/*
+	 * @param {number} value The type of distortion to apply to the oscillator's waveform.
+	 * 0 = no distortion, 1 = suppress the negative half of the wave, 2 = reflect the negative half.
+	 * Fractional values are allowed.
+	 */
+	setDistortion(value, time = 0, method = 'setValueAtTime') {
+		const intValue = Math.trunc(value);
+		const fraction = value - intValue;
+		const gains = this.distortionGains;
+		gains[(intValue + 1) % 3][method](fraction, time);
+		gains[intValue][method](1 - fraction, time);
+		gains[(intValue + 2) % 3][method](0, time);
+	}
+
+	getDistortion() {
+		const levels = this.distortionGains.map(g => g.value);
+		if (levels[0] > 0) {
+			if (levels[2] > 0) {
+				return 2 + levels[0];
+			} else {
+				return levels[1];
+			}
+		} else if (levels[1] > 0) {
+			return 1 + levels[2];
+		} else {
+			return 2;
+		}
 	}
 
 }
