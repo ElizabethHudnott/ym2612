@@ -9,9 +9,11 @@ OPM-like features
 
 OPL2/3-like features
 	2 op / 4 op selector UI
-	Additional feedback on Operator 3
 	Ability to set two separate frequencies / notes
-	Ability to key on / key off the two halves.
+		...key on / key off the two halves.
+		...transpose the two halves separately
+		...etc.
+	"Detune" two halves to have different frequencies
 
 Envelopes
 	Frequency (channel)

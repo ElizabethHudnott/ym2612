@@ -858,8 +858,12 @@ const ALGORITHMS = [
 const TREMOLO_PRESETS = [0, 1.4, 5.9, 11.8];
 
 function indexOfGain(modulatorOpNum, carrierOpNum) {
-	if (modulatorOpNum === 1 && carrierOpNum === 1) {
-		return 0;
+	if (modulatorOpNum === carrierOpNum) {
+		switch (modulatorOpNum) {
+		case 1: return 0;
+		case 3: return 1;
+		default: return - 1;
+		}
 	} else if (modulatorOpNum >= 4 || modulatorOpNum >= carrierOpNum) {
 		return -1;
 	}
@@ -919,12 +923,16 @@ class Channel {
 		op2.connectOut(op2To4);
 		op4.connectIn(op2To4);
 
+		const op3To3 = new GainNode(context, {gain: 0});
+		op3.connectOut(op3To3);
+		op3.connectIn(op3To3);
 		const op3To4 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To4);
 		op4.connectIn(op3To4);
 
 		this.gains = [
-			op1To1.gain, op1To2.gain, op1To3.gain, op1To4.gain,
+			op1To1.gain, op3To3.gain,
+			op1To2.gain, op1To3.gain, op1To4.gain,
 			op2To3.gain, op2To4.gain,
 			op3To4.gain
 		];
@@ -961,7 +969,7 @@ class Channel {
 
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
-			this.gains[i + 1][method](modulations[i], time);
+			this.gains[i + 2][method](modulations[i], time);
 		}
 		for (let i = 0; i < 4; i++) {
 			const outputLevel = outputLevels[i];
@@ -1118,21 +1126,23 @@ class Channel {
 		return note;
 	}
 
-	setFeedback(amount, time = 0, method = 'setValueAtTime') {
-		this.gains[0][method](amount, time);
+	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
+		const index = operatorNum === 1 ? 0 : 1;
+		this.gains[index][method](amount, time);
 	}
 
-	getFeedback() {
-		return this.gains[0].value;
+	getFeedback(operatorNum = 1) {
+		const index = operatorNum === 1 ? 0 : 1;
+		return this.gains[index].value;
 	}
 
-	useFeedbackPreset(n, time = 0) {
+	useFeedbackPreset(n, operatorNum = 1, time = 0) {
 		const amount = n === 0 ? 0 : 2 ** (n - 6);
-		this.setFeedback(amount, time);
+		this.setFeedback(amount, operatorNum, time);
 	}
 
-	getFeedbackPreset() {
-		const amount = this.getFeedback();
+	getFeedbackPreset(operatorNum = 1) {
+		const amount = this.getFeedback(operatorNum);
 		return amount === 0 ? 0 : Math.round(Math.log2(amount) + 6);
 	}
 
@@ -1304,10 +1314,6 @@ class Channel {
 
 	setVolume(volume, time = 0, method = 'setValueAtTime') {
 		this.volumeControl[method](volume, time);
-	}
-
-	getVolume() {
-		return this.volumeControl.value;
 	}
 
 	mute(muted, time = 0) {

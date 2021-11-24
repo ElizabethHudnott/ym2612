@@ -124,7 +124,7 @@ function setAlgorithmAndFeedback(chip, port, relativeChannelNum, value, time) {
 	const feedbackNum = value >> 3;
 	const channel = chip.synth.getChannel(channelNum);
 	channel.setAlgorithmNumber(algorithmNum, time);
-	channel.setFeedbackNumber(feedbackNum, time);
+	channel.setFeedbackNumber(feedbackNum, 1, time);
 }
 
 write[0xB0] = (chip, b, t, port) => setAlgorithmAndFeedback(chip, port, 1, b, t);
