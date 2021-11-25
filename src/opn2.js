@@ -807,7 +807,7 @@ class FMOperator extends Operator {
 
 }
 
-const ALGORITHMS = [
+const FOUR_OP_ALGORITHMS = [
 	/*	[
 			[op1To2Gain, op1To3Gain, op1To4Gain, op2To3Gain, op2To4Gain, op3To4Gain],
 			[op1OutputGain, op2OutputGain, op3OutputGain, op4OutputGain]
@@ -855,6 +855,11 @@ const ALGORITHMS = [
 	[[0, 0, 0, 1, 0, 1], [1, 0, 0, 1]],
 ];
 
+const TWO_OP_ALGORITHMS = [
+	[[1], [0, 1]],	// FM
+	[[0], [1, 1]]	// Additive
+];
+
 const TREMOLO_PRESETS = [0, 1.4, 5.9, 11.8];
 
 function indexOfGain(modulatorOpNum, carrierOpNum) {
@@ -867,7 +872,7 @@ function indexOfGain(modulatorOpNum, carrierOpNum) {
 	} else if (modulatorOpNum >= 4 || modulatorOpNum >= carrierOpNum) {
 		return -1;
 	}
-	let index = 1;
+	let index = 2;
 	for (let i = modulatorOpNum - 1; i > 0; i--) {
 		index += 4 - i;
 	}
@@ -967,6 +972,15 @@ class Channel {
 		return this.operators[operatorNum - 1];
 	}
 
+	/**Switches out of two operator mode and back into four operator mode. You'll still
+	 * need to reinitialize the channel with a new instrument patch and frequency setting
+	 * before the normal four operator behaviour is completely restored.
+	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM
+	 */
+	activate(time = 0, method = 'setValueAtTime') {
+		this.setVolume(1, time, method);
+	}
+
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
 			this.gains[i + 2][method](modulations[i], time);
@@ -979,7 +993,7 @@ class Channel {
 	}
 
 	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
-		const algorithm = ALGORITHMS[algorithmNum];
+		const algorithm = FOUR_OP_ALGORITHMS[algorithmNum];
 		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
 		this.algorithmNum = algorithmNum;
 	}
@@ -1004,18 +1018,15 @@ class Channel {
 		this.operators[operatorNum - 1].setVolume(0);
 	}
 
-	enableOperator(operatorNum, outputLevel = 1) {
-		const algorithm = ALGORITHMS[this.algorithmNum];
+	enableOperator(operatorNum) {
+		const algorithm = FOUR_OP_ALGORITHMS[this.algorithmNum];
 		const modulations = algorithm[0];
 		const outputLevels = algorithm[1]
 		for (let i = operatorNum + 1; i <= 4; i++) {
 			const index = indexOfGain(operatorNum, i);
 			this.gains[index].value = modulations[index - 1];
 		}
-		if (outputLevels[operatorNum - 1] === 0) {
-			outputLevel = 0;
-		}
-		this.operators[operatorNum - 1].setVolume(outputLevel);
+		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
@@ -1146,14 +1157,6 @@ class Channel {
 		return amount === 0 ? 0 : Math.round(Math.log2(amount) + 6);
 	}
 
-	setLFOAttack(seconds) {
-		this.lfoAttack = seconds;
-	}
-
-	getLFOAttack() {
-		return this.lfoAttack;
-	}
-
 	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
 		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
 		for (let i = 0; i < 4; i++) {
@@ -1178,13 +1181,9 @@ class Channel {
 	}
 
 	enableTremolo(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
-		if (enabled) {
-			this.operators[operatorNum - 1].setTremoloDepth(this.tremoloDepth, time, method);
-			this.tremoloEnabled[operatorNum - 1] = true;
-		} else {
-			this.operators[operatorNum - 1].setTremoloDepth(0, time, method);
-			this.tremoloEnabled[operatorNum - 1] = false;
-		}
+		const operator = this.operators[operatorNum - 1];
+		operator.setTremoloDepth(enabled ? this.tremoloDepth : 0, time, method);
+		this.tremoloEnabled[operatorNum - 1] = enabled;
 	}
 
 	isTremoloEnabled(operatorNum) {
@@ -1215,17 +1214,27 @@ class Channel {
 	}
 
 	enableVibrato(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
-		if (enabled) {
-			this.operators[operatorNum - 1].setVibratoDepth(this.vibratoDepth, time, method);
-			this.vibratoEnabled[operatorNum - 1] = true;
-		} else {
-			this.operators[operatorNum - 1].setVibratoDepth(0, time, method);
-			this.vibratoEnabled[operatorNum - 1] = false;
-		}
+		const operator = this.operators[operatorNum - 1];
+		operator.setVibratoDepth(enabled ? this.vibratoDepth : 0, time, method);
+		this.vibratoEnabled[operatorNum - 1] = enabled;
 	}
 
 	isVibratoEnabled(operatorNum) {
 		return this.vibratoEnabled[operatorNum - 1];
+	}
+
+	setLFOAttack(seconds, time = 0) {
+		if (supportsCancelAndHold) {
+			this.lfoEnvelope.cancelAndHoldAtTime(time);
+		} else {
+			this.lfoEnvelope.cancelScheduledValues(time);
+		}
+		this.lfoEnvelope.linearRampToValueAtTime(0, time);
+		this.lfoAttack = seconds;
+	}
+
+	getLFOAttack() {
+		return this.lfoAttack;
 	}
 
 	triggerLFO(time) {
@@ -1272,7 +1281,6 @@ class Channel {
 		this.keyOnOff(undefined, time, false);
 	}
 
-
 	/**When this method is used then the overall output level needs to be controlled using
 	 * the channel's setModulationDepth() method rather than setTotalLevel().
 	 */
@@ -1316,12 +1324,20 @@ class Channel {
 		this.volumeControl[method](volume, time);
 	}
 
+	getVolume() {
+		return this.volumeControl.value;
+	}
+
 	mute(muted, time = 0) {
 		this.muteControl.setValueAtTime(muted ? 0 : 1, time);
 	}
 
 	isMuted() {
 		return this.muteControl.value === 0;
+	}
+
+	get numberOfOperators() {
+		return 4;
 	}
 
 }
@@ -1343,16 +1359,22 @@ class FMSynth {
 			dbCurve[i] = logToLinear((i - 1023) / 1023);
 		}
 
-		const channels = [];
+		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
-			const channel = new Channel(this, context, lfo, channelGain, dbCurve);
-			channels[i] = channel;
+			channels[i] = new Channel(this, context, lfo, channelGain, dbCurve);
 		}
 		this.channels = channels;
 
+		const twoOpChannels = new Array(numChannels * 2 - 2);
+		for (let i = 0; i < numChannels - 1; i++) {
+			const channel = channels[i];
+			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1);
+			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3);
+		}
+		this.twoOpChannels = twoOpChannels;
 
 		const pcmGain = new GainNode(context, {gain: 0});
-		pcmGain.connect(channels[5].panner);
+		pcmGain.connect(channels[numChannels - 1].panner);
 		this.pcmGain = pcmGain.gain;
 		const dacRegister = new ConstantSourceNode(context, {offset: 0});
 		dacRegister.connect(pcmGain);
@@ -1407,6 +1429,10 @@ class FMSynth {
 		return this.channels[channelNum - 1];
 	}
 
+	get2OperatorChannel(channelNum) {
+		return this.twoOpChannels[channelNum - 1];
+	}
+
 	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
 		this.lfo.frequency[method](frequency, time);
 	}
@@ -1429,20 +1455,19 @@ class FMSynth {
 	 * @param {number} amount The gain to apply to the PCM channel, in the range [0..numChannels].
 	 */
 	mixPCM(amount, time = 0, method = 'setValueAtTime') {
-		let channel6Volume, otherChannelsVolume;
+		let lastChannelVolume, otherChannelsVolume;
 		if (amount <= 1) {
-			channel6Volume = 1 - amount;
+			lastChannelVolume = 1 - amount;
 			otherChannelsVolume = 1;
 		} else {
-			channel6Volume = 0;
+			lastChannelVolume = 0;
 			otherChannelsVolume = 1 - (amount - 1) / (this.channels.length - 1);
 		}
-		this.channels[5].setVolume(channel6Volume, time, method);
+		const numChannels = this.channels.length;
+		this.channels[numChannels - 1].setVolume(lastChannelVolume, time, method);
 		this.pcmGain[method](amount, time);
-		for (let i = 0; i < this.channels.length; i++) {
-			if (i !== 5) {
-				this.channels[i].setVolume(otherChannelsVolume, time, method);
-			}
+		for (let i = 0; i < numChannels - 1; i++) {
+			this.channels[i].setVolume(otherChannelsVolume, time, method);
 		}
 	}
 
@@ -1495,6 +1520,300 @@ class FMSynth {
 
 	getLFO() {
 		return this.lfo;
+	}
+
+}
+
+class TwoOperatorChannel {
+
+	constructor(parentChannel, startingOperator) {
+		this.parentChannel = parentChannel;
+		this.operatorOffset = startingOperator - 1;
+		this.algorithmNum = 1;
+		this.transpose = 0;
+		this.tremoloDepth = 0;
+		this.vibratoDepth = 0;
+	}
+
+	getOperator(operatorNum) {
+		return this.parentChannel.getOperator(this.operatorOffset + operatorNum);
+	}
+
+	/**Switches into two operator mode. A fixed panning setting for the pair of two
+	 * operator channels needs to be configured on the parent channel.
+	 */
+	activate(time = 0, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		parent.setVolume(0.5, time, method);
+		parent.setLFOAttack(0, time);
+		parent.mute(false, time);
+	}
+
+	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		parent.setModulationDepth(offset + 1, offset + 2, modulations[0], time, method);
+		for (let i = 1; i <= 2; i++) {
+			const outputLevel = outputLevels[i - 1];
+			parent.getOperator(offset + i).setVolume(outputLevel, time, method);
+			parent.setKeyVelocity(offset + i, outputLevel === 0 ? 0 : 1);
+		}
+	}
+
+	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
+		const algorithm = TWO_OP_ALGORITHMS[algorithmNum];
+		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
+		this.algorithmNum = algorithmNum;
+	}
+
+	getAlgorithm() {
+		return this.algorithmNum;
+	}
+
+	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
+		const offset = this.operatorOffset;
+		this.parentChannel.setModulationDepth(offset + modulatorOpNum, offset + carrierOpNum, amount, time, method);
+	}
+
+	getModulationDepth(modulatorOpNum, carrierOpNum) {
+		const offset = this.operatorOffset;
+		return this.parentChannel.getModulationDepth(offset + modulatorOpNum, offset + carrierOpNum);
+	}
+
+	disableOperator(operatorNum) {
+		this.parentChannel.disableOperator(this.operatorOffset + operatorNum);
+	}
+
+	enableOperator(operatorNum) {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		const algorithm = TWO_OP_ALGORITHMS[this.algorithmNum];
+		const modulation = algorithm[0][0];
+		const outputLevels = algorithm[1];
+		parent.setModulationDepth(offset + 1, offset + 2, modulation);
+		parent.getOperator(offset + operatorNum).setVolume(outputLevels[operatorNum - 1]);
+	}
+
+	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
+		this.parentChannel.fixFrequency(this.operatorOffset + operatorNum, fixed, time, preserve, method);
+	}
+
+	isOperatorFixed(operatorNum) {
+		return this.parentChannel.isOperatorFixed(this.operatorOffset + operatorNum);
+	}
+
+	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = offset + i;
+			if (!parent.isOperatorFixed(operatorNum)) {
+				const multiple = parent.getFrequencyMultiple(operatorNum);
+				parent.getOperator(operatorNum).setFrequency(blockNumber, frequencyNumber, multiple, time, method);
+			}
+		}
+		parent.freqBlockNumbers[offset] = blockNumber;
+		parent.frequencyNumbers[offset] = frequencyNumber;
+	}
+
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.setOperatorFrequency(this.operatorOffset + operatorNum, blockNumber, frequencyNumber, time, method);
+	}
+
+	getFrequencyBlock(operatorNum = 2) {
+		return this.parentChannel.getFrequencyBlock(this.operatorOffset + operatorNum);
+	}
+
+	getFrequencyNumber(operatorNum = 2) {
+		return this.parentChannel.getFrequencyNumber(this.operatorOffset + operatorNum);
+	}
+
+	setFrequencyMultiple(operatorNum, multiple, time = undefined, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		const effectiveOperatorNum = offset + operatorNum;
+		parent.setFrequencyMultiple(effectiveOperatorNum, multiple);
+		if (time !== undefined && !parent.isOperatorFixed(effectiveOperatorNum)) {
+			const block = parent.getFrequencyBlock(offset + 1);
+			const freqNum = parent.getFrequencyNumber(offset + 1);
+			const operator = parent.getOperator(effectiveOperatorNum);
+			operator.setFrequency(block, freqNum, multiple, time, method);
+		}
+	}
+
+	getFrequencyMultiple(operatorNum) {
+		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
+	}
+
+	setTranspose(transpose) {
+		this.transpose = transpose;
+	}
+
+	getTranspose() {
+		return this.transpose;
+	}
+
+	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
+		noteNumber += this.transpose;
+		const parent = this.parentChannel;
+		const [block, freqNum] = parent.synth.noteFrequencies[noteNumber];
+		this.setFrequency(block, freqNum, time, method);
+	}
+
+	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		const effectiveOperatorNum = this.operatorOffset + operatorNum;
+		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
+		const [block, freqNum] = parent.synth.noteFrequencies[noteNumber];
+		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, method);
+	}
+
+	getMIDINote(operatorNum = 2) {
+		return this.parentChannel.getMIDINote(this.operatorOffset + operatorNum);
+	}
+
+	setFeedback(amount, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.setFeedback(amount, this.operatorOffset + 1, time, method);
+	}
+
+	getFeedback() {
+		return this.parentChannel.getFeedback(this.operatorOffset + 1);
+	}
+
+	useFeedbackPreset(n, time = 0) {
+		this.parentChannel.useFeedbackPreset(n, this.operatorOffset + 1, time);
+	}
+
+	getFeedbackPreset() {
+		return this.parentChannel.getFeedbackPreset(this.operatorOffset + 1);
+	}
+
+	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
+		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = offset + i;
+			if (parent.isTremoloEnabled(operatorNum)) {
+				parent.getOperator(operatorNum).setTremoloDepth(linearAmount, time, method);
+			}
+		}
+		this.tremoloDepth = linearAmount;
+	}
+
+	getTremoloDepth() {
+		return amplitudeToDecibels(this.tremoloDepth);
+	}
+
+	useTremoloPreset(presetNum, time = 0) {
+		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
+	}
+
+	getTremoloPreset() {
+		const depth = Math.round(this.getTremoloDepth() * 10) / 10;
+		return TREMOLO_PRESETS.indexOf(depth);
+	}
+
+	enableTremolo(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
+		const effectiveOperatorNum = this.operatorOffset + operatorNum;
+		const operator = this.parentChannel.getOperator(effectiveOperatorNum);
+		operator.setTremoloDepth(enabled ? this.tremoloDepth : 0, time, method);
+		parentChannel.tremoloEnabled[effectiveOperatorNum - 1] = enabled;
+	}
+
+	isTremoloEnabled(operatorNum) {
+		return this.parentChannel.isTremoloEnabled(this.operatorOffset + operatorNum);
+	}
+
+	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
+		const linearAmount = (2 ** (cents / 1200)) - 1;
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = offset + i;
+			if (parent.isVibratoEnabled(operatorNum)) {
+				parent.getOperator(operatorNum).setVibratoDepth(linearAmount, time, method);
+			}
+		}
+		this.vibratoDepth = linearAmount;
+	}
+
+	getVibratoDepth() {
+		return Math.log2(this.vibratoDepth + 1) * 1200;
+	}
+
+	useVibratoPreset(presetNum, time = 0) {
+		this.setVibratoDepth(VIBRATO_PRESETS[presetNum], time);
+	}
+
+	getVibratoPreset() {
+		const depth = Math.round(this.getVibratoDepth() * 10) / 10;
+		return VIBRATO_PRESETS.indexOf(depth);
+	}
+
+	enableVibrato(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
+		const effectiveOperatorNum = this.operatorOffset + operatorNum;
+		const operator = this.parentChannel.getOperator(effectiveOperatorNum);
+		operator.setVibratoDepth(enabled ? this.vibratoDepth : 0, time, method);
+		parentChannel.vibratoEnabled[effectiveOperatorNum - 1] = enabled;
+	}
+
+	isTremoloEnabled(operatorNum) {
+		return this.parentChannel.isVibratoEnabled(this.operatorOffset + operatorNum);
+	}
+
+	keyOnOff(context, time, op1, op2 = op1) {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		if (op1) {
+			parent.getOperator(offset + 1).keyOn(context, time);
+		} else {
+			parent.getOperator(offset + 1).keyOff(time);
+		}
+		if (op2) {
+			parent.getOperator(offset + 2).keyOn(context, time);
+		} else {
+			parent.getOperator(offset + 2).keyOff(time);
+		}
+	}
+
+	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
+		this.keyOnOff(context, time, true);
+	}
+
+	keyOff(time) {
+		this.keyOnOff(undefined, time, false);
+	}
+
+	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+		const parent = this.parentChannel;
+		const totalLevel = 127 - velocity;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = this.operatorOffset + i;
+			const sensitivity = parent.getKeyVelocity(operatorNum);
+			if (sensitivity > 0) {
+				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time);
+			}
+		}
+		this.keyOn(context, time);
+	}
+
+	setKeyVelocity(operatorNum, sensitivity) {
+		this.parentChannel.setKeyVelocity(this.operatorOffset + operatorNum, sensitivity);
+	}
+
+	getKeyVelocity(operatorNum) {
+		return this.parentChannel.getKeyVelocity(this.operatorOffset + operatorNum);
+	}
+
+	soundOff(time = 0) {
+		for (let i = 1; i <= 2; i++) {
+			this.parentChannel.getOperator(this.operatorOffset + i).soundOff(time);
+		}
+	}
+
+	get numberOfOperators() {
+		return 2;
 	}
 
 }
