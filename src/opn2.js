@@ -421,9 +421,15 @@ class Operator {
 	 *
 	 */
 	constructor(synth, context, lfo, output, dbCurve) {
+		this.synth = synth;
 		this.frequency = 440;
-		this.sourceType = 'sine';
+		this.waveformNumber = 0;
 		this.periodicWave = undefined;
+		const sampleSpeedNode = new ConstantSourceNode(context, {offset: 440});
+		this.sampleSpeedNode = sampleSpeedNode;
+		const sampleSpeedGain = new GainNode(context, {gain: 256 / context.sampleRate});
+		sampleSpeedNode.connect(sampleSpeedGain);
+		this.sampleSpeedGain = sampleSpeedGain;
 		this.source = this.makeSource(context);
 
 		const tremolo = new GainNode(context);
@@ -434,23 +440,8 @@ class Operator {
 		this.tremoloAmp = tremoloGain.gain;
 		lfo.connect(tremoloGain);
 
-		const noDistortionGain = new GainNode(context);
-		const halfWaveShaper = new WaveShaperNode(context, {curve: Float32Array.from([-1, -1, 1])});
-		const halfWaveGain = new GainNode(context, {gain: 0});
-		halfWaveShaper.connect(halfWaveGain);
-		const absShaper = new WaveShaperNode(context, {curve: Float32Array.from([1, -1, 1])});
-		const absGain = new GainNode(context, {gain: 0});
-		absShaper.connect(absGain);
-		this.distortionGains = [noDistortionGain.gain, halfWaveGain.gain, absGain.gain];
-
-		tremolo.connect(noDistortionGain);
-		tremolo.connect(halfWaveShaper);
-		tremolo.connect(absShaper);
-
 		const envelopeGain = new GainNode(context);
-		noDistortionGain.connect(envelopeGain);
-		halfWaveGain.connect(envelopeGain);
-		absGain.connect(envelopeGain);
+		tremolo.connect(envelopeGain);
 		this.envelope = new Envelope(synth, context, envelopeGain, dbCurve);
 		this.envelopeGain = envelopeGain;
 
@@ -461,7 +452,6 @@ class Operator {
 			this.mixer = mixer.gain;
 		}
 
-		this.synth = synth;
 		this.lastFreqChange = 0;
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
@@ -473,15 +463,28 @@ class Operator {
 	}
 
 	makeSource(context) {
-		const oscillator = new OscillatorNode(
-			context,
-			{frequency: this.frequency, type: this.sourceType}
-		);
+		let source;
 		if (this.periodicWave !== undefined) {
+			source = new OscillatorNode(context, {frequency: this.frequency});
 			oscillator.setPeriodicWave(this.periodicWave);
+			this.frequencyParam = source.frequency;
+			return source;
 		}
-		this.frequencyParam = oscillator.frequency;
-		return oscillator;
+
+		const sourceType = this.synth.waveforms[this.waveformNumber];
+		if (sourceType instanceof AudioBuffer) {
+			source = new AudioBufferSourceNode(context,
+				{buffer: sourceType, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: 0}
+			);
+			this.sampleSpeedGain.connect(source.playbackRate);
+			this.frequencyParam = this.sampleSpeedNode.offset;
+		} else {
+			source = new OscillatorNode(context,
+				{frequency: this.frequency, type: sourceType}
+			);
+			this.frequencyParam = source.frequency;
+		}
+		return source;
 	}
 
 
@@ -491,6 +494,7 @@ class Operator {
 	start(time) {
 		this.source.start(time);
 		this.envelope.start(time);
+		this.sampleSpeedNode.start(time);
 	}
 
 	/**Stops the operator's oscillator so that the operator's system resources can be released.
@@ -499,6 +503,7 @@ class Operator {
 	stop(time = 0) {
 		this.source.stop(time);
 		this.envelope.stop(time);
+		this.sampleSpeedNode.stop(time);
 	}
 
 	/**Configures this operator to modulate an external source (usually another operator).
@@ -756,52 +761,24 @@ class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, type, time = 0) {
-		if (type === undefined) throw new Error('Parameters: context, type, [time]')
-		this.sourceType = type;
+	setWaveform(context, waveformNumber, time = 0) {
+		if (waveformNumber === undefined) throw new Error('Parameters: context, type, [time]');
+		this.waveformNumber = waveformNumber;
 		this.periodicWave = undefined;
+
 		if (this.freeRunning) {
 			this.changeSource(context, time);
 		}
 	}
 
 	getWaveform() {
-		return this.periodicWave !== undefined ? 'custom' : this.sourceType;
+		return this.periodicWave !== undefined ? 'custom' : this.waveformNumber;
 	}
 
 	setPeriodicWave(context, wave, time = 0) {
 		this.periodicWave = wave;
 		if (this.freeRunning) {
 			this.changeSource(context, time);
-		}
-	}
-
-	/*
-	 * @param {number} value The type of distortion to apply to the oscillator's waveform.
-	 * 0 = no distortion, 1 = suppress the negative half of the wave, 2 = reflect the negative half.
-	 * Fractional values are allowed.
-	 */
-	setDistortion(value, time = 0, method = 'setValueAtTime') {
-		const intValue = Math.trunc(value);
-		const fraction = value - intValue;
-		const gains = this.distortionGains;
-		gains[(intValue + 1) % 3][method](fraction, time);
-		gains[intValue][method](1 - fraction, time);
-		gains[(intValue + 2) % 3][method](0, time);
-	}
-
-	getDistortion() {
-		const levels = this.distortionGains.map(g => g.value);
-		if (levels[0] > 0) {
-			if (levels[2] > 0) {
-				return 2 + levels[0];
-			} else {
-				return levels[1];
-			}
-		} else if (levels[1] > 0) {
-			return 1 + levels[2];
-		} else {
-			return 2;
 		}
 	}
 
@@ -908,9 +885,15 @@ class Channel {
 		const op4 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
 		this.operators = [op1, op2, op3, op4];
 
+		const minDelay = 128 / context.sampleRate;
+		const dcBlock = 10;
 		const op1To1 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To1);
-		op1.connectIn(op1To1);
+		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
+		op1To1.connect(feedbackFilter1);
+		const delay1To1 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
+		feedbackFilter1.connect(delay1To1);
+		op1.connectIn(delay1To1);
 		const op1To2 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To2);
 		op2.connectIn(op1To2);
@@ -930,7 +913,11 @@ class Channel {
 
 		const op3To3 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To3);
-		op3.connectIn(op3To3);
+		const feedbackFilter3 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
+		op3To3.connect(feedbackFilter3);
+		const delay3To3 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
+		feedbackFilter3.connect(delay3To3);
+		op3.connectIn(delay3To3);
 		const op3To4 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To4);
 		op4.connectIn(op3To4);
@@ -1024,7 +1011,7 @@ class Channel {
 		const outputLevels = algorithm[1]
 		for (let i = operatorNum + 1; i <= 4; i++) {
 			const index = indexOfGain(operatorNum, i);
-			this.gains[index].value = modulations[index - 1];
+			this.gains[index].value = modulations[index - 2];
 		}
 		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
 	}
@@ -1359,6 +1346,58 @@ class FMSynth {
 			dbCurve[i] = logToLinear((i - 1023) / 1023);
 		}
 
+		/**Provides frequency information for each MIDI note in terms of the YM2612's block and
+		 * frequency number notation. The block number is stored in the first element of each
+		 * entry and the frequency number is stored in the nested array's second element. When the
+		 * block number is zero then increasing the frequency number by one raises the note's
+		 * frequency by 0.025157Hz. Increasing the block number by one multiplies the frequency in
+		 * Hertz by two. You can edit this table if you want to tune to something other than A440
+		 * pitch (see {@link tunedMIDINotes}). The only constraint is that the table is sorted
+		 * first by block number and then by frequency number.
+		 * @type {Array<Array<number>>}
+		 */
+		this.noteFrequencies = this.tunedMIDINotes(440);
+
+		let sampleLength = 256;
+		const halfSampleLength = Math.round(sampleLength / 2);
+		const quarterSampleLength = Math.round(sampleLength / 4);
+		sampleLength = Math.round(sampleLength);
+
+		const halfSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
+		let sampleData = halfSine.getChannelData(0);
+		for (let i = 0; i < halfSampleLength; i++) {
+			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+		}
+
+		const absSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
+		sampleData = absSine.getChannelData(0);
+		for (let i = 0; i < halfSampleLength / 2; i++) {
+			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+		}
+
+		const pulseSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
+		sampleData = pulseSine.getChannelData(0);
+		for (let i = 0; i < quarterSampleLength / 2; i++) {
+			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+		}
+
+		const evenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
+		sampleData = evenSine.getChannelData(0);
+		for (let i = 0; i < halfSampleLength; i++) {
+			sampleData[i] = Math.sin(4 * Math.PI * i / sampleLength);
+		}
+
+		const absEvenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
+		sampleData = absEvenSine.getChannelData(0);
+		for (let i = 0; i < halfSampleLength; i++) {
+			sampleData[i] = Math.abs(Math.sin(4 * Math.PI * i / sampleLength));
+		}
+
+		this.waveforms = [
+			'sine', halfSine, absSine, pulseSine, evenSine, absEvenSine,
+			'square', 'sawtooth', 'triangle'
+		];
+
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
 			channels[i] = new Channel(this, context, lfo, channelGain, dbCurve);
@@ -1379,18 +1418,6 @@ class FMSynth {
 		const dacRegister = new ConstantSourceNode(context, {offset: 0});
 		dacRegister.connect(pcmGain);
 		this.dacRegister = dacRegister;
-
-		/**Provides frequency information for each MIDI note in terms of the YM2612's block and
-		 * frequency number notation. The block number is stored in the first element of each
-		 * entry and the frequency number is stored in the nested array's second element. When the
-		 * block number is zero then increasing the frequency number by one raises the note's
-		 * frequency by 0.025157Hz. Increasing the block number by one multiplies the frequency in
-		 * Hertz by two. You can edit this table if you want to tune to something other than A440
-		 * pitch (see {@link tunedMIDINotes}). The only constraint is that the table is sorted
-		 * first by block number and then by frequency number.
-		 * @type {Array<Array<number>>}
-		 */
-		this.noteFrequencies = this.tunedMIDINotes(440);
 	}
 
 	setClockRate(clockRate, time = 0) {
