@@ -10,6 +10,9 @@ OPM-like features
 OPL2/3-like features
 	2 op / 4 op selector UI
 	"Detune" two halves to have different frequencies
+	Compatibility
+		Separate LFOs for pitch and volume
+		Algorithm like Algorithm 6 but with the operators re-numbered.
 
 Envelopes
 	Frequency (channel)

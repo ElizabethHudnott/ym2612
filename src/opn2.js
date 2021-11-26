@@ -427,7 +427,7 @@ class Operator {
 		this.periodicWave = undefined;
 		const sampleSpeedNode = new ConstantSourceNode(context, {offset: 440});
 		this.sampleSpeedNode = sampleSpeedNode;
-		const sampleSpeedGain = new GainNode(context, {gain: 256 / context.sampleRate});
+		const sampleSpeedGain = new GainNode(context, {gain: synth.sampleLength / context.sampleRate});
 		sampleSpeedNode.connect(sampleSpeedGain);
 		this.sampleSpeedGain = sampleSpeedGain;
 		this.source = this.makeSource(context);
@@ -1358,39 +1358,39 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
-		let sampleLength = 256;
-		const halfSampleLength = Math.round(sampleLength / 2);
-		const quarterSampleLength = Math.round(sampleLength / 4);
-		sampleLength = Math.round(sampleLength);
+		const sampleLength = 2048;
+		const halfSampleLength = 1024;
+		const quarterSampleLength = 512;
+		this.sampleLength = sampleLength;
 
 		const halfSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
 		let sampleData = halfSine.getChannelData(0);
 		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
 		const absSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
 		sampleData = absSine.getChannelData(0);
 		for (let i = 0; i < halfSampleLength / 2; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
 		const pulseSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
 		sampleData = pulseSine.getChannelData(0);
 		for (let i = 0; i < quarterSampleLength / 2; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * i / sampleLength);
+			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
 		const evenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
 		sampleData = evenSine.getChannelData(0);
 		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.sin(4 * Math.PI * i / sampleLength);
+			sampleData[i] = Math.sin(4 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
 		const absEvenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
 		sampleData = absEvenSine.getChannelData(0);
 		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.abs(Math.sin(4 * Math.PI * i / sampleLength));
+			sampleData[i] = Math.abs(Math.sin(4 * Math.PI * (i + 0.5) / sampleLength));
 		}
 
 		this.waveforms = [
