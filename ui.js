@@ -115,7 +115,7 @@ function algorithmRadio(event) {
 	setTimeout(updateAlgorithmDetails, 20);
 }
 
-for (let i = 0; i <= 8; i++) {
+for (let i = 0; i <= 9; i++) {
 	document.getElementById('algorithm-' + i).addEventListener('click', algorithmRadio);
 }
 
