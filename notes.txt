@@ -1,8 +1,8 @@
 Pitch bend
+Ability to sync LFO to song tempo
 Bigger detune
 Level scaling
 
-PeriodicWave
 
 OPM-like features
 	Noise?

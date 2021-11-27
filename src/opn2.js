@@ -423,7 +423,7 @@ class Operator {
 	constructor(synth, context, lfo, output, dbCurve) {
 		this.synth = synth;
 		this.frequency = 440;
-		this.waveformNumber = 0;
+		this.sourceType = 'sine';
 		this.periodicWave = undefined;
 		const sampleSpeedNode = new ConstantSourceNode(context, {offset: 440});
 		this.sampleSpeedNode = sampleSpeedNode;
@@ -471,7 +471,7 @@ class Operator {
 			return source;
 		}
 
-		const sourceType = this.synth.waveforms[this.waveformNumber];
+		const sourceType = this.sourceType;
 		if (sourceType instanceof AudioBuffer) {
 			source = new AudioBufferSourceNode(context,
 				{buffer: sourceType, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: 0}
@@ -761,22 +761,43 @@ class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, waveformNumber, time = 0) {
-		if (waveformNumber === undefined) throw new Error('Parameters: context, type, [time]');
-		this.waveformNumber = waveformNumber;
+	setWaveformNumber(context, waveformNumber, time = 0) {
+		if (waveformNumber === undefined) throw new Error('Parameters: context, waveNumber, [time]');
+		this.sourceType = this.synth.waveforms[waveformNumber];
 		this.periodicWave = undefined;
-
 		if (this.freeRunning) {
 			this.changeSource(context, time);
 		}
 	}
 
-	getWaveform() {
-		return this.periodicWave !== undefined ? 'custom' : this.waveformNumber;
+	getWaveformNumber() {
+		if (this.periodicWave !== undefined) {
+			return -1;
+		} else {
+			return this.synth.waveforms.indexOf(this.sourceType);
+		}
+	}
+
+	getWaveformSample() {
+		if (this.periodicWave === undefined && this.sourceType instanceof AudioBuffer) {
+			return this.sourceType;
+		} else {
+			return null
+		}
 	}
 
 	setPeriodicWave(context, wave, time = 0) {
+		if (wave === undefined) throw new Error('Parameters: context, periodicWave, [time]');
 		this.periodicWave = wave;
+		if (this.freeRunning) {
+			this.changeSource(context, time);
+		}
+	}
+
+	setWaveformSample(context, audioBuffer, time = 0) {
+		if (audioBuffer === undefined) throw new Error('Parameters: context, audioBuffer, [time]');
+		this.sourceType = audioBuffer;
+		this.periodicWave = undefined;
 		if (this.freeRunning) {
 			this.changeSource(context, time);
 		}
