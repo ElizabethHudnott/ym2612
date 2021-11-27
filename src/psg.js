@@ -225,7 +225,9 @@ class PSG {
 
 		const opnClock = clockRate * CLOCK_RATIO;
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
-		this.opnBaseNote = 256 * opnFrequencyStep;
+		// Incorporate the upper 4 bits of an OPN style frequency number into the key code
+		// 2048 / 128 = 16 But there's a multiply/divide by 2 aspect as well.
+		this.hertzToFBits = 64 * opnFrequencyStep;
 		this.lfoRateMultiplier = opnClock / 8000000;
 
 		let maxFrequency = this.frequencyNumberToHz(minFreqNumber);
@@ -352,12 +354,17 @@ class PSG {
 		return n === 1 ? this.lfo1 : this.lfo2;
 	}
 
+	/**Approximates calcKeyCode in opn2.js, but derives the key code from a frequency in
+	 * Hertz rather than an OPN style frequency number.
+	 */
 	calcKeyCode(frequency) {
-		const multiple = frequency / this.opnBaseNote;
-		const octave = Math.log2(multiple) + 1;
-		const block = Math.max(Math.trunc(octave) - 2, 0);
-		const lsbs = Math.ceil(octave - block);
-		return (block << 2) + lsbs;
+		// Multiply by 2 here because we multiply by 0.5 when going from a frequency number to Hertz.
+		const multiple = frequency / this.hertzToFBits;
+		const block = Math.max(Math.ceil(Math.log2(multiple / 16)), 0);
+		const remainder = Math.trunc(multiple / (2 ** block));
+		const f11 = remainder >= 8;
+		const lsb = remainder > 8 || remainder === 7;
+		return (block << 2) + (f11 << 1) + lsb;
 	}
 
 }

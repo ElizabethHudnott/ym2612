@@ -427,7 +427,7 @@ class Operator {
 		this.periodicWave = undefined;
 		const sampleSpeedNode = new ConstantSourceNode(context, {offset: 440});
 		this.sampleSpeedNode = sampleSpeedNode;
-		const sampleSpeedGain = new GainNode(context, {gain: synth.sampleLength / context.sampleRate});
+		const sampleSpeedGain = new GainNode(context);
 		sampleSpeedNode.connect(sampleSpeedGain);
 		this.sampleSpeedGain = sampleSpeedGain;
 		this.source = this.makeSource(context);
@@ -765,9 +765,8 @@ class FMOperator extends Operator {
 		if (waveformNumber === undefined) throw new Error('Parameters: context, waveNumber, [time]');
 		this.sourceType = this.synth.waveforms[waveformNumber];
 		this.periodicWave = undefined;
-		if (this.freeRunning) {
-			this.changeSource(context, time);
-		}
+		this.changeSource(context, time);
+		this.sampleSpeedGain.gain.setValueAtTime(this.synth.samplePeriods[waveformNumber], time);
 	}
 
 	getWaveformNumber() {
@@ -789,18 +788,15 @@ class FMOperator extends Operator {
 	setPeriodicWave(context, wave, time = 0) {
 		if (wave === undefined) throw new Error('Parameters: context, periodicWave, [time]');
 		this.periodicWave = wave;
-		if (this.freeRunning) {
-			this.changeSource(context, time);
-		}
+		this.changeSource(context, time);
 	}
 
-	setWaveformSample(context, audioBuffer, time = 0) {
+	setWaveformSample(context, audioBuffer, length = audioBuffer.length, time = 0) {
 		if (audioBuffer === undefined) throw new Error('Parameters: context, audioBuffer, [time]');
 		this.sourceType = audioBuffer;
 		this.periodicWave = undefined;
-		if (this.freeRunning) {
-			this.changeSource(context, time);
-		}
+		this.changeSource(context, time);
+		this.sampleSpeedGain.gain.setValueAtTime(length / context.sampleRate, time);
 	}
 
 }
@@ -1379,21 +1375,19 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
-		const sampleLength = 2048;
-		const halfSampleLength = 1024;
-		const quarterSampleLength = 512;
-		this.sampleLength = sampleLength;
+		const doubleSampleLength = 2048;
+		const sampleLength = 1024;
+		const halfSampleLength = 512;
+		const quarterSampleLength = 256;
 
 		const halfSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
 		let sampleData = halfSine.getChannelData(0);
-		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
-		}
-
 		const absSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
-		sampleData = absSine.getChannelData(0);
-		for (let i = 0; i < halfSampleLength / 2; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
+		let sampleData2 = absSine.getChannelData(0);
+		for (let i = 0; i < halfSampleLength; i++) {
+			const value = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
+			sampleData[i] = value;
+			sampleData2[i] = value;
 		}
 
 		const pulseSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
@@ -1402,22 +1396,26 @@ class FMSynth {
 			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
-		const evenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
+		const evenSine = new AudioBuffer({length: doubleSampleLength, sampleRate: context.sampleRate});
 		sampleData = evenSine.getChannelData(0);
-		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.sin(4 * Math.PI * (i + 0.5) / sampleLength);
-		}
-
-		const absEvenSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
-		sampleData = absEvenSine.getChannelData(0);
-		for (let i = 0; i < halfSampleLength; i++) {
-			sampleData[i] = Math.abs(Math.sin(4 * Math.PI * (i + 0.5) / sampleLength));
+		const absEvenSine = new AudioBuffer({length: doubleSampleLength, sampleRate: context.sampleRate});
+		sampleData2 = absEvenSine.getChannelData(0);
+		for (let i = 0; i < sampleLength; i++) {
+			const value = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
+			sampleData[i] = value;
+			sampleData2[i] = Math.abs(value);
 		}
 
 		this.waveforms = [
-			'sine', halfSine, absSine, pulseSine, evenSine, absEvenSine,
+			'sine', halfSine, absSine, pulseSine,
+			evenSine, absEvenSine,
 			'square', 'sawtooth', 'triangle'
 		];
+		this.samplePeriods = [
+			0, sampleLength, sampleLength, sampleLength,
+			2 * sampleLength, 2 * sampleLength,
+			0, 0, 0
+		].map(x => x / context.sampleRate);
 
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
