@@ -20,54 +20,113 @@ const TREMOLO_PRESETS = [0, 2, 6, 12];
 
 let supportsCancelAndHold;
 
-
-class NoiseNode extends AudioWorkletNode {
-	#clockRate;
-
-	constructor(context) {
-		super(context, 'noise', {numberOfInputs: 0});
-	}
-
-	stop(time = 0) {
-		this.port.postMessage({type: 'stop', value: time});
-	}
-
-	set clockRate(hertz) {
-		this.port.postMessage({type: 'setClockRate', value: hertz});
-		this.#clockRate = hertz;
-	}
-
-	get clockRate() {
-		return this.#clockRate;
-	}
-
-	get count() {
-		return this.parameters.get('count');
-	}
-
-	get type() {
-		return this.parameters.get('type');
-	}
-
-}
-
 class NoiseChannel {
-	constructor(context, lfo, output) {
-		const generator = new NoiseNode(context);
-		this.generator = generator;
+	constructor(context, lfo, output, clockRate) {
+		const noiseBuffer = new AudioBuffer({length: 57336, sampleRate: context.sampleRate});
+		let sampleData = noiseBuffer.getChannelData(0);
+		let lfsr = 1 << 15;
+		for (let i = 0; i < 57336; i++) {
+			const output = lfsr & 1;
+			const tap = ((lfsr & 8) >> 3) ^ output;
+			lfsr = (lfsr >>> 1) | (tap << 15);
+			sampleData[i] = output === 1 ? 1 : -1;
+		}
+		this.noiseBuffer = noiseBuffer;
+
+		const pulseBuffer = new AudioBuffer({length: 16, sampleRate: context.sampleRate});
+		sampleData = pulseBuffer.getChannelData(0);
+		sampleData.fill(-1, 0, 15);
+		sampleData[15] = 1;
+		this.pulseBuffer = pulseBuffer;
+		this.pulsing = true;
+
+		const toneInputGain = new GainNode(context, {gain: 0});
+		this.toneInputGain = toneInputGain;
+		this.countdownValue = 16;
+		this.transitionsPerSample = clockRate / (32 * context.sampleRate);
+		const source = this.makeSource(context);
+		toneInputGain.connect(source.playbackRate);
+		this.source = source;
+
+		const tremolo = new GainNode(context);
+		source.connect(tremolo);
+		this.tremolo = tremolo;
+		const tremoloGain = new GainNode(context, {gain: 0});
+		tremoloGain.connect(tremolo.gain);
+		this.tremoloAmp = tremoloGain.gain;
+		lfo.connect(tremoloGain);
+
 		const envelopeGain = new GainNode(context, {gain: 0});
-		generator.connect(envelopeGain);
+		tremolo.connect(envelopeGain);
 		envelopeGain.connect(output);
 		this.envelopeGain = envelopeGain;
 	}
 
-	start() {
-		// Do nothing.
+	makeSource(context) {
+		let playbackRate;
+		if (this.countdownValue) {
+			playbackRate = this.transitionsPerSample / this.countdownValue;
+		} else {
+			playbackRate = 0;
+		}
+
+		return new AudioBufferSourceNode(context, {
+			buffer: this.pulsing ? this.pulseBuffer : this.noiseBuffer,
+			loop: true,
+			loopEnd: Number.MAX_VALUE,
+			playbackRate: playbackRate,
+		});
+	}
+
+	start(time = 0) {
+		this.source.start(time);
 	}
 
 	stop(time = 0) {
-		this.generator.stop(time);
+		this.source.stop(time);
 	}
+
+	connectIn(toneFrequency) {
+		toneFrequency.connect(this.toneInputGain);
+	}
+
+	loadRegister(context, time = 0) {
+		const newSource = this.makeSource(context);
+		newSource.start(time);
+		this.toneInputGain.connect(newSource.playbackRate);
+		newSource.connect(this.tremolo);
+		this.source.stop(time);
+		this.source = newSource;
+	}
+
+	setClockRate(context, clockRate, time = 0) {
+		this.transitionsPerSample = clockRate / (32 * context.sampleRate);
+		this.loadRegister(context, time);
+	}
+
+	useToneFrequency(context, time = 0) {
+		this.source.playbackRate.setValueAtTime(0, time);
+		this.toneInputGain.gain.setValueAtTime(1 / context.sampleRate, time);
+		this.countdownValue = undefined;
+	}
+
+	setCountdownValue(count, time = 0) {
+		this.toneInputGain.gain.setValueAtTime(0, time);
+		this.countdownValue = Math.max(count, 1);
+	}
+
+	getCountdownValue() {
+		return this.countdownValue;
+	}
+
+	setPulsing(enabled) {
+		this.pulsing = enabled;
+	}
+
+	isPulsing() {
+		return this.pulsing;
+	}
+
 }
 
 class ToneChannel {
@@ -162,13 +221,12 @@ class ToneChannel {
 	}
 
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
+		this.frequencyControl[method](frequency, time);
 		const limit = this.synth.maxFrequency;
 		if (frequency > limit) {
-			this.frequencyControl[method](limit, time);
 			this.waveAmp[method](0, time);
 			this.constant[method](0.5, time);
 		} else {
-			this.frequencyControl[method](frequency, time);
 			this.waveAmp[method](1, time);
 			this.constant[method](0, time);
 		}
@@ -226,13 +284,13 @@ class ToneChannel {
 	}
 
 	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
-		const leftOver = decibelReductionToAmplitude(decibels);
-		this.tremoloAmp[method](1 - leftOver, time);
-		this.tremolo[method](leftOver, time);
+		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
+		this.tremoloAmp[method](-linearAmount, time);
+		this.tremolo[method](1 - linearAmount, time);
 	}
 
 	getTremoloDepth() {
-		return amplitudeToDecibels(this.tremoloAmp.value);
+		return amplitudeToDecibels(-this.tremoloAmp.value);
 	}
 
 	useTremoloPreset(presetNum, time = 0) {
@@ -245,11 +303,11 @@ class ToneChannel {
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
 		const depth = (2 ** (cents / 1200)) - 1;
-		this.vibratoDepth[method](-depth, time);
+		this.vibratoDepth[method](depth, time);
 	}
 
 	getVibratoDepth() {
-		return -this.vibratoDepth.value;
+		return this.vibratoDepth.value;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -265,7 +323,7 @@ class ToneChannel {
 class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL, callback = undefined) {
-		this.setClockRate(clockRate);
+		this.setClockRate(context, clockRate);
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
 		let frequencyLimit = context.sampleRate / 2;
@@ -297,23 +355,14 @@ class PSG {
 			const channel = new ToneChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
 			channels[i] = channel;
 		}
+		const noiseChannel = new NoiseChannel(context, lfo1, channelGain, clockRate);
+		noiseChannel.connectIn(channels[2].frequencyNode);
+		channels[numWaveChannels] = noiseChannel;
+		this.noiseChannel = noiseChannel;
 		this.channels = channels;
-		this.noiseChannel = undefined;
-
-		const me = this;
-		const moduleURL = import.meta.url;
-		const workletURL = moduleURL.slice(0, moduleURL.lastIndexOf('/')) + '/audioworkletprocessors.js';
-		context.audioWorklet.addModule(workletURL).then(function () {
-			const noiseChannel = new NoiseChannel(context, lfo1, channelGain);
-			channels[numWaveChannels] = noiseChannel;
-			me.noiseChannel = noiseChannel;
-			if (callback !== undefined) {
-				callback(noiseChannel.generator);
-			}
-		});
 	}
 
-	setClockRate(clockRate) {
+	setClockRate(context, clockRate) {
 		this.clockRate = clockRate;
 		const opnClock = clockRate * CLOCK_RATIO;
 		this.lfoRateMultiplier = opnClock / 8000000;
@@ -321,6 +370,10 @@ class PSG {
 		// Incorporate the upper 4 bits of an OPN style frequency number into the key code
 		// 2048 / 128 = 16 But there's a multiply/divide by 2 aspect as well.
 		this.hertzToFBits = 64 * opnFrequencyStep;
+
+		if (this.noiseChannel) {
+			this.noiseChannel.setClockRate(context, clockRate);
+		}
 	}
 
 	start(time) {
@@ -435,6 +488,6 @@ class PSG {
 }
 
 export {
-	PSG, NoiseNode, NoiseChannel, ToneChannel,
+	PSG, NoiseChannel, ToneChannel,
 	TREMOLO_PRESETS, CLOCK_RATE, CLOCK_RATIO
 }

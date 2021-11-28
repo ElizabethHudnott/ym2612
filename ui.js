@@ -9,7 +9,7 @@ function initialize() {
 	if (context !== undefined) {
 		return;
 	}
-	context = new AudioContext({sampleRate: 96000});
+	context = new AudioContext();
 	window.audioContext = context;
 	const soundSystem = new GenesisSound(context);
 	window.soundSystem = soundSystem;

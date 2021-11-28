@@ -903,7 +903,7 @@ class Channel {
 		this.operators = [op1, op2, op3, op4];
 
 		const minDelay = 128 / context.sampleRate;
-		const dcBlock = 10;
+		const dcBlock = 49 * 48000 / context.sampleRate;
 		const op1To1 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To1);
 		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
@@ -938,6 +938,8 @@ class Channel {
 		const op3To4 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To4);
 		op4.connectIn(op3To4);
+
+		this.dcBlock = [feedbackFilter1.frequency, feedbackFilter3.frequency];
 
 		this.gains = [
 			op1To1.gain, op3To3.gain,
@@ -1142,23 +1144,29 @@ class Channel {
 	}
 
 	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		const index = operatorNum === 1 ? 0 : 1;
-		this.gains[index][method](amount, time);
+		this.gains[(operatorNum - 1) / 2][method](amount, time);
 	}
 
 	getFeedback(operatorNum = 1) {
-		const index = operatorNum === 1 ? 0 : 1;
-		return this.gains[index].value;
+		return this.gains[(operatorNum - 1) / 2].value;
 	}
 
-	useFeedbackPreset(n, operatorNum = 1, time = 0) {
+	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
 		const amount = n === 0 ? 0 : 2 ** (n - 6);
-		this.setFeedback(amount, operatorNum, time);
+		this.setFeedback(amount, operatorNum, time, method);
 	}
 
 	getFeedbackPreset(operatorNum = 1) {
 		const amount = this.getFeedback(operatorNum);
 		return amount === 0 ? 0 : Math.round(Math.log2(amount) + 6);
+	}
+
+	setFeedbackFilter(cutoff, operatorNum = 1, time = 0, method = 'setValueAtTime') {
+		this.dcBlock[(operatorNum - 1) / 2][method](cutoff, time);
+	}
+
+	getFeedbackFilterFreq(operatorNum = 1) {
+		return this.dcBlock[(operatorNum - 1) / 2].value;
 	}
 
 	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
@@ -1175,8 +1183,8 @@ class Channel {
 		return amplitudeToDecibels(this.tremoloDepth);
 	}
 
-	useTremoloPreset(presetNum, time = 0) {
-		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
+	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
+		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time, method);
 	}
 
 	getTremoloPreset() {
@@ -1233,7 +1241,7 @@ class Channel {
 		} else {
 			this.lfoEnvelope.cancelScheduledValues(time);
 		}
-		this.lfoEnvelope.linearRampToValueAtTime(0, time);
+		this.lfoEnvelope.linearRampToValueAtTime(1, time);
 		this.lfoAttack = seconds;
 	}
 
@@ -1243,7 +1251,7 @@ class Channel {
 
 	triggerLFO(time) {
 		if (this.lfoAttack > 0) {
-			this.lfoEnvelope.setValueAtTime(0, time);
+			cancelAndHoldAtTime(this.lfoEnvelope, 0, time);
 			this.lfoEnvelope.linearRampToValueAtTime(1, time + this.lfoAttack);
 		}
 	}
@@ -1484,8 +1492,8 @@ class FMSynth {
 		return this.lfo.frequency.value;
 	}
 
-	useLFOPreset(n, time = 0) {
-		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time);
+	useLFOPreset(n, time = 0, method = 'setValueAtTime') {
+		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time, method);
 	}
 
 	getLFOPreset() {
@@ -1723,12 +1731,20 @@ class TwoOperatorChannel {
 		return this.parentChannel.getFeedback(this.operatorOffset + 1);
 	}
 
-	useFeedbackPreset(n, time = 0) {
-		this.parentChannel.useFeedbackPreset(n, this.operatorOffset + 1, time);
+	useFeedbackPreset(n, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.useFeedbackPreset(n, this.operatorOffset + 1, time, method);
 	}
 
 	getFeedbackPreset() {
 		return this.parentChannel.getFeedbackPreset(this.operatorOffset + 1);
+	}
+
+	setFeedbackFilter(cutoff, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.setFeedbackFilter(cutoff, this.operatorOffset + 1, time, method);
+	}
+
+	getFeedbackFilterFreq() {
+		return this.parentChannel.getFeedbackFilterFreq(this.operatorOffset + 1);
 	}
 
 	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
@@ -1748,8 +1764,8 @@ class TwoOperatorChannel {
 		return amplitudeToDecibels(this.tremoloDepth);
 	}
 
-	useTremoloPreset(presetNum, time = 0) {
-		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
+	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
+		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time, method);
 	}
 
 	getTremoloPreset() {
