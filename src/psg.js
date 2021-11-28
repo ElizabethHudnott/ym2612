@@ -26,7 +26,6 @@ class NoiseNode extends AudioWorkletNode {
 
 	constructor(context) {
 		super(context, 'noise', {numberOfInputs: 0});
-		this.#clockRate = CLOCK_RATE.PAL;
 	}
 
 	stop(time = 0) {
