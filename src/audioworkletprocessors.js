@@ -46,7 +46,7 @@ class NoiseProcessor extends AudioWorkletProcessor {
 	process(inputs, outputs, parameters) {
 		const output = outputs[0][0];
 		const resetValue = parameters.count[0];
-		const periodicNoise = parameters.type[0] >= 0.5;
+		const periodicNoise = parameters.type[0] < 0.5;
 
 		const tickRate = this.tickRate;
 		const leftOverTicks = this.leftOverTicks;
