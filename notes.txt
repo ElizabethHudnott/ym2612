@@ -13,6 +13,7 @@ OPL2/3-like features
 	Compatibility
 		Separate LFOs for pitch and volume
 		Algorithm like Algorithm 6 but with the operators re-numbered.
+		Independent panning of 2-op channels
 
 Envelopes
 	Frequency (channel)
