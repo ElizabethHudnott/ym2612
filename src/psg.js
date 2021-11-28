@@ -16,11 +16,62 @@ const CLOCK_RATE = {
 
 const CLOCK_RATIO = OPN_CLOCK_RATE.NTSC / CLOCK_RATE.NTSC;
 
-const AM_PRESETS = [0, 2, 6, 12];
+const TREMOLO_PRESETS = [0, 2, 6, 12];
 
 let supportsCancelAndHold;
 
-class PSGChannel {
+
+class NoiseNode extends AudioWorkletNode {
+	#clockRate;
+
+	constructor(context) {
+		super(context, 'noise', {numberOfInputs: 0});
+		this.#clockRate = CLOCK_RATE.PAL;
+	}
+
+	stop(time = 0) {
+		this.port.postMessage({type: 'stop', value: time});
+	}
+
+	set clockRate(hertz) {
+		this.port.postMessage({type: 'setClockRate', value: hertz});
+		this.#clockRate = hertz;
+	}
+
+	get clockRate() {
+		return this.#clockRate;
+	}
+
+	get count() {
+		return this.parameters.get('count');
+	}
+
+	get type() {
+		return this.parameters.get('type');
+	}
+
+}
+
+class NoiseChannel {
+	constructor(context, lfo, output) {
+		const generator = new NoiseNode(context);
+		this.generator = generator;
+		const envelopeGain = new GainNode(context, {gain: 0});
+		generator.connect(envelopeGain);
+		envelopeGain.connect(output);
+		this.envelopeGain = envelopeGain;
+	}
+
+	start() {
+		// Do nothing.
+	}
+
+	stop(time = 0) {
+		this.generator.stop(time);
+	}
+}
+
+class ToneChannel {
 
 	constructor(synth, context, lfo1, lfo2, output, reciprocalTable) {
 		this.synth = synth;
@@ -32,10 +83,10 @@ class PSGChannel {
 		const fmMod = new GainNode(context);
 		frequency.connect(fmMod);
 		this.fmMod = fmMod.gain;
-		const fmModGain = new GainNode(context, {gain: 0});
-		fmModGain.connect(fmMod.gain);
-		this.fmModAmp = fmModGain.gain;
-		lfo1.connect(fmModGain);
+		const vibratoDepth = new GainNode(context, {gain: 0});
+		vibratoDepth.connect(fmMod.gain);
+		this.vibratoDepth = vibratoDepth.gain;
+		lfo1.connect(vibratoDepth);
 		fmMod.connect(saw.frequency);
 
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
@@ -75,17 +126,17 @@ class PSGChannel {
 		times2.connect(dcOffset.offset);
 		this.pwm = pwm.gain;
 
-		const amMod = new GainNode(context);
-		waveGain.connect(amMod);
-		constant.connect(amMod);
-		this.amMod = amMod.gain;
-		const amModGain = new GainNode(context, {gain: 0});
-		amModGain.connect(amMod.gain);
-		this.amModAmp = amModGain.gain;
-		lfo1.connect(amModGain);
+		const tremolo = new GainNode(context);
+		waveGain.connect(tremolo);
+		constant.connect(tremolo);
+		this.tremolo = tremolo.gain;
+		const tremoloGain = new GainNode(context, {gain: 0});
+		tremoloGain.connect(tremolo.gain);
+		this.tremoloAmp = tremoloGain.gain;
+		lfo1.connect(tremoloGain);
 
 		const envelopeGain = new GainNode(context, {gain: 0});
-		amMod.connect(envelopeGain);
+		tremolo.connect(envelopeGain);
 		envelopeGain.connect(output);
 		this.envelopeGain = envelopeGain;
 
@@ -175,31 +226,31 @@ class PSGChannel {
 		return this.pwm.value;
 	}
 
-	setAMDepth(decibels, time = 0, method = 'setValueAtTime') {
+	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
 		const leftOver = decibelReductionToAmplitude(decibels);
-		this.amModAmp[method](1 - leftOver, time);
-		this.amMod[method](leftOver, time);
+		this.tremoloAmp[method](1 - leftOver, time);
+		this.tremolo[method](leftOver, time);
 	}
 
-	getAMDepth() {
-		return amplitudeToDecibels(this.amModAmp.value);
+	getTremoloDepth() {
+		return amplitudeToDecibels(this.tremoloAmp.value);
 	}
 
-	useAMPreset(presetNum, time = 0) {
-		this.setAMDepth(AM_PRESETS[presetNum], time);
+	useTremoloPreset(presetNum, time = 0) {
+		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
 	}
 
-	getAMPreset() {
-		return AM_PRESETS.indexOf(Math.round(this.getAMDepth()));
+	getTremoloPreset() {
+		return TREMOLO_PRESETS.indexOf(Math.round(this.getTremoloDepth()));
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
 		const depth = (2 ** (cents / 1200)) - 1;
-		this.fmModAmp[method](-depth, time);
+		this.vibratoDepth[method](-depth, time);
 	}
 
 	getVibratoDepth() {
-		return -this.fmModAmp.value;
+		return -this.vibratoDepth.value;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -214,22 +265,15 @@ class PSGChannel {
 
 class PSG {
 
-	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL) {
-		this.clockRate = clockRate;
+	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL, callback = undefined) {
+		this.setClockRate(clockRate);
+		this.noteFrequencies = this.tunedMIDINotes(440);
+
 		let frequencyLimit = context.sampleRate / 2;
 		if (frequencyLimit > 24000) {
 			frequencyLimit /= 2;
 		}
 		const minFreqNumber = Math.ceil(this.frequencyToFreqNumber(frequencyLimit));
-		this.noteFrequencies = this.tunedMIDINotes(440);
-
-		const opnClock = clockRate * CLOCK_RATIO;
-		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
-		// Incorporate the upper 4 bits of an OPN style frequency number into the key code
-		// 2048 / 128 = 16 But there's a multiply/divide by 2 aspect as well.
-		this.hertzToFBits = 64 * opnFrequencyStep;
-		this.lfoRateMultiplier = opnClock / 8000000;
-
 		let maxFrequency = this.frequencyNumberToHz(minFreqNumber);
 		const step = 2;
 		const numSteps = Math.ceil(maxFrequency / step);
@@ -247,15 +291,37 @@ class PSG {
 		const lfo2 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo2 = lfo2;
 
-		const channelGain = new GainNode(context, {gain: 1 / numWaveChannels});
+		const channelGain = new GainNode(context, {gain: 1 / (numWaveChannels + 1)});
 		channelGain.connect(context.destination);
 		const channels = [];
 		for (let i = 0; i < numWaveChannels; i++) {
-			const channel = new PSGChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
+			const channel = new ToneChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
 			channels[i] = channel;
 		}
 		this.channels = channels;
+		this.noiseChannel = undefined;
 
+		const me = this;
+		const moduleURL = import.meta.url;
+		const workletURL = moduleURL.slice(0, moduleURL.lastIndexOf('/')) + '/audioworkletprocessors.js';
+		context.audioWorklet.addModule(workletURL).then(function () {
+			const noiseChannel = new NoiseChannel(context, lfo1, channelGain);
+			channels[numWaveChannels] = noiseChannel;
+			me.noiseChannel = noiseChannel;
+			if (callback !== undefined) {
+				callback(noiseChannel.generator);
+			}
+		});
+	}
+
+	setClockRate(clockRate) {
+		this.clockRate = clockRate;
+		const opnClock = clockRate * CLOCK_RATIO;
+		this.lfoRateMultiplier = opnClock / 8000000;
+		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
+		// Incorporate the upper 4 bits of an OPN style frequency number into the key code
+		// 2048 / 128 = 16 But there's a multiply/divide by 2 aspect as well.
+		this.hertzToFBits = 64 * opnFrequencyStep;
 	}
 
 	start(time) {
@@ -370,6 +436,6 @@ class PSG {
 }
 
 export {
-	PSGChannel, PSG,
-	AM_PRESETS, CLOCK_RATE, CLOCK_RATIO
+	PSG, NoiseNode, NoiseChannel, ToneChannel,
+	TREMOLO_PRESETS, CLOCK_RATE, CLOCK_RATIO
 }

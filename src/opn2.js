@@ -1439,14 +1439,11 @@ class FMSynth {
 		this.dacRegister = dacRegister;
 	}
 
-	setClockRate(clockRate, time = 0) {
+	setClockRate(clockRate) {
 		const lfoPresetNum = this.getLFOPreset();
 		this.envelopeTick = 72 * 6 / clockRate;
 		this.frequencyStep = clockRate / (144 * 2 ** 20);
 		this.lfoRateMultiplier = clockRate / 8000000;
-		if (lfoPresetNum !== -1) {
-			this.useLFOPreset(lfoPresetNum, time);
-		}
 	}
 
 	start(time) {
