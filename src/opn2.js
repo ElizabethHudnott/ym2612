@@ -206,7 +206,7 @@ class Envelope {
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(keyCode, time) {
+	keyOn(soundSource, keyCode, time) {
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const tickRate = this.synth.envelopeTick;
 		const gain = this.gain;
@@ -247,6 +247,7 @@ class Envelope {
 				// Level never rises
 				if (beginLevel === 0) {
 					this.endSustain = time;
+					soundSource.stop(time);
 				} else {
 					cancelAndHoldAtTime(gain, beginLevel, time);
 					this.hasAttack = false;
@@ -271,7 +272,13 @@ class Envelope {
 		this.endAttack = endAttack;
 
 		if (this.decayRate === 0) {
-			const endTime = invert ? time : Infinity;
+			let endTime;
+			if (invert) {
+				endTime = time;
+				soundSource.stop(time);
+			} else {
+				endTime = Infinity;
+			}
 			this.endDecay = endTime;
 			this.endSustain = endTime;
 			return;
@@ -283,17 +290,28 @@ class Envelope {
 		gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		this.endDecay = endDecay;
 		if (this.sustainRate === 0) {
-			this.endSustain = Infinity;
+			if (sustain === 0) {
+				this.endSustain = endDecay;
+				soundSource.stop(endDecay);
+			} else {
+				this.endSustain = Infinity;
+			}
 			return;
 		}
 
 		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
-		const endSustain = endDecay + sustainTime;
-		gain.linearRampToValueAtTime(invert ? 1 : 0, endSustain);
-		this.endSustain = endSustain;
+		let endSustain = endDecay + sustainTime;
+		let finalValue = invert ? 1 : 0
+		gain.linearRampToValueAtTime(finalValue, endSustain);
 
 		if (this.jump) {
-			gain.linearRampToValueAtTime(invert ? 0 : 1, endSustain + tickRate);
+			finalValue = 1 - finalValue;
+			endSustain += tickRate;
+			gain.linearRampToValueAtTime(finalValue, endSustain);
+		}
+		this.endSustain = endSustain;
+		if (finalValue === 0) {
+			soundSource.stop(endSustain);
 		}
 	}
 
@@ -353,7 +371,7 @@ class Envelope {
 
 	/**Closes the envelope at a specified time.
 	 */
-	keyOff(keyCode, time) {
+	keyOff(soundSource, keyCode, time) {
 		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const ssgScale = this.inverted || this.jump ? 6 : 1;
@@ -362,6 +380,7 @@ class Envelope {
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
+		soundSource.stop(endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
 		this.endRelease = endRelease;
@@ -372,6 +391,7 @@ class Envelope {
 	 */
 	soundOff(time = 0) {
 		cancelAndHoldAtTime(this.gain, 0, time);
+		this.endRelease = time;
 	}
 
 }
@@ -422,15 +442,16 @@ class Operator {
 	 */
 	constructor(synth, context, lfo, output, dbCurve) {
 		this.synth = synth;
+		const frequencyNode = new ConstantSourceNode(context, {offset: 400});
+		this.frequencyNode = frequencyNode;
+		this.frequencyParam = frequencyNode.offset;
 		this.frequency = 440;
 		this.sourceType = 'sine';
 		this.periodicWave = undefined;
-		const sampleSpeedNode = new ConstantSourceNode(context, {offset: 440});
-		this.sampleSpeedNode = sampleSpeedNode;
 		const sampleSpeedGain = new GainNode(context);
-		sampleSpeedNode.connect(sampleSpeedGain);
+		frequencyNode.connect(sampleSpeedGain);
 		this.sampleSpeedGain = sampleSpeedGain;
-		this.source = this.makeSource(context);
+		this.source = undefined;
 
 		const tremolo = new GainNode(context);
 		this.tremoloNode = tremolo;
@@ -459,15 +480,14 @@ class Operator {
 		this.frequencyMultiple = 1;
 		this.detune = 0;
 		this.keyIsOn = false;
-		this.freeRunning = false;
 	}
 
 	makeSource(context) {
 		let source;
 		if (this.periodicWave !== undefined) {
-			source = new OscillatorNode(context, {frequency: this.frequency});
+			source = new OscillatorNode(context, {frequency: 0});
+			this.frequencyNode.connect(source.frequency);
 			oscillator.setPeriodicWave(this.periodicWave);
-			this.frequencyParam = source.frequency;
 			return source;
 		}
 
@@ -477,12 +497,9 @@ class Operator {
 				{buffer: sourceType, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: 0}
 			);
 			this.sampleSpeedGain.connect(source.playbackRate);
-			this.frequencyParam = this.sampleSpeedNode.offset;
 		} else {
-			source = new OscillatorNode(context,
-				{frequency: this.frequency, type: sourceType}
-			);
-			this.frequencyParam = source.frequency;
+			source = new OscillatorNode(context, {frequency: 0, type: sourceType});
+			this.frequencyNode.connect(source.frequency);
 		}
 		return source;
 	}
@@ -492,18 +509,19 @@ class Operator {
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
 	start(time) {
-		this.source.start(time);
+		this.frequencyNode.start(time);
 		this.envelope.start(time);
-		this.sampleSpeedNode.start(time);
 	}
 
 	/**Stops the operator's oscillator so that the operator's system resources can be released.
 	 * Operators are normally stopped by calling stop() on an instance of {@link FMSynth}.
 	 */
 	stop(time = 0) {
-		this.source.stop(time);
+		if (this.source) {
+			this.source.stop(time);
+		}
+		this.frequencyNode.stop(time);
 		this.envelope.stop(time);
-		this.sampleSpeedNode.stop(time);
 	}
 
 	/**Configures this operator to modulate an external source (usually another operator).
@@ -617,18 +635,19 @@ class Operator {
 	}
 
 	keyOn(time) {
-		this.envelope.keyOn(this.keyCode, time);
+		this.envelope.keyOn(this.source, this.keyCode, time);
 		this.keyIsOn = true;
 	}
 
 	keyOff(time) {
 		if (this.keyIsOn) {
-			this.envelope.keyOff(this.keyCode, time);
+			this.envelope.keyOff(this.source, this.keyCode, time);
 			this.keyIsOn = false;
 		}
 	}
 
 	soundOff(time = 0) {
+		this.source.stop(time);
 		this.envelope.soundOff(time);
 	}
 
@@ -692,21 +711,12 @@ class Operator {
 		this.envelope.setSSG(mode);
 	}
 
-	setFreeRunning(enabled) {
-		this.freeRunning = enabled;
-	}
-
-	getFreeRunning() {
-		return this.freeRunning;
-	}
-
 }
 
 class FMOperator extends Operator {
 
 	constructor(synth, context, lfo, output, dbCurve) {
 		super(synth, context, lfo, output, dbCurve);
-		this.source.connect(this.tremoloNode);
 
 		const fmModAmp = new GainNode(context, {gain: 440});
 		fmModAmp.connect(this.frequencyParam);
@@ -727,12 +737,13 @@ class FMOperator extends Operator {
 		this.fmModAmp.gain[method](this.frequency, time);
 	}
 
-	changeSource(context, time) {
+	newWaveform(context, time = 0) {
 		const newSource = this.makeSource(context)
 		newSource.start(time);
 		newSource.connect(this.tremoloNode);
-		this.source.stop(time);
-		this.fmModAmp.connect(this.frequencyParam);
+		if (this.source) {
+			this.source.stop(time);
+		}
 		this.source = newSource;
 	}
 
@@ -746,17 +757,7 @@ class FMOperator extends Operator {
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
-			const frequency = this.frequency;
-
-			const makeNewOscillator =
-				!this.freeRunning &&
-				frequency !== 0 &&
-				this.lastFreqChange <= time &&
-				context.currentTime + TIMER_IMPRECISION <= time;
-
-			if (makeNewOscillator) {
-				this.changeSource(context, time);
-			}
+			this.newWaveform(context, time);
 			super.keyOn(time);
 		}
 	}
@@ -765,7 +766,6 @@ class FMOperator extends Operator {
 		if (waveformNumber === undefined) throw new Error('Parameters: context, waveNumber, [time]');
 		this.sourceType = this.synth.waveforms[waveformNumber];
 		this.periodicWave = undefined;
-		this.changeSource(context, time);
 		this.sampleSpeedGain.gain.setValueAtTime(this.synth.samplePeriods[waveformNumber], time);
 	}
 
@@ -788,14 +788,12 @@ class FMOperator extends Operator {
 	setPeriodicWave(context, wave, time = 0) {
 		if (wave === undefined) throw new Error('Parameters: context, periodicWave, [time]');
 		this.periodicWave = wave;
-		this.changeSource(context, time);
 	}
 
 	setWaveformSample(context, audioBuffer, length = audioBuffer.length, time = 0) {
 		if (audioBuffer === undefined) throw new Error('Parameters: context, audioBuffer, [time]');
 		this.sourceType = audioBuffer;
 		this.periodicWave = undefined;
-		this.changeSource(context, time);
 		this.sampleSpeedGain.gain.setValueAtTime(length / context.sampleRate, time);
 	}
 
@@ -1293,10 +1291,7 @@ class Channel {
 		this.keyOnOff(undefined, time, false);
 	}
 
-	/**When this method is used then the overall output level needs to be controlled using
-	 * the channel's setModulationDepth() method rather than setTotalLevel().
-	 */
-	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
 		const totalLevel = 127 - velocity;
 		for (let i = 0; i < 4; i++) {
 			const sensitivity = this.keyVelocity[i];
@@ -1304,6 +1299,13 @@ class Channel {
 				this.operators[i].setTotalLevel(totalLevel, time);
 			}
 		}
+	}
+
+	/**When this method is used then the overall output level needs to be controlled using
+	 * the channel's setModulationDepth() method rather than setTotalLevel().
+	 */
+	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+		this.setVelocity(velocity, time);
 		this.keyOn(context, time);
 	}
 

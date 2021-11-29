@@ -1,3 +1,4 @@
+Aftertouch
 Pitch bend
 Ability to sync LFO to song tempo
 Bigger detune

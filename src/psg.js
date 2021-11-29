@@ -33,10 +33,12 @@ class NoiseChannel {
 		}
 		this.noiseBuffer = noiseBuffer;
 
-		const pulseBuffer = new AudioBuffer({length: 16, sampleRate: context.sampleRate});
+		const pulseBuffer = new AudioBuffer({length: 128, sampleRate: context.sampleRate});
 		sampleData = pulseBuffer.getChannelData(0);
-		sampleData.fill(-1, 0, 15);
-		sampleData[15] = 1;
+		sampleData.fill(-1);
+		for (let i = 0; i < 128; i += 16) {
+			sampleData[i + 15] = 1;
+		}
 		this.pulseBuffer = pulseBuffer;
 		this.pulsing = true;
 
@@ -70,10 +72,12 @@ class NoiseChannel {
 			playbackRate = 0;
 		}
 
+		const buffer = this.pulsing ? this.pulseBuffer : this.noiseBuffer;
+
 		return new AudioBufferSourceNode(context, {
-			buffer: this.pulsing ? this.pulseBuffer : this.noiseBuffer,
+			buffer: buffer,
 			loop: true,
-			loopEnd: Number.MAX_VALUE,
+			loopEnd: buffer.length,
 			playbackRate: playbackRate,
 		});
 	}

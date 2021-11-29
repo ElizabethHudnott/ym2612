@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
 	<title>Mega Drone</title>
-	<script src="lib/jquery-3.6.0.slim.min.js"></script>
-	<script src="lib/bootstrap.bundle.min.js"></script>
+	<script src="lib/jquery-3.6.0.slim.min.js" defer></script>
+	<script src="lib/bootstrap.bundle.min.js" defer></script>
 	<script src="ui.js" type="module"></script>
+	<link rel="preload" as="font" href="fonts/genos.woff2" crossorigin="anonymous">
+	<link rel="preload" as="font" href="fonts/digital-7-monoitalic.ttf" crossorigin="anonymous">
 	<link rel="stylesheet" href="lib/bootstrap.min.css">
 	<link rel="stylesheet" href="page.css">
 	<meta name="viewport" content="initial-scale=1, minimum-scale=1">
@@ -86,13 +88,13 @@
 							<input type="radio" name="algorithm" value="0" id="algorithm-0" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-0">
-							<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4">
+							<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4" width="288" height="32">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
 							<input type="radio" name="algorithm" value="1" id="algorithm-1" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-1">
-							<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100">
+							<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100" width="208" height="80">
 						</label>
 					</div>
 					<div class="row">
@@ -100,13 +102,13 @@
 							<input type="radio" name="algorithm" value="2" id="algorithm-2" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-2">
-							<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100">
+							<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100" width="208" height="80">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
 							<input type="radio" name="algorithm" value="3" id="algorithm-3" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-3">
-							<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100">
+							<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100" width="208" height="80">
 						</label>
 					</div>
 					<div class="row">
@@ -114,13 +116,13 @@
 							<input type="radio" name="algorithm" value="4" id="algorithm-4" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-4">
-							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4">
+							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4" width="144" height="72">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
 							<input type="radio" name="algorithm" value="5" id="algorithm-5" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-5">
-							<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100">
+							<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100" width="144" height="112">
 						</label>
 					</div>
 					<div class="row form-group">
@@ -128,13 +130,13 @@
 							<input type="radio" name="algorithm" value="6" id="algorithm-6" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-6">
-							<img src="img/algorithm-6.png" alt="1&rarr;2">
+							<img src="img/algorithm-6.png" alt="1&rarr;2" width="144" height="112">
 						</label>
 						<div class="col-1 my-auto text-center">
 							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="grayscale">
 						</div>
 						<label class="col-5 my-auto" for="algorithm-7">
-							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4">
+							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4" width="216" height="56">
 						</label>
 					</div>
 					<div class="row form-group">
@@ -142,7 +144,7 @@
 							<input type="radio" name="algorithm" value="8" id="algorithm-8" class="grayscale">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-8">
-							<img src="img/algorithm-8.png" alt="1&rarr;2&rarr;3">
+							<img src="img/algorithm-8.png" alt="1&rarr;2&rarr;3" width="216" height="80">
 						</label>
 					</div>
 					<div class="row">
