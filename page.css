@@ -174,10 +174,6 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	background-color: #557799;
 }
 
-.grayscale {
-	filter:  grayscale(1);
-}
-
 .panel {
 	background-color:  hsl(305, 57%, 23%);
 	border-color:  var(--border-color);
@@ -188,6 +184,10 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	padding: 15px 0.75rem;
 }
 
+.panel input[type="radio"] {
+	filter:  grayscale(1);
+}
+
 .panel h1 {
 	font-family: Genos, sans-serif;
 	font-style:  italic;
@@ -196,4 +196,26 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 
 .panel .table {
 	color: inherit;
+}
+
+.btn-dark {
+	color:  #ddd;
+	background-color: black;
+}
+
+.btn-dark:not(:disabled):not(.disabled).active, .btn-dark:not(:disabled):not(.disabled):active, .show>.btn-dark.dropdown-toggle {
+	color:  #ddd;
+	background-color: #23272b;
+	border-color: #1d2124;
+}
+
+.btn-dark:hover {
+	color: #fff;
+	background-color: #0c0c0c;
+	border-color: black;
+}
+
+.dropdown-menu .btn-group-toggle .btn {
+	border-width: 0;
+	font-weight: 500;
 }

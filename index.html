@@ -4,7 +4,7 @@
 	<title>Mega Drone</title>
 	<script src="lib/jquery-3.6.0.slim.min.js" defer></script>
 	<script src="lib/bootstrap.bundle.min.js" defer></script>
-	<script src="ui.js" type="module"></script>
+	<script src="js/ui.js" type="module"></script>
 	<link rel="preload" as="font" href="fonts/genos.woff2" crossorigin="anonymous">
 	<link rel="preload" as="font" href="fonts/digital-7-monoitalic.ttf" crossorigin="anonymous">
 	<link rel="stylesheet" href="lib/bootstrap.min.css">
@@ -85,13 +85,13 @@
 					<h1>Algorithm</h1>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="0" id="algorithm-0" class="grayscale">
+							<input type="radio" name="algorithm" value="0" id="algorithm-0" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-0">
 							<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4" width="288" height="32">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="1" id="algorithm-1" class="grayscale">
+							<input type="radio" name="algorithm" value="1" id="algorithm-1" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-1">
 							<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100" width="208" height="80">
@@ -99,13 +99,13 @@
 					</div>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="2" id="algorithm-2" class="grayscale">
+							<input type="radio" name="algorithm" value="2" id="algorithm-2" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-2">
 							<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100" width="208" height="80">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="3" id="algorithm-3" class="grayscale">
+							<input type="radio" name="algorithm" value="3" id="algorithm-3" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-3">
 							<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100" width="208" height="80">
@@ -113,13 +113,13 @@
 					</div>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="4" id="algorithm-4" class="grayscale">
+							<input type="radio" name="algorithm" value="4" id="algorithm-4" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-4">
 							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4" width="144" height="72">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="5" id="algorithm-5" class="grayscale">
+							<input type="radio" name="algorithm" value="5" id="algorithm-5" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-5">
 							<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100" width="144" height="112">
@@ -127,13 +127,13 @@
 					</div>
 					<div class="row form-group">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="6" id="algorithm-6" class="grayscale">
+							<input type="radio" name="algorithm" value="6" id="algorithm-6" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-6">
 							<img src="img/algorithm-6.png" alt="1&rarr;2" width="144" height="112">
 						</label>
 						<div class="col-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="grayscale">
+							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="form-check">
 						</div>
 						<label class="col-5 my-auto" for="algorithm-7">
 							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4" width="216" height="56">
@@ -141,7 +141,7 @@
 					</div>
 					<div class="row form-group">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="8" id="algorithm-8" class="grayscale">
+							<input type="radio" name="algorithm" value="8" id="algorithm-8" class="form-check">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-8">
 							<img src="img/algorithm-8.png" alt="1&rarr;2&rarr;3" width="216" height="80">
@@ -310,7 +310,9 @@
 						<div class="col-auto">
 							<div class="form-check small">
 								<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
-								<label for="lfo-frequency-free">Free Choice</label>
+								<label for="lfo-frequency-free" class="form-check-label">
+									Free Choice
+								</label>
 							</div>
 						</div>
 					</div>
@@ -354,7 +356,9 @@
 						<div class="col-auto">
 							<div class="form-check small">
 								<input type="checkbox" id="vibrato-free" class="form-check-input">
-								<label for="vibrato-free">Free Choice</label>
+								<label for="vibrato-free" class="form-check-label">
+									Free Choice
+								</label>
 							</div>
 						</div>
 					</div>
@@ -366,12 +370,62 @@
 		<template id="operator-template">
 			<div class="tab-pane fade" id="operator-$" role="tabpanel" aria-labelledby="operator-$-tab" data-operator="$">
 				<fieldset class="panel">
-					<h1>Frequency</h1>
+					<h1>Oscillator</h1>
+					<div class="row form-group">
+						<div class="col-auto">
+							<div class="mb-2">Waveform</div>
+							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-op$-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								Waveform
+							</button>
+							<div class="dropdown-menu p-0" aria-labelled-by="btn-op$-waveform">
+								<div id="op$-waveform" class="container btn-group-toggle w-100 p-0" data-toggle="buttons">
+									<label class="btn btn-dark rounded-0 w-100 active">
+										<input type="radio" name="op$-waveform" value="0" checked>
+										Sine
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="1">
+										Half Sine
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="2">
+										Absolute Sine
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="3">
+										Pulse Sine
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="4">
+										Sine, even periods
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="5">
+										Absolute Sine, even periods
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="6">
+										Square
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="7">
+										Sawtooth
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="op$-waveform" value="8">
+										Triangle
+									</label>
+								</div>
+							</div>
+						</div>
+					</div>
 					<div class="row">
 						<div class="col-auto col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-freq-fixed" id="op$-freq-unfixed" class="form-check-input" checked>
-								<label for="op$-freq-unfixed">Multiple</label>
+								<label for="op$-freq-unfixed" class="form-check-label">
+									Frequency Multiple
+								</label>
 							</div>
 						</div>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
@@ -386,7 +440,9 @@
 						<div class="col-auto pl-md-0">
 							<div class="form-check small">
 								<input type="checkbox" id="op$-multiple-free" class="form-check-input">
-								<label for="op$-multiple-free">Free Choice</label>
+								<label for="op$-multiple-free" class="form-check-label">
+									Free Choice
+								</label>
 							</div>
 						</div>
 					</div>
@@ -399,7 +455,9 @@
 						<div class="col-4 col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-freq-fixed" id="op$-freq-fixed" class="form-check-input">
-								<label for="op$-freq-fixed">Fixed</label>
+								<label for="op$-freq-fixed" class="form-check-label">
+									Fixed
+								</label>
 							</div>
 						</div>
 						<div class="col-3 col-md-1 px-0">
@@ -438,7 +496,9 @@
 						<div class="col-auto">
 							<div class="form-check small">
 								<input type="checkbox" id="op$-rate-scale-free" class="form-check-input">
-								<label for="op$-rate-scale-free">Free Choice</label>
+								<label for="op$-rate-scale-free" class="form-check-label">
+									Free Choice
+								</label>
 							</div>
 						</div>
 					</div>
@@ -451,7 +511,9 @@
 						<div class="col-auto col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-velocity-sensitive" id="op$-not-velocity-sensitive" class="form-check-input" checked>
-								<label for="op$-not-velocity-sensitive">Fixed</label>
+								<label for="op$-not-velocity-sensitive" class="form-check-label">
+									Fixed
+								</label>
 							</div>
 						</div>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
@@ -466,7 +528,9 @@
 						<div class="col-auto pl-md-0">
 							<div class="form-check small">
 								<input type="checkbox" id="op$-attenuation-free" class="form-check-input">
-								<label for="op$-multiple-free">Free Choice</label>
+								<label for="op$-multiple-free" class="form-check-label">
+									Free Choice
+								</label>
 							</div>
 						</div>
 					</div>
@@ -474,7 +538,9 @@
 						<div class="col-auto col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-velocity-sensitive" id="op$-velocity-sensitive" class="form-check-input">
-								<label for="op$-velocity-sensitive">Velocity Sensitive</label>
+								<label for="op$-velocity-sensitive" class="form-check-label">
+									Velocity Sensitive
+								</label>
 							</div>
 						</div>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">

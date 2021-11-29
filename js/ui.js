@@ -1,7 +1,7 @@
-import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './src/common.js';
-import GenesisSound from './src/genesis.js';
-import YM2612 from './src/ym2612.js';
-import {logToLinear, linearToLog} from './src/opn2.js';
+import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
+import GenesisSound from './sound/genesis.js';
+import YM2612 from './sound/ym2612.js';
+import {logToLinear, linearToLog} from './sound/opn2.js';
 
 let context, channels;
 
@@ -361,6 +361,12 @@ function getOperator(element) {
 	}
 }
 
+function waveformNumber(event) {
+	const opNum = getOperator(this);
+	const value = parseInt(this.value);
+	channel.getOperator(opNum).setWaveformNumber(audioContext, value);
+}
+
 function frequencyMultipleSlider(event) {
 	initialize();
 	let value = parseFloat(this.value);
@@ -505,6 +511,11 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaleSlider);
 	doc.getElementById(opStr + '-rate-scale').addEventListener('input', rateScale);
 	doc.getElementById(opStr + '-rate-scale-free').addEventListener('input', rateScaleFree);
+
+	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
+		element.addEventListener('input', waveformNumber);
+	}
+
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
 }
 

@@ -5,8 +5,7 @@ Bigger detune
 Level scaling
 
 
-OPM-like features
-	Noise?
+White noise as a modulator
 
 OPL2/3-like features
 	2 op / 4 op selector UI
@@ -24,5 +23,4 @@ Envelopes
 		see DX11 manual
 	Scaled by velocity?
 
-Envelope shift (like DX11)
 Custom envelope on key on after attack phase using setValuesAtTime
