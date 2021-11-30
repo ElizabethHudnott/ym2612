@@ -82,10 +82,10 @@ class Envelope {
 
 		this.rateScaling = 0;
 		this.attackRate = 16;
-		this.decayRate = 12;
+		this.decayRate = 0;
 		this.sustainRate = 0;
 		this.releaseRate = 17;
-		this.sustain = 576;		// Already converted into an attenuation value.
+		this.sustain = 32;		// Already converted into an attenuation value.
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 
@@ -480,6 +480,7 @@ class Operator {
 		this.frequencyMultiple = 1;
 		this.detune = 0;
 		this.keyIsOn = false;
+		this.disabled = false;
 	}
 
 	makeSource(context) {
@@ -634,9 +635,22 @@ class Operator {
 		return this.mixer.value;
 	}
 
+	disable(time = 0) {
+		if (this.source) {
+			this.source.stop(time);
+		}
+		this.disabled = true;
+	}
+
+	enable() {
+		this.disabled = false;
+	}
+
 	keyOn(time) {
-		this.envelope.keyOn(this.source, this.keyCode, time);
-		this.keyIsOn = true;
+		if (!this.disabled) {
+			this.envelope.keyOn(this.source, this.keyCode, time);
+			this.keyIsOn = true;
+		}
 	}
 
 	keyOff(time) {
@@ -990,8 +1004,10 @@ class Channel {
 			this.gains[i + 2][method](modulations[i], time);
 		}
 		for (let i = 0; i < 4; i++) {
+			const operator = this.operators[i];
 			const outputLevel = outputLevels[i];
-			this.operators[i].setVolume(outputLevel, time, method);
+			operator.enable();
+			operator.setVolume(outputLevel, time, method);
 			this.keyVelocity[i] = outputLevel === 0 ? 0 : 1;
 		}
 	}
@@ -1015,22 +1031,12 @@ class Channel {
 		return index === -1 ? 0 : this.gains[index].value;
 	}
 
-	disableOperator(operatorNum) {
-		for (let i = operatorNum + 1; i <= 4; i++) {
-			this.setModulationDepth(operatorNum, i, 0);
-		}
-		this.operators[operatorNum - 1].setVolume(0);
+	disableOperator(operatorNum, time = 0) {
+		this.operators[operatorNum - 1].disable(time);
 	}
 
 	enableOperator(operatorNum) {
-		const algorithm = FOUR_OP_ALGORITHMS[this.algorithmNum];
-		const modulations = algorithm[0];
-		const outputLevels = algorithm[1]
-		for (let i = operatorNum + 1; i <= 4; i++) {
-			const index = indexOfGain(operatorNum, i);
-			this.gains[index].value = modulations[index - 2];
-		}
-		this.operators[operatorNum - 1].setVolume(outputLevels[operatorNum - 1]);
+		this.operators[operatorNum - 1].enable();
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
@@ -1607,8 +1613,10 @@ class TwoOperatorChannel {
 		const offset = this.operatorOffset;
 		parent.setModulationDepth(offset + 1, offset + 2, modulations[0], time, method);
 		for (let i = 1; i <= 2; i++) {
+			const operator = parent.getOperator(offset + i);
 			const outputLevel = outputLevels[i - 1];
-			parent.getOperator(offset + i).setVolume(outputLevel, time, method);
+			operator.enable();
+			operator.setVolume(outputLevel, time, method);
 			parent.setKeyVelocity(offset + i, outputLevel === 0 ? 0 : 1);
 		}
 	}
@@ -1633,18 +1641,12 @@ class TwoOperatorChannel {
 		return this.parentChannel.getModulationDepth(offset + modulatorOpNum, offset + carrierOpNum);
 	}
 
-	disableOperator(operatorNum) {
-		this.parentChannel.disableOperator(this.operatorOffset + operatorNum);
+	disableOperator(operatorNum, time = 0) {
+		this.parentChannel.disableOperator(this.operatorOffset + operatorNum, time);
 	}
 
 	enableOperator(operatorNum) {
-		const parent = this.parentChannel;
-		const offset = this.operatorOffset;
-		const algorithm = TWO_OP_ALGORITHMS[this.algorithmNum];
-		const modulation = algorithm[0][0];
-		const outputLevels = algorithm[1];
-		parent.setModulationDepth(offset + 1, offset + 2, modulation);
-		parent.getOperator(offset + operatorNum).setVolume(outputLevels[operatorNum - 1]);
+		this.parentChannel.enableOperator(this.operatorOffset + operatorNum);
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {

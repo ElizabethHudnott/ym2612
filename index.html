@@ -28,6 +28,44 @@
 		<div class="tab-content" id="instrument-tabs">
 			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
 				<fieldset class="panel">
+					<h1>LFO</h1>
+					<div class="row">
+						<label class="col-auto" for="lfo-frequency-slider">
+							Frequency
+						</label>
+					</div>
+					<div class="row mb-md-2">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-frequency-slider">
+						</div>
+						<div class="col-6 col-md-3 mb-3 mb-md-0">
+							<div class="input-group">
+								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display" id="lfo-frequency" disabled>
+								<div class="input-group-append">
+									<span class="input-group-text led-label">Hz</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<div class="col-auto small">
+							Slow
+							<div class="custom-control custom-switch custom-control-inline">
+								<input type="checkbox" class="custom-control-input" id="fast-lfo">
+								<label class="custom-control-label" for="fast-lfo">Fast</label>
+							</div>
+						</div>
+						<div class="col-auto">
+							<div class="form-check small">
+								<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
+								<label for="lfo-frequency-free" class="form-check-label">
+									Free Choice
+								</label>
+							</div>
+						</div>
+					</div>
+				</fieldset>
+				<fieldset class="panel">
 					<h1>Filter</h1>
 					<div class="row form-group">
 						<div class="col-auto">
@@ -280,60 +318,7 @@
 					</div>
 				</fieldset>
 				<fieldset class="panel">
-					<h1>LFO</h1>
-					<div class="row">
-						<label class="col-auto" for="lfo-frequency-slider">
-							Frequency
-						</label>
-					</div>
-					<div class="row mb-md-2">
-						<div class="col-12 col-md-6 mb-3 my-md-auto">
-							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-frequency-slider">
-						</div>
-						<div class="col-6 col-md-3 mb-3 mb-md-0">
-							<div class="input-group">
-								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display" id="lfo-frequency" disabled>
-								<div class="input-group-append">
-									<span class="input-group-text led-label">Hz</span>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="row form-group">
-						<div class="col-auto small">
-							Slow
-							<div class="custom-control custom-switch custom-control-inline">
-								<input type="checkbox" class="custom-control-input" id="fast-lfo">
-								<label class="custom-control-label" for="fast-lfo">Fast</label>
-							</div>
-						</div>
-						<div class="col-auto">
-							<div class="form-check small">
-								<input type="checkbox" id="lfo-frequency-free" class="form-check-input">
-								<label for="lfo-frequency-free" class="form-check-label">
-									Free Choice
-								</label>
-							</div>
-						</div>
-					</div>
-					<div class="row">
-						<label class="col-auto" for="lfo-delay-slider">
-							Delay
-						</label>
-					</div>
-					<div class="row form-group">
-						<div class="col-12 col-md-6 mb-3 my-md-auto">
-							<input type="range" min="0" max="10.7" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
-						</div>
-						<div class="col-6 col-md-3">
-							<div class="input-group">
-								<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
-								<div class="input-group-append">
-									<span class="input-group-text led-label">seconds</span>
-								</div>
-							</div>
-						</div>
-					</div>
+					<h1>Effects</h1>
 					<div class="row">
 						<label class="col-auto" for="vibrato-slider">
 							Vibrato
@@ -362,6 +347,24 @@
 							</div>
 						</div>
 					</div>
+					<div class="row">
+						<label class="col-auto" for="lfo-delay-slider">
+							LFO Delay
+						</label>
+					</div>
+					<div class="row form-group">
+						<div class="col-12 col-md-6 mb-3 my-md-auto">
+							<input type="range" min="0" max="10.7" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
+						</div>
+						<div class="col-6 col-md-3">
+							<div class="input-group">
+								<input type="number" min="0" max="99.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
+								<div class="input-group-append">
+									<span class="input-group-text led-label">seconds</span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</fieldset>
 			</div>
 
@@ -372,10 +375,10 @@
 				<fieldset class="panel">
 					<h1>Oscillator</h1>
 					<div class="row form-group">
-						<div class="col-auto col-md-3 my-auto">
+						<div class="col-auto col-md-3 col-form-label my-auto">
 							Waveform
 						</div>
-						<div class="col-auto">
+						<div class="col-auto pl-md-0">
 							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-op$-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 								<img src="img/wave-sine.png" width="200" height="32" alt="Waveform">
 							</button>
@@ -482,12 +485,10 @@
 				<fieldset class="panel">
 					<h1>Volume Envelope</h1>
 					<div class="row">
-						<label class="col-auto" for="op$-rate-scale-slider">
+						<label class="col-auto col-md-3 col-form-label" for="op$-rate-scale-slider">
 							Rate Scaling
 						</label>
-					</div>
-					<div class="row">
-						<div class="col-12 col-md-9 mb-3 my-md-auto">
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="3" value="0" class="form-control-range mt-1" id="op$-rate-scale-slider">
 						</div>
 						<div class="col-4 col-md-2">
@@ -495,7 +496,8 @@
 						</div>
 					</div>
 					<div class="row form-group">
-						<div class="col-auto">
+						<div class="col-auto col-md-3"></div>
+						<div class="col-auto pl-md-0">
 							<div class="form-check small">
 								<input type="checkbox" id="op$-rate-scale-free" class="form-check-input">
 								<label for="op$-rate-scale-free" class="form-check-label">
@@ -505,16 +507,11 @@
 						</div>
 					</div>
 					<div class="row">
-						<div class="col-auto">
-							Attenuation
-						</div>
-					</div>
-					<div class="row">
 						<div class="col-auto col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-velocity-sensitive" id="op$-not-velocity-sensitive" class="form-check-input" checked>
 								<label for="op$-not-velocity-sensitive" class="form-check-label">
-									Fixed
+									Fixed Attenuation
 								</label>
 							</div>
 						</div>
@@ -536,7 +533,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="row">
+					<div class="row form-group">
 						<div class="col-auto col-md-3 my-auto">
 							<div class="form-check">
 								<input type="radio" name="op$-velocity-sensitive" id="op$-velocity-sensitive" class="form-check-input">
@@ -550,6 +547,17 @@
 						</div>
 						<div class="col-4 col-md-2">
 							<input type="number" min="0" max="127" value="0" class="form-control led-display" id="op$-key-velocity">
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="op$-attack-slider">
+							Attack Rate
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="1" max="31" value="16" class="form-control-range mt-1" id="op$-attack-slider">
+						</div>
+						<div class="col-4 col-md-2">
+							<input type="number" value="16" class="form-control led-display" id="op$-attack" disabled>
 						</div>
 					</div>
 				</fieldset>

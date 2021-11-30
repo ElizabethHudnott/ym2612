@@ -13,6 +13,7 @@
 }
 
 :root {
+	--accent-color: hsl(150, 30%, 35%);
 	--border-color: hsl(300, 100%, 60%);
 }
 
@@ -86,18 +87,6 @@ input[type=range]::-moz-range-thumb {
 	cursor: pointer;
 }
 
-.btn-group-toggle .btn {
-	border-width: 3px;
-}
-
-.btn-group-toggle .btn.active {
-	border-style: inset;
-}
-
-.btn-group-toggle .btn:not(.active) {
-	border-style: outset;
-}
-
 .nav-pills .nav-link {
 	border-radius: 0;
 	font-family: Genos, sans-serif;
@@ -169,11 +158,6 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	width: fit-content;
 }
 
-.custom-control-input:checked~.custom-control-label::before {
-	border-color:  #557799;
-	background-color: #557799;
-}
-
 .panel {
 	background-color:  hsl(305, 57%, 23%);
 	border-color:  var(--border-color);
@@ -198,9 +182,19 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	color: inherit;
 }
 
+.btn {
+	border-style: outset;
+	border-width: 3px;
+}
+
+.btn-group-toggle .btn.active {
+	border-style: inset;
+}
+
 .btn-dark {
 	color:  #ddd;
 	background-color: black;
+	border-color: #2e2e2e;
 }
 
 .btn-dark:not(:disabled):not(.disabled).active, .btn-dark:not(:disabled):not(.disabled):active, .show>.btn-dark.dropdown-toggle {
@@ -212,10 +206,24 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 .btn-dark:hover {
 	color: #fff;
 	background-color: #0c0c0c;
-	border-color: black;
+	border-color: #3a3a3a;
 }
 
 .dropdown-menu .btn-group-toggle .btn {
 	border-width: 0;
 	font-weight: 500;
+}
+
+.custom-switch .custom-control-label::before {
+	background-color: black;
+	border: 2px inset #3c3c3c;
+}
+
+.custom-control-input:checked~.custom-control-label::before {
+	background-color: var(--accent-color);
+	border-color: var(--accent-color);
+}
+
+.custom-switch .custom-control-input:checked~.custom-control-label::after {
+	background-color: #d8d8d8;
 }
