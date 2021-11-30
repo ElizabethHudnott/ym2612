@@ -3,13 +3,13 @@ import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {logToLinear, linearToLog} from './sound/opn2.js';
 
-let context, channels;
+let channels;
 
 function initialize() {
-	if (context !== undefined) {
+	if (window.audioContext !== undefined) {
 		return;
 	}
-	context = new AudioContext();
+	const context = new AudioContext();
 	window.audioContext = context;
 	const soundSystem = new GenesisSound(context);
 	window.soundSystem = soundSystem;
@@ -19,7 +19,7 @@ function initialize() {
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm);
 
-	soundSystem.start(context.currentTime + 0.01);
+	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);
 }
 
@@ -28,12 +28,12 @@ document.body.addEventListener('keydown', function (event) {
 	if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
-	channel.keyOn(context, context.currentTime + 0.1);
+	channel.keyOn(audioContext, audioContext.currentTime + 0.02);
 });
 
 document.body.addEventListener('keyup', function (event) {
 	initialize();
-	channel.keyOff(context.currentTime + 0.1);
+	channel.keyOff(audioContext.currentTime + 0.02);
 });
 
 let filterFrequency, filterQ;
@@ -362,8 +362,11 @@ function getOperator(element) {
 }
 
 function waveformNumber(event) {
+	initialize();
 	const opNum = getOperator(this);
 	const value = parseInt(this.value);
+	const src = this.parentElement.children[1].src;
+	document.getElementById('btn-op' + opNum + '-waveform').children[0].src = src;
 	channel.getOperator(opNum).setWaveformNumber(audioContext, value);
 }
 
@@ -551,4 +554,50 @@ function disableOperator(event) {
 for (let i = 1; i <=4; i++) {
 	document.getElementById('op' + i + '-enabled').addEventListener('input', enableOperator);
 	document.getElementById('op' + i + '-disabled').addEventListener('input', disableOperator);
+}
+
+
+function drawWaveform(waveform, canvasContext, numCycles = 1) {
+	const width = canvasContext.canvas.width;
+	const height = canvasContext.canvas.height;
+	const imageData = canvasContext.getImageData(0, 0, width, height);
+	const pixels = imageData.data;
+	const sampleLength = waveform.length;
+	const length = sampleLength * numCycles;
+	const halfHeight = (height - 1) / 2 - 1;
+	let x = 0, total = 0, numSamples = 0, prevY;
+
+	const brightness = 64;
+	const shadowBrightness = 0;
+
+	function fillPixel(x, y) {
+		let offset = 4 * (y * width + x);
+		pixels[offset] = 255;
+		pixels[offset + 1] = brightness;
+		pixels[offset + 2] = brightness;
+		pixels[offset + 3] = 255;
+	}
+
+	for (let i = 0; i < length; i++) {
+		const newX = Math.trunc(i / length * width);
+		if (newX >= x + 1) {
+			const average = total / numSamples;
+			const pixelY = height - Math.round(average * halfHeight + halfHeight + 1.5);
+			if (x > 0) {
+				const dir = Math.sign(pixelY - prevY);
+				for (let y = prevY; y != pixelY; y += dir) {
+					fillPixel(x - 1, y);
+				}
+			}
+			fillPixel(x, pixelY);
+
+			total = 0;
+			numSamples = 0;
+			x = newX;
+			prevY = pixelY;
+		}
+		total += waveform[i % sampleLength];
+		numSamples++;
+	}
+	canvasContext.putImageData(imageData, 0, 0);
 }

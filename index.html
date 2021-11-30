@@ -372,48 +372,50 @@
 				<fieldset class="panel">
 					<h1>Oscillator</h1>
 					<div class="row form-group">
+						<div class="col-auto col-md-3 my-auto">
+							Waveform
+						</div>
 						<div class="col-auto">
-							<div class="mb-2">Waveform</div>
 							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-op$-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								Waveform
+								<img src="img/wave-sine.png" width="200" height="32" alt="Waveform">
 							</button>
 							<div class="dropdown-menu p-0" aria-labelled-by="btn-op$-waveform">
 								<div id="op$-waveform" class="container btn-group-toggle w-100 p-0" data-toggle="buttons">
 									<label class="btn btn-dark rounded-0 w-100 active">
 										<input type="radio" name="op$-waveform" value="0" checked>
-										Sine
+										<img src="img/wave-sine.png" width="200" height="32" alt="Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="1">
-										Half Sine
+										<img src="img/wave-half-sine.png" width="200" height="32" alt="Half Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="2">
-										Absolute Sine
+										<img src="img/wave-abs-sine.png" width="200" height="32" alt="Absolute Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="3">
-										Pulse Sine
+										<img src="img/wave-pulse-sine.png" width="200" height="32" alt="Pulse Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="4">
-										Sine, even periods
+										<img src="img/wave-even-sine.png" width="200" height="32" alt="Sine, even periods only">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="5">
-										Absolute Sine, even periods
+										<img src="img/wave-even-abs-sine.png" width="200" height="32" alt="Absolute Sine, even periods only">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="6">
-										Square
+										<img src="img/wave-square.png" width="200" height="32" alt="Square">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="7">
-										Sawtooth
+										<img src="img/wave-saw.png" width="200" height="32" alt="Sawtooth">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="8">
-										Triangle
+										<img src="img/wave-triangle.png" width="200" height="32" alt="Triangle">
 									</label>
 								</div>
 							</div>
@@ -456,7 +458,7 @@
 							<div class="form-check">
 								<input type="radio" name="op$-freq-fixed" id="op$-freq-fixed" class="form-check-input">
 								<label for="op$-freq-fixed" class="form-check-label">
-									Fixed
+									Fixed Frequency
 								</label>
 							</div>
 						</div>

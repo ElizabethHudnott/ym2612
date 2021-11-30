@@ -1402,7 +1402,7 @@ class FMSynth {
 
 		const pulseSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
 		sampleData = pulseSine.getChannelData(0);
-		for (let i = 0; i < quarterSampleLength / 2; i++) {
+		for (let i = 0; i < quarterSampleLength; i++) {
 			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
 		}
 
