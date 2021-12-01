@@ -495,6 +495,14 @@ function attackSlider(event) {
 	channel.getOperator(opNum).setAttack(value);
 }
 
+function decaySlider(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	document.getElementById('op' + opNum + '-decay').value = value;
+	channel.getOperator(opNum).setDecay(value);
+}
+
 let domParser = new DOMParser();
 
 function createOperatorPage(n) {
@@ -523,6 +531,7 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-rate-scale').addEventListener('input', rateScale);
 	doc.getElementById(opStr + '-rate-scale-free').addEventListener('input', rateScaleFree);
 	doc.getElementById(opStr + '-attack-slider').addEventListener('input', attackSlider);
+	doc.getElementById(opStr + '-decay-slider').addEventListener('input', decaySlider);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
 		element.addEventListener('input', waveformNumber);
