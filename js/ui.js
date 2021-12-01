@@ -503,6 +503,41 @@ function decaySlider(event) {
 	channel.getOperator(opNum).setDecay(value);
 }
 
+function sustainSlider(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	document.getElementById('op' + opNum + '-sustain').value = value;
+	channel.getOperator(opNum).setSustain(value);
+}
+
+function sustain(event) {
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	if (value >= 0 && value <= 16) {
+		document.getElementById('op' + opNum + '-sustain-slider').value = value;
+		channel.getOperator(opNum).setSustain(value);
+	}
+}
+
+function sustainFree(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const slider = document.getElementById('op' + opNum + '-sustain-slider');
+	const box = document.getElementById('op' + opNum + '-sustain');
+	const free = this.checked;
+	box.disabled = !free;
+	if (free) {
+		slider.step = 0.1;
+	} else {
+		const sustain = Math.round(channel.getOperator(opNum).getSustain());
+		slider.step = 1;
+		slider.value = sustain;
+		box.value = sustain;
+		channel.getOperator(opNum).setSustain(sustain);
+	}
+}
+
 let domParser = new DOMParser();
 
 function createOperatorPage(n) {
@@ -532,6 +567,9 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-rate-scale-free').addEventListener('input', rateScaleFree);
 	doc.getElementById(opStr + '-attack-slider').addEventListener('input', attackSlider);
 	doc.getElementById(opStr + '-decay-slider').addEventListener('input', decaySlider);
+	doc.getElementById(opStr + '-sustain-slider').addEventListener('input', sustainSlider);
+	doc.getElementById(opStr + '-sustain').addEventListener('input', sustain);
+	doc.getElementById(opStr + '-sustain-free').addEventListener('input', sustainFree);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
 		element.addEventListener('input', waveformNumber);
