@@ -29,15 +29,15 @@ class NoiseChannel {
 			const output = lfsr & 1;
 			const tap = ((lfsr & 8) >> 3) ^ output;
 			lfsr = (lfsr >>> 1) | (tap << 15);
-			sampleData[i] = output === 1 ? 1 : -1;
+			sampleData[i] = output === 1 ? -1 : 1;
 		}
 		this.noiseBuffer = noiseBuffer;
 
 		const pulseBuffer = new AudioBuffer({length: 128, sampleRate: context.sampleRate});
 		sampleData = pulseBuffer.getChannelData(0);
-		sampleData.fill(-1);
+		sampleData.fill(1);
 		for (let i = 0; i < 128; i += 16) {
-			sampleData[i + 15] = 1;
+			sampleData[i + 15] = -1;
 		}
 		this.pulseBuffer = pulseBuffer;
 		this.pulsing = true;

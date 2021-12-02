@@ -299,7 +299,7 @@
 							</tr>
 							<tr>
 								<th class="align-middle text-center px-0">
-									<img src="img/sound.png" width="32" height="32" alt="Speaker">
+									<img src="img/sound.webp" width="32" height="32" alt="Speaker">
 								</th>
 								<td class="operator-1">
 									<input type="number" min="0" max="100" step="0.5" value="100" class="form-control led-display" id="output-level-1">
@@ -380,45 +380,45 @@
 						</div>
 						<div class="col-auto pl-md-0">
 							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-op$-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-								<img src="img/wave-sine.png" width="200" height="32" alt="Waveform">
+								<img src="img/wave-sine.webp" width="200" height="32" alt="Waveform">
 							</button>
 							<div class="dropdown-menu p-0" aria-labelled-by="btn-op$-waveform">
 								<div id="op$-waveform" class="container btn-group-toggle w-100 p-0" data-toggle="buttons">
 									<label class="btn btn-dark rounded-0 w-100 active">
 										<input type="radio" name="op$-waveform" value="0" checked>
-										<img src="img/wave-sine.png" width="200" height="32" alt="Sine">
+										<img src="img/wave-sine.webp" width="200" height="32" alt="Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="1">
-										<img src="img/wave-half-sine.png" width="200" height="32" alt="Half Sine">
+										<img src="img/wave-half-sine.webp" width="200" height="32" alt="Half Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="2">
-										<img src="img/wave-abs-sine.png" width="200" height="32" alt="Absolute Sine">
+										<img src="img/wave-abs-sine.webp" width="200" height="32" alt="Absolute Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="3">
-										<img src="img/wave-pulse-sine.png" width="200" height="32" alt="Pulse Sine">
+										<img src="img/wave-pulse-sine.webp" width="200" height="32" alt="Pulse Sine">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="4">
-										<img src="img/wave-even-sine.png" width="200" height="32" alt="Sine, even periods only">
+										<img src="img/wave-even-sine.webp" width="200" height="32" alt="Sine, even periods only">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="5">
-										<img src="img/wave-even-abs-sine.png" width="200" height="32" alt="Absolute Sine, even periods only">
+										<img src="img/wave-even-abs-sine.webp" width="200" height="32" alt="Absolute Sine, even periods only">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="6">
-										<img src="img/wave-square.png" width="200" height="32" alt="Square">
+										<img src="img/wave-square.webp" width="200" height="32" alt="Square">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="7">
-										<img src="img/wave-saw.png" width="200" height="32" alt="Sawtooth">
+										<img src="img/wave-saw.webp" width="200" height="32" alt="Sawtooth">
 									</label>
 									<label class="btn btn-dark rounded-0 w-100">
 										<input type="radio" name="op$-waveform" value="8">
-										<img src="img/wave-triangle.png" width="200" height="32" alt="Triangle">
+										<img src="img/wave-triangle.webp" width="200" height="32" alt="Triangle">
 									</label>
 								</div>
 							</div>
@@ -586,6 +586,17 @@
 									Free Choice
 								</label>
 							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="op$-sustain-rate-slider">
+							Sustain Rate
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="31" value="0" class="form-control-range mt-1" id="op$-sustain-rate-slider">
+						</div>
+						<div class="col-4 col-md-2">
+							<input type="number" value="0" class="form-control led-display" id="op$-sustain-rate" disabled>
 						</div>
 					</div>
 				</fieldset>

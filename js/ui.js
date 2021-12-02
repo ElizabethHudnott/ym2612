@@ -520,6 +520,14 @@ function sustain(event) {
 	}
 }
 
+function sustainRateSlider(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	document.getElementById('op' + opNum + '-sustain-rate').value = value;
+	channel.getOperator(opNum).setSustainRate(value);
+}
+
 function sustainFree(event) {
 	initialize();
 	const opNum = getOperator(this);
@@ -570,6 +578,7 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-sustain-slider').addEventListener('input', sustainSlider);
 	doc.getElementById(opStr + '-sustain').addEventListener('input', sustain);
 	doc.getElementById(opStr + '-sustain-free').addEventListener('input', sustainFree);
+	doc.getElementById(opStr + '-sustain-rate-slider').addEventListener('input', sustainRateSlider);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
 		element.addEventListener('input', waveformNumber);
