@@ -15,11 +15,11 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 }
 
 function logToLinear(x) {
-	return x === 0 ? 0 : 10 ** (54 / 20 * (x - 1));
+	return Math.sign(x) * 10 ** (54 / 20 * (Math.abs(x) - 1));
 }
 
 function linearToLog(y) {
-	return y == 0 ? 0 : 20 / 54 * Math.log10(y) + 1;
+	return y === 0 ? 0 : Math.sign(y) * (20 / 54 * Math.log10(Math.abs(y)) + 1);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -85,7 +85,7 @@ class Envelope {
 		this.decayRate = 0;
 		this.sustainRate = 0;
 		this.releaseRate = 17;
-		this.sustain = 32;		// Already converted into an attenuation value.
+		this.sustain = 1023;	// Already converted into an attenuation value.
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 
@@ -442,10 +442,13 @@ class Operator {
 	 */
 	constructor(synth, context, lfo, output, dbCurve) {
 		this.synth = synth;
-		const frequencyNode = new ConstantSourceNode(context, {offset: 400});
+		this.freqBlockNumber = 4;
+		this.frequencyNumber = 1093;
+		this.frequency = synth.frequencyStep * componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
+		const frequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
+
 		this.frequencyNode = frequencyNode;
 		this.frequencyParam = frequencyNode.offset;
-		this.frequency = 440;
 		this.sourceType = 'sine';
 		this.periodicWave = undefined;
 		const sampleSpeedGain = new GainNode(context);
@@ -473,9 +476,6 @@ class Operator {
 			this.mixer = mixer.gain;
 		}
 
-		this.lastFreqChange = 0;
-		this.freqBlockNumber = 4;
-		this.frequencyNumber = 1093;
 		this.keyCode = calcKeyCode(4, 1093);
 		this.frequencyMultiple = 1;
 		this.detune = 0;
@@ -561,11 +561,10 @@ class Operator {
 		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 		this.frequencyParam[method](frequency, time);
 		this.frequency = frequency;
-		this.lastFreqChange = time;
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
-		this.keyCode = keyCode;
 		this.frequencyMultiple = frequencyMultiple;
+		this.keyCode = keyCode;
 	}
 
 

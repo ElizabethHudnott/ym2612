@@ -24,3 +24,7 @@ Envelopes
 	Scaled by velocity?
 
 Custom envelope on key on after attack phase using setValuesAtTime
+
+UI
+	Pad LED display with trailing zeros
+	More intense red LEDs

@@ -372,13 +372,17 @@ function waveformNumber(event) {
 
 function frequencyMultipleSlider(event) {
 	initialize();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum;
 	let value = parseFloat(this.value);
 	if (value === 0) {
-		value = 0.5;
+		const free = document.getElementById(opStr + '-multiple-free').checked;
+		if (!free) {
+			value = 0.5;
+		}
 	}
-	const opNum = getOperator(this);
-	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
-	document.getElementById('op' + opNum + '-multiple').value = value;
+	document.getElementById(opStr + '-freq-unfixed').checked = true;
+	document.getElementById(opStr + '-multiple').value = value;
 	channel.fixFrequency(opNum, false);
 	channel.setFrequencyMultiple(opNum, value, 0)
 }
@@ -413,7 +417,7 @@ function frequencyFreeMultiple(event) {
 	let value = channel.getFrequencyMultiple(opNum);
 	box.disabled = !this.checked;
 	if (this.checked) {
-		slider.step = 0.01;
+		slider.step = 0.1;
 		if (value < 1) {
 			slider.value = value; // 0..1 on the slider represent those exact values.
 		}
@@ -536,7 +540,7 @@ function sustainFree(event) {
 	const free = this.checked;
 	box.disabled = !free;
 	if (free) {
-		slider.step = 0.1;
+		slider.step = 0.04;
 	} else {
 		const sustain = Math.round(channel.getOperator(opNum).getSustain());
 		slider.step = 1;
