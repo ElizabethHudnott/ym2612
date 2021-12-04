@@ -4,7 +4,7 @@ Ability to sync LFO to song tempo
 Bigger detune
 Level scaling
 
-
+Add extra feedback delay only when requested
 White noise as a modulator
 
 OPL2/3-like features

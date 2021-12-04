@@ -95,11 +95,15 @@ function updateAlgorithmDetails() {
 			box.value = depth * 100;
 		}
 	}
+	let total = 0;
 	for (let i = 1; i <= 4; i++) {
 		const outputLevel = channel.getOperator(i).getVolume();
+		total += outputLevel;
 		const box = document.getElementById('output-level-' + i);
 		box.value = Math.round(linearToLog(outputLevel) * 200) / 2;
 	}
+	const overdrive = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
+	document.getElementById('overdrive').value = overdrive;
 }
 
 function algorithmRadio(event) {
@@ -147,6 +151,41 @@ function outputLevel() {
 for (let i = 1; i <= 4; i++) {
 	document.getElementById('output-level-' + i).addEventListener('input', outputLevel);
 }
+
+function normalizeLevels(overdrive = 0) {
+	initialize();
+	const operators = new Array(4);
+	const currentLevels = new Array(4);
+	let total = 0;
+	for (let i = 0; i < 4; i++) {
+		const operator = channel.getOperator(i + 1);
+		operators[i] = operator;
+		const outputLevel = operator.getVolume();
+		currentLevels[i] = outputLevel;
+		total += Math.abs(outputLevel);
+	}
+	if (total === 0) {
+		total = 1;
+	}
+	for (let i = 0; i < 4; i++) {
+		const outputLevel = (overdrive + 1) * currentLevels[i] / total;
+		operators[i].setVolume(outputLevel);
+		const box = document.getElementById('output-level-' + String(i + 1));
+		box.value = Math.trunc(linearToLog(outputLevel) * 200) / 2;
+	}
+}
+
+document.getElementById('overdrive').addEventListener('input', function (event) {
+	const value = parseFloat(this.value);
+	if (value >= 0) {
+		normalizeLevels(value);
+	}
+});
+
+document.getElementById('btn-normalize-levels').addEventListener('click', function (event) {
+	normalizeLevels();
+	document.getElementById('overdrive').value = 0;
+});
 
 document.getElementById('lfo-frequency-slider').addEventListener('input', function (event) {
 	initialize();
@@ -550,6 +589,30 @@ function sustainFree(event) {
 	}
 }
 
+function releaseSlider(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const value = parseFloat(this.value);
+	document.getElementById('op' + opNum + '-release').value = value;
+	channel.getOperator(opNum).setRelease(value);
+}
+
+function releaseFree(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const slider = document.getElementById('op' + opNum + '-release-slider');
+	const box = document.getElementById('op' + opNum + '-release');
+	const free = this.checked;
+	if (free) {
+		slider.step = 0.5;
+	} else {
+		slider.step = 1;
+		const value = parseInt(slider.value);
+		box.value = value;
+		channel.getOperator(opNum).setRelease(value);
+	}
+}
+
 let domParser = new DOMParser();
 
 function createOperatorPage(n) {
@@ -583,6 +646,8 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-sustain').addEventListener('input', sustain);
 	doc.getElementById(opStr + '-sustain-free').addEventListener('input', sustainFree);
 	doc.getElementById(opStr + '-sustain-rate-slider').addEventListener('input', sustainRateSlider);
+	doc.getElementById(opStr + '-release-slider').addEventListener('input', releaseSlider);
+	doc.getElementById(opStr + '-release-free').addEventListener('input', releaseFree);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
 		element.addEventListener('input', waveformNumber);

@@ -141,12 +141,16 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 }
 
 .table-striped-cols th:nth-child(2n),
-.table-striped-cols td:nth-child(2n){
+.table-striped-cols td:nth-child(2n),
+th.even-col:nth-child(2n + 1),
+td.even-col:nth-child(2n + 1) {
 	background-color: rgba(0, 0, 0, 0.05);
 }
 
 .table-striped-cols th:nth-child(2n + 1),
-.table-striped-cols td:nth-child(2n + 1){
+.table-striped-cols td:nth-child(2n + 1),
+th.odd-col:nth-child(2n),
+td.odd-col:nth-child(2n) {
 	background-color: rgba(0, 0, 0, 0.17);
 }
 
@@ -165,7 +169,7 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 	border-width:  1px;
 	color:  hsl(300, 100%, 73%);
 	margin-bottom:  1.5rem;
-	padding: 15px 0.75rem;
+	padding: 15px;
 }
 
 .panel input[type="radio"] {
@@ -184,11 +188,21 @@ input[type="number"].led-display::-webkit-inner-spin-button {
 
 .btn {
 	border-style: outset;
+}
+
+.btn-group-toggle .btn {
 	border-width: 3px;
 }
 
 .btn-group-toggle .btn.active {
 	border-style: inset;
+}
+
+.btn:not(.btn-group .btn) {
+	border-radius:  0.15rem;
+	font-family: Arial, sans-serif;
+	font-variant: small-caps;
+	text-transform: lowercase;
 }
 
 .btn-dark {
