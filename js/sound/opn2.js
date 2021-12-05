@@ -48,16 +48,144 @@ function fullFreqToComponents(fullFrequencyNumber) {
 	return [block, Math.round(freqNum)];
 }
 
+const ENV_INCREMENT_MOD = [0, 0, 4, 4, 4, 4, 6, 6];
+for (let i = 8; i < 60; i++) {
+	ENV_INCREMENT_MOD[i] = (i % 4) + 4;
+}
+for (let i = 60; i <= 63; i++) {
+	ENV_INCREMENT_MOD[i] = 4;
+}
+
 // For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
+for (let i = 0; i < 60; i++) {
+	const power = Math.trunc(i / 4) - 14;
+	ENV_INCREMENT[i] =  ENV_INCREMENT_MOD[i] * (2 ** power);
+}
+
+const SSG_RAMPS = new Array(8);
 {
-	const increments = [0, 0, 4, 4, 4, 4, 6, 6];
-	for (let i = 0; i < 60; i++) {
-		const power = Math.trunc(i / 4) - 14;
-		const multiple = i < 8 ? increments[i] : ((i % 4) + 4);
-		ENV_INCREMENT[i] =  multiple * (2 ** power);
+	// Ramp 4 units per 8 ticks
+	SSG_RAMPS[0] = new Float32Array(343);
+	SSG_RAMPS[4] = new Float32Array(343);
+	// Ramp 5 units per 8 ticks
+	SSG_RAMPS[1] = new Float32Array(275);
+	SSG_RAMPS[5] = new Float32Array(275);
+	// Ramp 6 units per 8 ticks
+	SSG_RAMPS[2] = new Float32Array(229);
+	SSG_RAMPS[6] = new Float32Array(229);
+	// Ramp 7 units per 8 ticks
+	SSG_RAMPS[3] = new Float32Array(197);
+	SSG_RAMPS[7] = new Float32Array(197);
+
+	const patterns = [
+		[0, 1, 0, 1, 0, 1, 0, 1],
+		[0, 1, 0, 1, 1, 1, 0, 1],
+		[0, 1, 1, 1, 0, 1, 1, 1],
+		[0, 1, 1, 1, 1, 1, 1, 1]
+	]
+	for (let i = 0; i <= 3; i++) {
+		SSG_RAMPS[i][0] = 1;
+		SSG_RAMPS[4 + i][0] = 0;
+		const pattern = patterns[i];
+		const length = SSG_RAMPS[i].length;
+
+		let counter = 0;
+		for (let j = 1; j < length; j++) {
+			counter = Math.min(counter + 6 * pattern[(j - 1) % 8], 1023);
+			// Ramp down
+			SSG_RAMPS[i][j] = (1023 - counter) / 1023;
+			// Ramp up
+			SSG_RAMPS[i + 4][j] = counter / 1023;
+		}
 	}
-	ENV_INCREMENT.fill(8, 60);
+}
+
+function makeEnvelopeSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
+	const decayPower = Math.trunc(decayRate / 4) - 14;
+	const decayMod = ENV_INCREMENT_MOD[decayRate] - 4;
+	let buffer, outputSamples, playbackRate;
+
+	if (sustainLevel === 0 || decayRate === sustainRate) {
+
+		const values = SSG_RAMPS[decayMod + (invert ? 4 : 0)];
+		const length = values.length * (mirror ? 2 : 1);
+		buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+		outputSamples = buffer.getChannelData(0);
+		outputSamples.set(values);
+		playbackRate = 2 ** decayPower;
+
+	} else {
+
+		const sustainPower = Math.trunc(sustainRate / 4) - 14;
+		const sustainMod = ENV_INCREMENT_MOD[sustainRate] - 4;
+
+		let arr1, arr2;
+		if (invert) {
+			arr1 = SSG_RAMPS[4 + decayMod];
+			arr2 = SSG_RAMPS[4 + sustainMod];
+		} else {
+			arr1 = SSG_RAMPS[decayMod];
+			arr2 = SSG_RAMPS[sustainMod];
+		}
+
+		const arr1Len = Math.ceil((1023 - sustainLevel) * 8 / (4 + decayMod)) + 1;
+		arr1 = arr1.subarray(0, arr1Len);
+		const sustainOffset = Math.ceil((1023 - sustainLevel) * 8 / (4 + sustainMod)) + 1;
+		arr2 = arr2.subarray(sustainOffset);
+		const arr2Len = arr2.length;
+
+		if (decayPower === sustainPower) {
+
+			const length = (arr1Len + arr2Len) * (mirror ? 2 : 1);
+			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+			outputSamples = buffer.getChannelData(0);
+			outputSamples.set(arr1);
+			outputSamples.set(arr2, arr1Len);
+			playbackRate = 2 ** decayPower;
+
+		} else if (decayPower > sustainPower) {
+
+			const stretch = 2 ** (decayPower - sustainPower);
+			const length = (arr1Len * stretch + arr2Len) * (mirror ? 2 : 1);
+			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+			outputSamples = buffer.getChannelData(0);
+			let endOffset = 0;
+			for (let i = 0; i < arr1Len; i++) {
+				const startOffset = endOffset;
+				endOffset += stretch;
+				outputSamples.fill(arr1[i], startOffset, endOffset);
+			}
+			outputSamples.set(arr2, arr1Len * stretch);
+			playbackRate = 2 ** sustainPower;
+
+		} else {
+
+			const stretch = 2 ** (sustainPower - decayPower);
+			const length = (arr1Len + arr2Len * stretch) * (mirror ? 2 : 1);
+			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+			outputSamples = buffer.getChannelData(0);
+			outputSamples.set(arr1);
+			let endOffset = arr1Len;
+			for (let i = 0; i < arr2Len; i++) {
+				const startOffset = endOffset;
+				endOffset += stretch;
+				outputSamples.fill(arr2[i], startOffset, endOffset);
+			}
+			playbackRate = 2 ** decayPower;
+
+		}
+
+	}
+
+	if (mirror) {
+		const length = outputSamples.length / 2;
+		for (let i = 0; i < length; i++) {
+			outputSamples[2 * length - 1 - i] = outputSamples[i]
+		}
+	}
+
+	return [buffer, playbackRate];
 }
 
 class Envelope {
@@ -86,8 +214,6 @@ class Envelope {
 		this.sustainRate = 0;
 		this.releaseRate = 17;
 		this.sustain = 1023;	// Already converted into an attenuation value.
-		this.inverted = false;
-		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 
 		// Values stored during key on.
 		this.beginLevel = 0;
@@ -100,6 +226,12 @@ class Envelope {
 		this.beginRelease = 0;
 		this.releaseLevel = 0;
 		this.endRelease = 0;
+
+		this.ssgEnabled = false;
+		this.inverted = false;
+		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
+		this.looping = false;
+		this.ssgSamples = [];
 	}
 
 	start(time = 0) {
@@ -141,6 +273,7 @@ class Envelope {
 
 	setDecay(rate) {
 		this.decayRate = rate;
+		this.ssgSamples = [];
 	}
 
 	getDecay() {
@@ -156,6 +289,7 @@ class Envelope {
 			gain -= 512;
 		}
 		this.sustain = gain;
+		this.ssgSamples = [];
 	}
 
 	getSustain() {
@@ -170,6 +304,7 @@ class Envelope {
 
 	setSustainRate(rate) {
 		this.sustainRate = rate;
+		this.ssgSamples = [];
 	}
 
 	getSustainRate() {
@@ -185,14 +320,24 @@ class Envelope {
 	}
 
 	setSSG(mode) {
+		const oldInverted = this.inverted;
+		const oldJump = this.jump;
 		if (mode < 8) {
+			// SSG disabled
+			this.ssgEnabled = false;
 			this.inverted = false;
 			this.jump = false;
-			return;
+			this.looping = false;
+		} else {
+			mode -= 8;
+			this.ssgEnabled = true;
+			this.inverted = mode >= 4;
+			this.jump = [0, 3, 4, 7].includes(mode);
+			this.looping = mode % 2 === 0;
 		}
-		mode -= 8;
-		this.inverted = mode >= 4;
-		this.jump = [0, 3, 4, 7].includes(mode);
+		if (this.inverted !== oldInverted || this.jump !== oldJump) {
+			this.ssgSamples = [];
+		}
 	}
 
 	/**
@@ -211,7 +356,7 @@ class Envelope {
 		const tickRate = this.synth.envelopeTick;
 		const gain = this.gain;
 		const invert = this.inverted;
-		const ssgScale = invert || this.jump ? 6 : 1;
+		const ssgScale = this.ssgEnabled ? 6 : 1;
 
 		let beginLevel = 0;
 		const endRelease = this.endRelease;
@@ -374,7 +519,7 @@ class Envelope {
 	keyOff(soundSource, keyCode, time) {
 		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
-		const ssgScale = this.inverted || this.jump ? 6 : 1;
+		const ssgScale = this.ssgEnabled ? 6 : 1;
 		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
