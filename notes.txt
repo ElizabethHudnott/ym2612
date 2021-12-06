@@ -1,3 +1,19 @@
+General Notes
+-------------
+Channel Combinations
+	4 operator channel
+	PCM sample (Channel 6)
+	2 x 2 operator channels (Split Channels 3-5)
+	4 x 1 operator channels (optionally modulated with noise) (Split Channel 5)
+
+
+Wanted Feature List / Change List
+---------------------------------
+
+Remove Operator 3 feedback / channel splitting from Channels 1, 2 & 6
+
+Add "Key On" and "Key Off" annotations to envelope diagram
+
 Aftertouch
 Pitch bend
 Ability to sync LFO to song tempo
@@ -12,8 +28,6 @@ OPL2/3-like features
 	"Detune" two halves to have different frequencies
 	Compatibility
 		Separate LFOs for pitch and volume
-		Algorithm like Algorithm 6 but with the operators re-numbered.
-		Independent panning of 2-op channels
 
 Envelopes
 	Frequency (channel)

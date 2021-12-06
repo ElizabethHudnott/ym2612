@@ -58,133 +58,79 @@ for (let i = 60; i <= 63; i++) {
 
 // For decay, sustain and release
 const ENV_INCREMENT = new Array(64);
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i <= 63; i++) {
 	const power = Math.trunc(i / 4) - 14;
 	ENV_INCREMENT[i] =  ENV_INCREMENT_MOD[i] * (2 ** power);
 }
 
-const SSG_RAMPS = new Array(8);
-{
-	// Ramp 4 units per 8 ticks
-	SSG_RAMPS[0] = new Float32Array(343);
-	SSG_RAMPS[4] = new Float32Array(343);
-	// Ramp 5 units per 8 ticks
-	SSG_RAMPS[1] = new Float32Array(275);
-	SSG_RAMPS[5] = new Float32Array(275);
-	// Ramp 6 units per 8 ticks
-	SSG_RAMPS[2] = new Float32Array(229);
-	SSG_RAMPS[6] = new Float32Array(229);
-	// Ramp 7 units per 8 ticks
-	SSG_RAMPS[3] = new Float32Array(197);
-	SSG_RAMPS[7] = new Float32Array(197);
+async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
+	let decayPower = Math.trunc(-decayRate / 4) + 14;
+	let sustainPower = Math.trunc(-sustainRate / 4) + 14;
+	let commonPower;
 
-	const patterns = [
-		[0, 1, 0, 1, 0, 1, 0, 1],
-		[0, 1, 0, 1, 1, 1, 0, 1],
-		[0, 1, 1, 1, 0, 1, 1, 1],
-		[0, 1, 1, 1, 1, 1, 1, 1]
-	]
-	for (let i = 0; i <= 3; i++) {
-		SSG_RAMPS[i][0] = 1;
-		SSG_RAMPS[4 + i][0] = 0;
-		const pattern = patterns[i];
-		const length = SSG_RAMPS[i].length;
-
-		let counter = 0;
-		for (let j = 1; j < length; j++) {
-			counter = Math.min(counter + 6 * pattern[(j - 1) % 8], 1023);
-			// Ramp down
-			SSG_RAMPS[i][j] = (1023 - counter) / 1023;
-			// Ramp up
-			SSG_RAMPS[i + 4][j] = counter / 1023;
-		}
-	}
-}
-
-function makeEnvelopeSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
-	const decayPower = Math.trunc(decayRate / 4) - 14;
-	const decayMod = ENV_INCREMENT_MOD[decayRate] - 4;
-	let buffer, outputSamples, playbackRate;
-
-	if (sustainLevel === 0 || decayRate === sustainRate) {
-
-		const values = SSG_RAMPS[decayMod + (invert ? 4 : 0)];
-		const length = values.length * (mirror ? 2 : 1);
-		buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
-		outputSamples = buffer.getChannelData(0);
-		outputSamples.set(values);
-		playbackRate = 2 ** decayPower;
-
+	if (decayPower >= sustainPower) {
+		// Subtract 3 because the deduction of 4, 5, 6 or 7 must be spread out over 8 steps.
+		commonPower = sustainPower - 3;
 	} else {
-
-		const sustainPower = Math.trunc(sustainRate / 4) - 14;
-		const sustainMod = ENV_INCREMENT_MOD[sustainRate] - 4;
-
-		let arr1, arr2;
-		if (invert) {
-			arr1 = SSG_RAMPS[4 + decayMod];
-			arr2 = SSG_RAMPS[4 + sustainMod];
-		} else {
-			arr1 = SSG_RAMPS[decayMod];
-			arr2 = SSG_RAMPS[sustainMod];
-		}
-
-		const arr1Len = Math.ceil((1023 - sustainLevel) * 8 / (4 + decayMod)) + 1;
-		arr1 = arr1.subarray(0, arr1Len);
-		const sustainOffset = Math.ceil((1023 - sustainLevel) * 8 / (4 + sustainMod)) + 1;
-		arr2 = arr2.subarray(sustainOffset);
-		const arr2Len = arr2.length;
-
-		if (decayPower === sustainPower) {
-
-			const length = (arr1Len + arr2Len) * (mirror ? 2 : 1);
-			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
-			outputSamples = buffer.getChannelData(0);
-			outputSamples.set(arr1);
-			outputSamples.set(arr2, arr1Len);
-			playbackRate = 2 ** decayPower;
-
-		} else if (decayPower > sustainPower) {
-
-			const stretch = 2 ** (decayPower - sustainPower);
-			const length = (arr1Len * stretch + arr2Len) * (mirror ? 2 : 1);
-			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
-			outputSamples = buffer.getChannelData(0);
-			let endOffset = 0;
-			for (let i = 0; i < arr1Len; i++) {
-				const startOffset = endOffset;
-				endOffset += stretch;
-				outputSamples.fill(arr1[i], startOffset, endOffset);
-			}
-			outputSamples.set(arr2, arr1Len * stretch);
-			playbackRate = 2 ** sustainPower;
-
-		} else {
-
-			const stretch = 2 ** (sustainPower - decayPower);
-			const length = (arr1Len + arr2Len * stretch) * (mirror ? 2 : 1);
-			buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
-			outputSamples = buffer.getChannelData(0);
-			outputSamples.set(arr1);
-			let endOffset = arr1Len;
-			for (let i = 0; i < arr2Len; i++) {
-				const startOffset = endOffset;
-				endOffset += stretch;
-				outputSamples.fill(arr2[i], startOffset, endOffset);
-			}
-			playbackRate = 2 ** decayPower;
-
-		}
-
+		commonPower = decayPower - 3;
 	}
 
-	if (mirror) {
-		const length = outputSamples.length / 2;
-		for (let i = 0; i < length; i++) {
-			outputSamples[2 * length - 1 - i] = outputSamples[i]
+	let decayMod = ENV_INCREMENT_MOD[decayRate];
+	let sustainMod = ENV_INCREMENT_MOD[sustainRate];
+	const totalMod = decayMod + sustainMod;
+	if (totalMod === 8) {
+		/* Instead of 4 steps out of every 8, change to 1 step out of every 2
+		 * (repeating 01 pattern).
+		 */
+		decayMod = 1;
+		sustainMod = 1;
+		commonPower += 2;
+	} else if (totalMod === 12) {
+		/* Instead of 6 steps out of every 8, change to 3 steps out of every 4
+		 * (repeating 0111 pattern).
+		 */
+		decayMod = 3;
+		sustainMod = 3;
+		commonPower++;
+	}
+
+	decayPower -= commonPower;
+	sustainPower -= commonPower;
+
+	// SSG operates 6 times faster than the normal envelope.
+	const decayGradient = (2 ** decayPower) / (6 * decayMod);
+	const sustainGradient = (2 ** sustainPower) / (6 * sustainMod);
+	const decaySteps = Math.ceil((1023 - sustainLevel) * decayGradient);
+	const sustainSteps = Math.ceil(sustainLevel * sustainGradient);
+	const totalSteps = decaySteps + sustainSteps;
+
+	const context = new OfflineAudioContext(1, totalSteps * (mirror ? 2 : 1), sampleRate);
+	const constant = new ConstantSourceNode(context, {offset: invert ? 0 : 1});
+	const offset = constant.offset;
+	constant.connect(context.destination);
+	constant.start();
+	const decayTime = decaySteps / sampleRate;
+	const endTime = totalSteps / sampleRate;
+	const endSustain2 = (totalSteps + sustainSteps) / sampleRate;
+	if (invert) {
+		const invertedSustain = 1023 - sustainLevel;
+		offset.linearRampToValueAtTime(invertedSustain / 1023, decayTime);
+		offset.linearRampToValueAtTime(1, endTime);
+		if (mirror) {
+			offset.linearRampToValueAtTime(invertedSustain / 1023, endSustain2);
+			offset.linearRampToValueAtTime(0, 2 * endTime);
+		}
+	} else {
+		offset.linearRampToValueAtTime(sustainLevel / 1023, decayTime);
+		offset.linearRampToValueAtTime(0, endTime);
+		if (mirror) {
+			offset.linearRampToValueAtTime(sustainLevel / 1023, endSustain2);
+			offset.linearRampToValueAtTime(1, 2 * endTime);
 		}
 	}
 
+	const buffer = await context.startRendering();
+	const playbackRate = 2 ** -commonPower;
 	return [buffer, playbackRate];
 }
 
@@ -204,6 +150,7 @@ class Envelope {
 		this.totalLevelNode = totalLevelNode;
 		this.totalLevel = totalLevelNode.offset;
 		const shaper = new WaveShaperNode(context, {curve: dbCurve});
+		this.shaper = shaper;
 		gainNode.connect(shaper);
 		totalLevelNode.connect(shaper);
 		shaper.connect(output.gain);
@@ -231,7 +178,15 @@ class Envelope {
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 		this.looping = false;
-		this.ssgSamples = [];
+
+		this.sampleNode = undefined;
+		this.ssgSample = undefined;
+		this.ssgBaseRate = undefined;
+		this.loopDecay = undefined;
+		this.loopSustain = undefined;
+		this.loopSustainRate = undefined;
+		this.loopInverted = undefined;
+		this.loopJump = undefined;
 	}
 
 	start(time = 0) {
@@ -273,7 +228,6 @@ class Envelope {
 
 	setDecay(rate) {
 		this.decayRate = rate;
-		this.ssgSamples = [];
 	}
 
 	getDecay() {
@@ -289,7 +243,6 @@ class Envelope {
 			gain -= 512;
 		}
 		this.sustain = gain;
-		this.ssgSamples = [];
 	}
 
 	getSustain() {
@@ -304,7 +257,6 @@ class Envelope {
 
 	setSustainRate(rate) {
 		this.sustainRate = rate;
-		this.ssgSamples = [];
 	}
 
 	getSustainRate() {
@@ -320,8 +272,6 @@ class Envelope {
 	}
 
 	setSSG(mode) {
-		const oldInverted = this.inverted;
-		const oldJump = this.jump;
 		if (mode < 8) {
 			// SSG disabled
 			this.ssgEnabled = false;
@@ -335,9 +285,6 @@ class Envelope {
 			this.jump = [0, 3, 4, 7].includes(mode);
 			this.looping = mode % 2 === 0;
 		}
-		if (this.inverted !== oldInverted || this.jump !== oldJump) {
-			this.ssgSamples = [];
-		}
 	}
 
 	/**
@@ -346,12 +293,12 @@ class Envelope {
 	decayTime(from, to, basicRate, rateAdjust) {
 		const rate = Math.min(Math.round(2 * basicRate + rateAdjust), 63);
 		const gradient = ENV_INCREMENT[rate];
-		return this.synth.envelopeTick * (from - to) / gradient;
+		return this.synth.envelopeTick * Math.ceil((from - to) / gradient);
 	}
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(soundSource, keyCode, time) {
+	keyOn(context, soundSource, keyCode, time) {
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const tickRate = this.synth.envelopeTick;
 		const gain = this.gain;
@@ -415,6 +362,46 @@ class Envelope {
 			cancelAndHoldAtTime(gain, 1, endAttack);
 		}
 		this.endAttack = endAttack;
+
+		if (this.looping && this.decayRate > 0 && (this.sustainRate > 0 || this.sustain === 0)) {
+			const me = this;
+			function playSample(args) {
+				const buffer = args[0];
+				const baseRate = args[1];
+				let playbackRate = baseRate * context.sampleRate * me.synth.envelopeTick;
+				const sampleNode = new AudioBufferSourceNode(context,
+					{buffer: buffer, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: playbackRate}
+				);
+				sampleNode.connect(me.shaper);
+				sampleNode.start(endAttack);
+				gain.setValueAtTime(0, endAttack);
+				if (me.sampleNode !== undefined) {
+					me.sampleNode.stop(endAttack);
+				}
+				me.sampleNode = sampleNode;
+				me.ssgSample = buffer;
+				me.ssgBaseRate = baseRate;
+			}
+
+			if (
+				this.decayRate !== this.loopDecay ||
+				this.sustain !== this.loopSustain ||
+				this.sustainRate !== this.loopSustainRate ||
+				invert != this.loopInverted ||
+				this.jump !== this.loopJump
+			) {
+				makeSSGSample(2 * this.decayRate, this.sustain, 2 * this.sustainRate, invert, !this.jump, context.sampleRate)
+				.then(playSample);
+				this.loopDecay = this.decayRate;
+				this.loopSustain = this.sustain;
+				this.loopSustainRate = this.sustainRate;
+				this.loopInverted = invert;
+				this.loopJump = this.jump;
+			} else {
+				playSample([this.ssgSample, this.ssgBaseRate]);
+			}
+			return;
+		}
 
 		if (this.decayRate === 0) {
 			let endTime;
@@ -517,6 +504,10 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(soundSource, keyCode, time) {
+		if (this.sampleNode) {
+			this.sampleNode.stop(time);
+			this.sampleNode = undefined;
+		}
 		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const ssgScale = this.ssgEnabled ? 6 : 1;
@@ -790,9 +781,9 @@ class Operator {
 		this.disabled = false;
 	}
 
-	keyOn(time) {
+	keyOn(context, time) {
 		if (!this.disabled) {
-			this.envelope.keyOn(this.source, this.keyCode, time);
+			this.envelope.keyOn(context, this.source, this.keyCode, time);
 			this.keyIsOn = true;
 		}
 	}
@@ -916,7 +907,7 @@ class FMOperator extends Operator {
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn) {
 			this.newWaveform(context, time);
-			super.keyOn(time);
+			super.keyOn(context, time);
 		}
 	}
 
@@ -1139,7 +1130,7 @@ class Channel {
 	 * before the normal four operator behaviour is completely restored.
 	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM
 	 */
-	activate(time = 0, method = 'setValueAtTime') {
+	activate(time = 0) {
 		this.setVolume(1, time, method);
 	}
 
@@ -1745,9 +1736,9 @@ class TwoOperatorChannel {
 	/**Switches into two operator mode. A fixed panning setting for the pair of two
 	 * operator channels needs to be configured on the parent channel.
 	 */
-	activate(time = 0, method = 'setValueAtTime') {
+	activate(time = 0) {
 		const parent = this.parentChannel;
-		parent.setVolume(0.5, time, method);
+		parent.setVolume(0.5, time);
 		parent.setLFOAttack(0, time);
 		parent.mute(false, time);
 	}
