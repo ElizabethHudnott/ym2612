@@ -74,6 +74,7 @@ async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirro
 	} else {
 		commonPower = decayPower - 3;
 	}
+	const playbackRate = 2 ** -commonPower;
 
 	let decayMod = ENV_INCREMENT_MOD[decayRate];
 	let sustainMod = ENV_INCREMENT_MOD[sustainRate];
@@ -101,7 +102,8 @@ async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirro
 	const decayGradient = (2 ** decayPower) / (6 * decayMod);
 	const sustainGradient = (2 ** sustainPower) / (6 * sustainMod);
 	const decaySteps = Math.ceil((1023 - sustainLevel) * decayGradient);
-	const sustainSteps = Math.ceil(sustainLevel * sustainGradient);
+	// Handle case when the gradient is infinite.
+	const sustainSteps = sustainLevel === 0 ? 0 : Math.ceil(sustainLevel * sustainGradient);
 	const totalSteps = decaySteps + sustainSteps;
 
 	const context = new OfflineAudioContext(1, totalSteps * (mirror ? 2 : 1), sampleRate);
@@ -130,7 +132,6 @@ async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirro
 	}
 
 	const buffer = await context.startRendering();
-	const playbackRate = 2 ** -commonPower;
 	return [buffer, playbackRate];
 }
 
@@ -187,6 +188,7 @@ class Envelope {
 		this.loopSustainRate = undefined;
 		this.loopInverted = undefined;
 		this.loopJump = undefined;
+		this.ssgPlaybackRate = 0;
 	}
 
 	start(time = 0) {
@@ -311,7 +313,7 @@ class Envelope {
 			//I.e. it's not the first time the envelope ran.
 			if (time >= endRelease) {
 				// Release phase ended.
-				beginLevel = this.jump ? 1023 : 0;
+				beginLevel = 0;
 			} else {
 				// Still in the release phase
 				const beginRelease = this.beginRelease;
@@ -364,23 +366,38 @@ class Envelope {
 		this.endAttack = endAttack;
 
 		if (this.looping && this.decayRate > 0 && (this.sustainRate > 0 || this.sustain === 0)) {
+			const decayInc = ENV_INCREMENT[2 * this.decayRate];
+			const scaledDecayRate = Math.min(Math.round(2 * this.decayRate + rateAdjust), 63);
+			const scaledDecayInc = ENV_INCREMENT[scaledDecayRate];
+			const decayMult = scaledDecayInc / decayInc;
+			let scaleFactor;
+
+			if (this.sustainRate === 0) {
+				scaleFactor = decayMult;
+			} else {
+				const sustainInc = ENV_INCREMENT[2 * this.sustainRate];
+				const scaledSustainRate = Math.min(Math.round(2 * this.sustainRate + rateAdjust), 63);
+				const scaledSustainInc = ENV_INCREMENT[scaledSustainRate];
+				const sustainMult = scaledSustainInc / sustainInc;
+				const proportion = this.sustain / 1023;
+				scaleFactor = decayMult * (1 - proportion) + sustainMult * proportion;
+			}
+
 			const me = this;
 			function playSample(args) {
 				const buffer = args[0];
 				const baseRate = args[1];
-				let playbackRate = baseRate * buffer.sampleRate * me.synth.envelopeTick;
+				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick;
 				const sampleNode = new AudioBufferSourceNode(context,
 					{buffer: buffer, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: playbackRate}
 				);
 				sampleNode.connect(me.shaper);
 				sampleNode.start(endAttack);
 				gain.setValueAtTime(0, endAttack);
-				if (me.sampleNode !== undefined) {
-					me.sampleNode.stop(endAttack);
-				}
 				me.sampleNode = sampleNode;
 				me.ssgSample = buffer;
 				me.ssgBaseRate = baseRate;
+				me.ssgPlaybackRate = playbackRate;
 			}
 
 			if (
@@ -449,9 +466,37 @@ class Envelope {
 
 	linearValueAtTime(time) {
 		const endAttack = this.endAttack;
+		let linearValue;
+
+		if (!this.hasAttack) {
+
+			// Attack rate was 0.
+			return this.beginLevel;
+
+		} else if (time <= this.endAttack) {
+
+			// In the attack phase.
+			const attackRate = this.prevAttackRate;
+			const target = ATTACK_TARGET[attackRate - 2];
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
+			const beginAttack = this.beginAttack;
+			const beginLevel = this.beginLevel;
+			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
+
+		} else if (this.sampleNode) {
+
+			// Looping envelope
+			const sample = this.ssgSample;
+			const loopOffset =
+				Math.round((time - this.endAttack) * sample.sampleRate * this.ssgPlaybackRate) %
+				sample.length;
+			const data = sample.getChannelData(0);
+			return 1023 * data[loopOffset];
+
+		}
+
 		const endDecay = this.endDecay;
 		const endSustain = this.endSustain;
-		let linearValue;
 
 		if (time >= endSustain) {
 
@@ -468,7 +513,7 @@ class Envelope {
 				linearValue = this.sustain * (1 - timeProportion);
 			}
 
-		} else if (time >= endAttack) {
+		} else {
 
 			// In the decay phase.
 			if (endDecay === Infinity) {
@@ -477,21 +522,6 @@ class Envelope {
 				const timeProportion = (time - endAttack) / (endDecay - endAttack);
 				linearValue = 1023 -  timeProportion * (1023 - this.sustain);
 			}
-
-		} else if (!this.hasAttack) {
-
-			// Attack rate was 0.
-			return this.beginLevel;
-
-		} else {
-
-			// In the attack phase.
-			const attackRate = this.prevAttackRate;
-			const target = ATTACK_TARGET[attackRate - 2];
-			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
-			const beginAttack = this.beginAttack;
-			const beginLevel = this.beginLevel;
-			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
 
 		}
 
@@ -504,11 +534,11 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(operator, keyCode, time) {
+		const currentValue = this.linearValueAtTime(time);
 		if (this.sampleNode) {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
 		}
-		const currentValue = this.linearValueAtTime(time);
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const ssgScale = this.ssgEnabled ? 6 : 1;
 		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
