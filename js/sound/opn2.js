@@ -298,7 +298,7 @@ class Envelope {
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(context, soundSource, keyCode, time) {
+	keyOn(context, operator, keyCode, time) {
 		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
 		const tickRate = this.synth.envelopeTick;
 		const gain = this.gain;
@@ -339,7 +339,7 @@ class Envelope {
 				// Level never rises
 				if (beginLevel === 0) {
 					this.endSustain = time;
-					soundSource.stop(time);
+					operator.stopSource(time);
 				} else {
 					cancelAndHoldAtTime(gain, beginLevel, time);
 					this.hasAttack = false;
@@ -368,7 +368,7 @@ class Envelope {
 			function playSample(args) {
 				const buffer = args[0];
 				const baseRate = args[1];
-				let playbackRate = baseRate * context.sampleRate * me.synth.envelopeTick;
+				let playbackRate = baseRate * buffer.sampleRate * me.synth.envelopeTick;
 				const sampleNode = new AudioBufferSourceNode(context,
 					{buffer: buffer, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: playbackRate}
 				);
@@ -407,7 +407,7 @@ class Envelope {
 			let endTime;
 			if (invert) {
 				endTime = time;
-				soundSource.stop(time);
+				operator.stopSource(time);
 			} else {
 				endTime = Infinity;
 			}
@@ -424,7 +424,7 @@ class Envelope {
 		if (this.sustainRate === 0) {
 			if (sustain === 0) {
 				this.endSustain = endDecay;
-				soundSource.stop(endDecay);
+				operator.stopSource(endDecay);
 			} else {
 				this.endSustain = Infinity;
 			}
@@ -443,7 +443,7 @@ class Envelope {
 		}
 		this.endSustain = endSustain;
 		if (finalValue === 0) {
-			soundSource.stop(endSustain);
+			operator.stopSource(endSustain);
 		}
 	}
 
@@ -503,7 +503,7 @@ class Envelope {
 
 	/**Closes the envelope at a specified time.
 	 */
-	keyOff(soundSource, keyCode, time) {
+	keyOff(operator, keyCode, time) {
 		if (this.sampleNode) {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
@@ -516,7 +516,7 @@ class Envelope {
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
-		soundSource.stop(endRelease);
+		operator.stopSource(endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
 		this.endRelease = endRelease;
@@ -617,6 +617,7 @@ class Operator {
 		this.detune = 0;
 		this.keyIsOn = false;
 		this.disabled = false;
+		this.stopTime = 0;
 	}
 
 	makeSource(context) {
@@ -641,6 +642,10 @@ class Operator {
 		return source;
 	}
 
+	stopSource(time) {
+		this.source.stop(time);
+		this.stopTime = time;
+	}
 
 	/**Starts the operator's oscillator.
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
@@ -783,14 +788,14 @@ class Operator {
 
 	keyOn(context, time) {
 		if (!this.disabled) {
-			this.envelope.keyOn(context, this.source, this.keyCode, time);
+			this.envelope.keyOn(context, this, this.keyCode, time);
 			this.keyIsOn = true;
 		}
 	}
 
 	keyOff(time) {
 		if (this.keyIsOn) {
-			this.envelope.keyOff(this.source, this.keyCode, time);
+			this.envelope.keyOff(this, this.keyCode, time);
 			this.keyIsOn = false;
 		}
 	}
@@ -887,6 +892,12 @@ class FMOperator extends Operator {
 	}
 
 	newWaveform(context, time = 0) {
+		if (this.stopTime > time) {
+			this.source.stop(Number.MAX_VALUE);
+			this.stopTime = 0;
+			return;
+		}
+
 		const newSource = this.makeSource(context)
 		newSource.start(time);
 		newSource.connect(this.tremoloNode);
@@ -894,6 +905,7 @@ class FMOperator extends Operator {
 			this.source.stop(time);
 		}
 		this.source = newSource;
+		this.stopTime = 0;
 	}
 
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
