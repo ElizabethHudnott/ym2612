@@ -97,10 +97,13 @@ function updateAlgorithmDetails() {
 	}
 	let total = 0;
 	for (let i = 1; i <= 4; i++) {
-		const outputLevel = channel.getOperator(i).getVolume();
-		total += outputLevel;
-		const box = document.getElementById('output-level-' + i);
-		box.value = Math.round(linearToLog(outputLevel) * 200) / 2;
+		const operator = channel.getOperator(i);
+		if (!operator.disabled) {
+			const outputLevel = operator.getVolume();
+			total += outputLevel;
+			const box = document.getElementById('output-level-' + i);
+			box.value = Math.round(linearToLog(outputLevel) * 200) / 2;
+		}
 	}
 	const overdrive = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
 	document.getElementById('overdrive').value = overdrive;
@@ -160,18 +163,23 @@ function normalizeLevels(overdrive = 0) {
 	for (let i = 0; i < 4; i++) {
 		const operator = channel.getOperator(i + 1);
 		operators[i] = operator;
-		const outputLevel = operator.getVolume();
-		currentLevels[i] = outputLevel;
-		total += Math.abs(outputLevel);
+		if (!operator.disabled) {
+			const outputLevel = operator.getVolume();
+			currentLevels[i] = outputLevel;
+			total += Math.abs(outputLevel);
+		}
 	}
 	if (total === 0) {
 		total = 1;
 	}
 	for (let i = 0; i < 4; i++) {
-		const outputLevel = (overdrive + 1) * currentLevels[i] / total;
-		operators[i].setVolume(outputLevel);
-		const box = document.getElementById('output-level-' + String(i + 1));
-		box.value = Math.trunc(linearToLog(outputLevel) * 200) / 2;
+		const operator = operators[i];
+		if (!operator.disabled) {
+			const outputLevel = (overdrive + 1) * currentLevels[i] / total;
+			operator.setVolume(outputLevel);
+			const box = document.getElementById('output-level-' + String(i + 1));
+			box.value = Math.trunc(linearToLog(outputLevel) * 1000) / 10;
+		}
 	}
 }
 
@@ -683,6 +691,7 @@ function disableOperator(event) {
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = true;
 	}
+	setTimeout(updateAlgorithmDetails, 20);
 }
 
 for (let i = 1; i <=4; i++) {
