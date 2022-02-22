@@ -613,7 +613,6 @@ class Operator {
 		this.frequencyNode = frequencyNode;
 		this.frequencyParam = frequencyNode.offset;
 		this.sourceType = 'sine';
-		this.periodicWave = undefined;
 		const sampleSpeedGain = new GainNode(context);
 		frequencyNode.connect(sampleSpeedGain);
 		this.sampleSpeedGain = sampleSpeedGain;
@@ -648,15 +647,9 @@ class Operator {
 	}
 
 	makeSource(context) {
-		let source;
-		if (this.periodicWave !== undefined) {
-			source = new OscillatorNode(context, {frequency: 0});
-			this.frequencyNode.connect(source.frequency);
-			oscillator.setPeriodicWave(this.periodicWave);
-			return source;
-		}
-
 		const sourceType = this.sourceType;
+		let source;
+
 		if (sourceType instanceof AudioBuffer) {
 			source = new AudioBufferSourceNode(context,
 				{buffer: sourceType, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: 0}
@@ -666,6 +659,7 @@ class Operator {
 			source = new OscillatorNode(context, {frequency: 0, type: sourceType});
 			this.frequencyNode.connect(source.frequency);
 		}
+
 		return source;
 	}
 
@@ -953,35 +947,24 @@ class FMOperator extends Operator {
 	setWaveformNumber(context, waveformNumber, time = 0) {
 		if (waveformNumber === undefined) throw new Error('Parameters: context, waveNumber, [time]');
 		this.sourceType = this.synth.waveforms[waveformNumber];
-		this.periodicWave = undefined;
 		this.sampleSpeedGain.gain.setValueAtTime(this.synth.samplePeriods[waveformNumber], time);
 	}
 
 	getWaveformNumber() {
-		if (this.periodicWave !== undefined) {
-			return -1;
-		} else {
-			return this.synth.waveforms.indexOf(this.sourceType);
-		}
+		return this.synth.waveforms.indexOf(this.sourceType);
 	}
 
 	getWaveformSample() {
-		if (this.periodicWave === undefined && this.sourceType instanceof AudioBuffer) {
+		if (this.sourceType instanceof AudioBuffer) {
 			return this.sourceType;
 		} else {
 			return null
 		}
 	}
 
-	setPeriodicWave(context, wave, time = 0) {
-		if (wave === undefined) throw new Error('Parameters: context, periodicWave, [time]');
-		this.periodicWave = wave;
-	}
-
 	setWaveformSample(context, audioBuffer, length = audioBuffer.length, time = 0) {
 		if (audioBuffer === undefined) throw new Error('Parameters: context, audioBuffer, [time]');
 		this.sourceType = audioBuffer;
-		this.periodicWave = undefined;
 		this.sampleSpeedGain.gain.setValueAtTime(length / context.sampleRate, time);
 	}
 
@@ -1017,7 +1000,7 @@ const FOUR_OP_ALGORITHMS = [
 	// 3 -> 4
 	[[1, 0, 0, 0, 0, 1], [0, 1, 0, 1]],
 
-	//   /--> 2 
+	//   /--> 2
 	// 1 |--> 3
 	//   \--> 4
 	[[1, 1, 1, 0, 0, 0], [0, 1, 1, 1]],
@@ -1614,7 +1597,7 @@ class FMSynth {
 		this.channels = channels;
 
 		const twoOpChannels = new Array(numChannels * 2 - 2);
-		for (let i = 0; i < numChannels - 1; i++) {
+		for (let i = 0; i < numChannels; i++) {
 			const channel = channels[i];
 			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1);
 			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3);
