@@ -1,26 +1,23 @@
-General Notes
--------------
-Channel Combinations
-	4 operator channel
-	PCM sample (Channel 6)
-	2 x 2 operator channels (Split Channels 3-5)
-	4 x 1 operator channels (optionally modulated with noise) (Split Channel 5)
-
-
 Wanted Feature List / Change List
 ---------------------------------
+Sample creation method
 
-Remove Operator 3 feedback / channel splitting from Channels 1, 2 & 6
+Sample editor (64 steps, +-32 levels, line and pencil tools)
+
+New algorithms
+	1 -> 2 & 3 -> 4
+	1 -> 2 -> 3 & 4
+	1 & 2 & 3 -> 4
+
 
 Add "Key On" and "Key Off" annotations to envelope diagram
+and change to a dynamic diagram
 
-Aftertouch
-Pitch bend
-Ability to sync LFO to song tempo
+Separate LFO delay and attack
+Ability to sync LFO to song tempo or to note on
 Bigger detune
 Level scaling
 
-Add extra feedback delay only when requested
 White noise as a modulator
 
 OPL2/3-like features
@@ -30,15 +27,16 @@ OPL2/3-like features
 		Separate LFOs for pitch and volume
 
 Envelopes
-	Frequency (channel)
-	Frequency multiple
-	Frequency (operator)
-	ADSR, linear with, 3 rates (no sustain rate), 2 levels (+begin/end level)
-		see DX11 manual
-	Scaled by velocity?
+	Frequency of channel (pitch envelope / pitch bend)
+		How to handle special mode?
+		Any sequence of straight lines (triggered by note on or tracker command)
+		Scaled by velocity?
 
-Custom envelope on key on after attack phase using setValuesAtTime
+	Custom amplitude envelope on key on after attack phase using setValuesAtTime
+	Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
 
 UI
+	Separate coarse and fine (fractional) frequency ratio sliders
 	Pad LED display with trailing zeros
 	More intense red LEDs
+	Custom waveform editor (max 64 time steps, 6 bit levels, like Famicom Disk System)

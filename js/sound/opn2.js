@@ -569,12 +569,9 @@ class Envelope {
  * parameter is set to 0 (should be 32 zeros!). The second block represents the increases
  * in frequency when the detuning parameter is set to 1 and the decreases in frequency
  * when the detuning parameter is set to 5, and so on. Each block of 32 values contains a
- * single entry for each of the YM2612's "key codes". The find a note's key code you
+ * single entry for each of the YM2612's "key codes". To find a note's key code you
  * multiply its block number by 4 and place the two most significant bits of its frequency
- * number into the two least significant bits of the key code. Each value in the array
- * (per detuning value, per key code) is a multiplier that's applied as a deviation from
- * the note's normal frequency. For example, a value of 0.05 represents a 5% increase or
- * decrease applied to the note's frequency in Hertz.
+ * number into the two least significant bits of the key code.
  * @type {Array<number}
  */
 const DETUNE_AMOUNTS = [
@@ -1475,10 +1472,10 @@ class Channel {
 	}
 
 	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
-		const totalLevel = 127 - velocity;
 		for (let i = 0; i < 4; i++) {
 			const sensitivity = this.keyVelocity[i];
 			if (sensitivity > 0) {
+				const totalLevel = 127 - velocity * sensitivity;
 				this.operators[i].setTotalLevel(totalLevel, time);
 			}
 		}
@@ -2027,11 +2024,11 @@ class TwoOperatorChannel {
 
 	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
 		const parent = this.parentChannel;
-		const totalLevel = 127 - velocity;
 		for (let i = 1; i <= 2; i++) {
 			const operatorNum = this.operatorOffset + i;
 			const sensitivity = parent.getKeyVelocity(operatorNum);
 			if (sensitivity > 0) {
+				const totalLevel = 127 - velocity * sensitivity;
 				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time);
 			}
 		}
