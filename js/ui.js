@@ -25,7 +25,7 @@ function initialize() {
 
 document.body.addEventListener('keydown', function (event) {
 	initialize();
-	if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
+	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
 	channel.keyOn(audioContext, audioContext.currentTime + 0.02);
@@ -306,7 +306,7 @@ document.getElementById('lfo-delay-slider').addEventListener('input', function (
 	initialize();
 	const value = parseFloat(this.value);
 	document.getElementById('lfo-delay').value = value;
-	channel.setLFOAttack(value);
+	channel.setLFODelay(value);
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
@@ -314,6 +314,22 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		document.getElementById('lfo-delay-slider').value = value;
+		channel.setLFODelay(value);
+	}
+});
+
+document.getElementById('lfo-attack-slider').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	document.getElementById('lfo-attack').value = value;
+	channel.setLFOAttack(value);
+});
+
+document.getElementById('lfo-attack').addEventListener('input', function (event) {
+	initialize();
+	const value = parseFloat(this.value);
+	if (value >= 0) {
+		document.getElementById('lfo-attack-slider').value = value;
 		channel.setLFOAttack(value);
 	}
 });

@@ -1063,6 +1063,7 @@ class Channel {
 		const lfoEnvelope = new GainNode(context);
 		lfo.connect(lfoEnvelope);
 		this.lfoEnvelope = lfoEnvelope.gain;
+		this.lfoDelay = 0;
 		this.lfoAttack = 0;
 
 		const op1 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
@@ -1150,7 +1151,7 @@ class Channel {
 	/**Switches out of two operator mode and back into four operator mode. You'll still
 	 * need to reinitialize the channel with a new instrument patch and frequency setting
 	 * before the normal four operator behaviour is completely restored.
-	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM
+	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM remains disabled
 	 */
 	activate(time = 0) {
 		this.setVolume(1, time, method);
@@ -1396,13 +1397,15 @@ class Channel {
 		return this.vibratoEnabled[operatorNum - 1];
 	}
 
-	setLFOAttack(seconds, time = 0) {
-		if (supportsCancelAndHold) {
-			this.lfoEnvelope.cancelAndHoldAtTime(time);
-		} else {
-			this.lfoEnvelope.cancelScheduledValues(time);
-		}
-		this.lfoEnvelope.linearRampToValueAtTime(1, time);
+	setLFODelay(seconds) {
+		this.lfoDelay = seconds;
+	}
+
+	getLFODelay() {
+		return this.lfoDelay;
+	}
+
+	setLFOAttack(seconds) {
 		this.lfoAttack = seconds;
 	}
 
@@ -1410,11 +1413,16 @@ class Channel {
 		return this.lfoAttack;
 	}
 
-	triggerLFO(time) {
-		if (this.lfoAttack > 0) {
-			cancelAndHoldAtTime(this.lfoEnvelope, 0, time);
-			this.lfoEnvelope.linearRampToValueAtTime(1, time + this.lfoAttack);
-		}
+	triggerLFOEnvelope(time) {
+		const envelope = this.lfoEnvelope;
+		cancelAndHoldAtTime(envelope, 0, time);
+		const endDelay = time + this.lfoDelay;
+		envelope.setValueAtTime(0, endDelay)
+		envelope.linearRampToValueAtTime(1, endDelay + this.lfoAttack);
+	}
+
+	applyLFO(time) {
+		cancelAndHoldAtTime(this.lfoEnvelope, 1, time);
 	}
 
 	/**
@@ -1446,7 +1454,7 @@ class Channel {
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		this.triggerLFO(time);
+		this.triggerLFOEnvelope(time);
 		this.keyOnOff(context, time, true);
 	}
 
@@ -1760,8 +1768,9 @@ class TwoOperatorChannel {
 	 */
 	activate(time = 0) {
 		const parent = this.parentChannel;
-		parent.setVolume(0.5, time);
-		parent.setLFOAttack(0, time);
+		parent.setVolume(0.5, time);	// Reserve half the output level for the other 2 op channel.
+		// Disable features that don't apply to 2 op channels.
+		parent.applyLFO();	// No LFO envelope
 		parent.mute(false, time);
 	}
 
