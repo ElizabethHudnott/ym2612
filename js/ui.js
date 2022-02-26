@@ -1,4 +1,4 @@
-import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
+import {LFO_FREQUENCIES, VIBRATO_PRESETS, makeBasicWaveform} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {logToLinear, linearToLog} from './sound/opn2.js';
@@ -18,6 +18,7 @@ function initialize() {
 	window.channel = synth.getChannel(1);
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm);
+	window.makeBasicWaveform = makeBasicWaveform;
 
 	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);
@@ -716,7 +717,7 @@ for (let i = 1; i <=4; i++) {
 }
 
 
-function drawWaveform(waveform, canvasContext, numCycles = 1) {
+window.drawWaveform = function (waveform, canvasContext, numCycles = 1) {
 	const width = canvasContext.canvas.width;
 	const height = canvasContext.canvas.height;
 	const imageData = canvasContext.getImageData(0, 0, width, height);

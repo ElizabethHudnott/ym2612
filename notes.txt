@@ -38,4 +38,4 @@ UI
 	Separate coarse and fine (fractional) frequency ratio sliders
 	Pad LED display with trailing zeros
 	More intense red LEDs
-	Custom waveform editor (max 64 time steps, 6 bit levels, like Famicom Disk System)
+	Custom waveform editor (max 64 time steps, 4-6 bit levels, like Famicom Disk System)

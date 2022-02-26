@@ -1,6 +1,6 @@
 import {
-	decibelReductionToAmplitude, amplitudeToDecibels, TIMER_IMPRECISION, CLOCK_RATE,
-	LFO_FREQUENCIES, VIBRATO_PRESETS
+	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
+	TIMER_IMPRECISION, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
 let supportsCancelAndHold;
@@ -901,6 +901,7 @@ class FMOperator extends Operator {
 		lfo.connect(vibratoGain);
 		vibratoGain.connect(fmModAmp);
 		this.vibratoAmp = vibratoGain.gain;
+		this.setWaveformSample(context, synth.waveforms[0]);
 	}
 
 	connectIn(source) {
@@ -1556,47 +1557,24 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
-		const doubleSampleLength = 2048;
-		const sampleLength = 1024;
-		const halfSampleLength = 512;
-		const quarterSampleLength = 256;
-
-		const halfSine = new AudioBuffer({length: sampleLength, sampleRate: context.sampleRate});
-		let sampleData = halfSine.getChannelData(0);
-		const absSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
-		let sampleData2 = absSine.getChannelData(0);
-		for (let i = 0; i < halfSampleLength; i++) {
-			const value = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
-			sampleData[i] = value;
-			sampleData2[i] = value;
-		}
-
-		const pulseSine = new AudioBuffer({length: halfSampleLength, sampleRate: context.sampleRate});
-		sampleData = pulseSine.getChannelData(0);
-		for (let i = 0; i < quarterSampleLength; i++) {
-			sampleData[i] = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
-		}
-
-		const evenSine = new AudioBuffer({length: doubleSampleLength, sampleRate: context.sampleRate});
-		sampleData = evenSine.getChannelData(0);
-		const absEvenSine = new AudioBuffer({length: doubleSampleLength, sampleRate: context.sampleRate});
-		sampleData2 = absEvenSine.getChannelData(0);
-		for (let i = 0; i < sampleLength; i++) {
-			const value = Math.sin(2 * Math.PI * (i + 0.5) / sampleLength);
-			sampleData[i] = value;
-			sampleData2[i] = Math.abs(value);
-		}
+		const sampleRate = context.sampleRate;
+		const sine = makeBasicWaveform(sampleRate);
+		const halfSine = makeBasicWaveform(sampleRate, {negative: 0});
+		const absSine = makeBasicWaveform(sampleRate, {negative: -1});
+		const pulseSine = makeBasicWaveform(sampleRate, {pulse: 1, negative: -1});
+		const oddSine = makeBasicWaveform(sampleRate, {length: 2048, width: 0.5});
+		const absOddSine = makeBasicWaveform(sampleRate, {negative: -1, length: 2048, width: 0.5});
 
 		this.waveforms = [
-			'sine', halfSine, absSine, pulseSine,
-			evenSine, absEvenSine,
+			sine, halfSine, absSine, pulseSine,
+			oddSine, absOddSine,
 			'square', 'sawtooth', 'triangle'
 		];
 		this.samplePeriods = [
-			0, sampleLength, sampleLength, sampleLength,
-			2 * sampleLength, 2 * sampleLength,
+			1024, 1024, 1024, 1024,
+			2048, 2048,
 			0, 0, 0
-		].map(x => x / context.sampleRate);
+		].map(x => x / sampleRate);
 
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
