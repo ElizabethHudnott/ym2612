@@ -89,7 +89,7 @@ document.getElementById('filter-q').addEventListener('input', function (event) {
 });
 
 function updateAlgorithmDetails() {
-	for (let i = 1; i <= 3; i ++) {
+	for (let i = 1; i <= 3; i++) {
 		for (let j = i + 1; j <= 4; j++) {
 			const depth = channel.getModulationDepth(i, j);
 			const box = document.getElementById('modulation-' + i + '-' + j);

@@ -915,7 +915,7 @@ class FMOperator extends Operator {
 
 	newWaveform(context, time = 0) {
 		if (this.stopTime > time) {
-			this.source.stop(Number.MAX_VALUE);
+			this.source.stop(context.currentTime + 8388500);
 			this.stopTime = 0;
 			return;
 		}
@@ -1566,14 +1566,14 @@ class FMSynth {
 		const absOddSine = makeBasicWaveform(sampleRate, {negative: -1, length: 2048, width: 0.5});
 
 		this.waveforms = [
-			sine, halfSine, absSine, pulseSine,
+			'sine', halfSine, absSine, pulseSine,
 			oddSine, absOddSine,
 			'square', 'sawtooth', 'triangle'
 		];
 		this.samplePeriods = [
 			1024, 1024, 1024, 1024,
 			2048, 2048,
-			0, 0, 0
+			0, 0, 0,
 		].map(x => x / sampleRate);
 
 		const channels = new Array(numChannels);

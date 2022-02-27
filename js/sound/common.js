@@ -17,8 +17,7 @@ function amplitudeToDecibels(amplitude) {
 	return -20 * Math.log10(1 - amplitude);
 }
 
-/**Creates a sample that can be used either as a raw waveform for chip tunes or as a modulator
- * or a carrier for FM synthesis.
+/**Creates a sample that can be used as a waveform for creating chip tunes.
  * @param {number} sampleRate The sample rate of the AudioContext used to play the sample.
  * @param {object} options An object containing any additional options.
 */
@@ -39,7 +38,7 @@ function makeBasicWaveform(sampleRate, options = {}) {
 	// If set to 1 then the portions of the wave from PI/2 to PI radians and from 3PI/2 to 2PI
 	// radians are zeroed out (These values are for a 50% duty cycle). Defaults to 0. Fractional
 	// values are possible too.
-	const zeroed = options.pulse;
+	const zeroed = options.pulse || 0;
 
 	// Default to leaving negative samples as negative, i.e. undistorted, rather than creating,
 	// for example, a half sine (0) wave or a camel sine (-1) wave.
@@ -85,7 +84,7 @@ function makeBasicWaveform(sampleRate, options = {}) {
 
 	for (let harmonic of harmonics) {
 		for (let i = 0; i < period; i++) {
-			const x = (i + 0.5) * harmonic / period % 1;
+			const x = ((i + 0.5) * harmonic / period) % 1;
 			let value;
 			if (x > cutoffTwoLB || (x > cutoffOneLB && x <= zeroPoint)) {
 				value = 0;
