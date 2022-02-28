@@ -1,6 +1,6 @@
 import {
 	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
-	TIMER_IMPRECISION, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS
+	TIMER_IMPRECISION, NEVER, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
 let supportsCancelAndHold;
@@ -199,6 +199,8 @@ class Envelope {
 	stop(time = 0) {
 		this.gainNode.stop(time);
 		this.totalLevelNode.stop(time);
+		this.gainNode = undefined;
+		this.totalLevelNode = undefined;
 	}
 
 	/**
@@ -341,7 +343,7 @@ class Envelope {
 				// Level never rises
 				if (beginLevel === 0) {
 					this.endSustain = time;
-					operator.stopSource(time);
+					operator.stopOscillator(time);
 				} else {
 					cancelAndHoldAtTime(gain, beginLevel, time);
 					this.hasAttack = false;
@@ -424,7 +426,7 @@ class Envelope {
 			let endTime;
 			if (invert) {
 				endTime = time;
-				operator.stopSource(time);
+				operator.stopOscillator(time);
 			} else {
 				endTime = Infinity;
 			}
@@ -441,7 +443,7 @@ class Envelope {
 		if (this.sustainRate === 0) {
 			if (sustain === 0) {
 				this.endSustain = endDecay;
-				operator.stopSource(endDecay);
+				operator.stopOscillator(endDecay);
 			} else {
 				this.endSustain = Infinity;
 			}
@@ -460,7 +462,7 @@ class Envelope {
 		}
 		this.endSustain = endSustain;
 		if (finalValue === 0) {
-			operator.stopSource(endSustain);
+			operator.stopOscillator(endSustain);
 		}
 	}
 
@@ -546,7 +548,7 @@ class Envelope {
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
-		operator.stopSource(endRelease);
+		operator.stopOscillator(endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
 		this.endRelease = endRelease;
@@ -612,11 +614,6 @@ class Operator {
 
 		this.frequencyNode = frequencyNode;
 		this.frequencyParam = frequencyNode.offset;
-		this.sourceType = 'sine';
-		const sampleSpeedGain = new GainNode(context);
-		frequencyNode.connect(sampleSpeedGain);
-		this.sampleSpeedGain = sampleSpeedGain;
-		this.source = undefined;
 
 		const tremolo = new GainNode(context);
 		this.tremoloNode = tremolo;
@@ -646,28 +643,6 @@ class Operator {
 		this.stopTime = 0;
 	}
 
-	makeSource(context) {
-		const sourceType = this.sourceType;
-		let source;
-
-		if (sourceType instanceof AudioBuffer) {
-			source = new AudioBufferSourceNode(context,
-				{buffer: sourceType, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: 0}
-			);
-			this.sampleSpeedGain.connect(source.playbackRate);
-		} else {
-			source = new OscillatorNode(context, {frequency: 0, type: sourceType});
-			this.frequencyNode.connect(source.frequency);
-		}
-
-		return source;
-	}
-
-	stopSource(time) {
-		this.source.stop(time);
-		this.stopTime = time;
-	}
-
 	/**Starts the operator's oscillator.
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
@@ -680,11 +655,12 @@ class Operator {
 	 * Operators are normally stopped by calling stop() on an instance of {@link FMSynth}.
 	 */
 	stop(time = 0) {
-		if (this.source) {
-			this.source.stop(time);
-		}
+		this.stopOscillator(time);
 		this.frequencyNode.stop(time);
 		this.envelope.stop(time);
+		this.frequencyNode = undefined;
+		this.oscillator = undefined;
+		this.amOscillator = undefined;
 	}
 
 	/**Configures this operator to modulate an external source (usually another operator).
@@ -797,8 +773,8 @@ class Operator {
 	}
 
 	disable(time = 0) {
-		if (this.source) {
-			this.source.stop(time);
+		if (this.oscillator) {
+			this.stopOscillator(time);
 		}
 		this.disabled = true;
 	}
@@ -822,7 +798,7 @@ class Operator {
 	}
 
 	soundOff(time = 0) {
-		this.source.stop(time);
+		this.stopOscillator(time);
 		this.envelope.soundOff(time);
 	}
 
@@ -888,10 +864,38 @@ class Operator {
 
 }
 
+class OscillatorConfig {
+	constructor(shape, waveShaping = false, amShape = undefined, amFrequencyMultiple = 0, frequencyMultiple = 1, amDepth = 1) {
+		this.shape = shape;
+		this.waveShaping = waveShaping;
+		this.amShape = amShape;
+		this.amFrequencyMultiple = amFrequencyMultiple;
+		this.amDepth = amDepth;
+		this.frequencyMultiple = frequencyMultiple;
+	}
+}
+
 class FMOperator extends Operator {
 
 	constructor(synth, context, lfo, output, dbCurve) {
 		super(synth, context, lfo, output, dbCurve);
+
+		const twiceFrequency = new GainNode(context, {gain: 2});
+		this.frequencyNode.connect(twiceFrequency);
+		this.twiceFrequency = twiceFrequency;
+		const shaper = new WaveShaperNode(context, {curve: [1, 0, 1]});
+		this.shaper = shaper;
+		const amMod = new GainNode(context);
+		shaper.connect(amMod);
+		amMod.connect(this.tremoloNode);
+		this.amMod = amMod;
+		const amModAmp = new GainNode(context);
+		amModAmp.connect(amMod.gain);
+		this.amModAmp = amModAmp;
+
+		this.oscillator = undefined;
+		this.amOscillator = undefined;
+		this.oscillatorConfig = synth.oscillatorConfigs[0];
 
 		const fmModAmp = new GainNode(context, {gain: 440});
 		fmModAmp.connect(this.frequencyParam);
@@ -901,7 +905,50 @@ class FMOperator extends Operator {
 		lfo.connect(vibratoGain);
 		vibratoGain.connect(fmModAmp);
 		this.vibratoAmp = vibratoGain.gain;
-		this.setWaveformSample(context, synth.waveforms[0]);
+	}
+
+	newOscillator(context, time = 0) {
+		const config = this.oscillatorConfig;
+		const oscillator = new OscillatorNode(context, {frequency: 0, type: config.shape});
+		if (config.frequencyMultiple === 1) {
+			this.frequencyNode.connect(oscillator.frequency);
+		} else {
+			this.twiceFrequency.connect(oscillator.frequency);
+		}
+
+		let amOscillator;
+		if (config.amFrequencyMultiple > 0) {
+			amOscillator = new OscillatorNode(context, {frequency: 0, type: config.amShape});
+			if (config.amFrequencyMultiple === 1) {
+				this.frequencyNode.connect(amOscillator.frequency);
+			} else {
+				this.twiceFrequency.connect(amOscillator.frequency);
+			}
+			amOscillator.connect(this.amModAmp);
+			const amplitude = 0.5 * config.amDepth;
+			this.amModAmp.gain.setValueAtTime(amplitude, time);
+			this.amMod.gain.setValueAtTime(1 - amplitude, time);
+			amOscillator.start(time);
+		} else {
+			this.amMod.gain.setValueAtTime(1, time);
+		}
+		oscillator.start(time);
+		if (this.oscillator) {
+			this.stopOscillator(time);
+		}
+
+		oscillator.connect(config.waveShaping ? this.shaper : this.amMod);
+		this.oscillator = oscillator;
+		this.amOscillator = amOscillator;
+	}
+
+	stopOscillator(time) {
+		this.oscillator.stop(time);
+
+		if (this.amOscillator) {
+			this.amOscillator.stop(time);
+		}
+		this.stopTime = time;
 	}
 
 	connectIn(source) {
@@ -913,23 +960,6 @@ class FMOperator extends Operator {
 		this.fmModAmp.gain[method](this.frequency, time);
 	}
 
-	newWaveform(context, time = 0) {
-		if (this.stopTime > time) {
-			this.source.stop(context.currentTime + 8388500);
-			this.stopTime = 0;
-			return;
-		}
-
-		const newSource = this.makeSource(context)
-		newSource.start(time);
-		newSource.connect(this.tremoloNode);
-		if (this.source) {
-			this.source.stop(time);
-		}
-		this.source = newSource;
-		this.stopTime = 0;
-	}
-
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
 		this.vibratoAmp[method](linearAmount, time);
 	}
@@ -939,34 +969,28 @@ class FMOperator extends Operator {
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		if (!this.keyIsOn) {
-			this.newWaveform(context, time);
+		if (!this.keyIsOn && !this.disabled) {
+			if (this.oscillator && this.stopTime > time) {
+				this.stopOscillator(context.currentTime + NEVER);
+			} else {
+				this.newOscillator(context, time);
+			}
 			super.keyOn(context, time);
 		}
 	}
 
+	setWaveform(context, oscillatorConfig, time = 0) {
+		if (oscillatorConfig == undefined) throw new Error('Parameters: setWaveform(context, oscillatorConfig, time = 0)');
+		this.oscillatorConfig = oscillatorConfig;
+		this.newOscillator(context, time);
+	}
+
 	setWaveformNumber(context, waveformNumber, time = 0) {
-		if (waveformNumber === undefined) throw new Error('Parameters: context, waveNumber, [time]');
-		this.sourceType = this.synth.waveforms[waveformNumber];
-		this.sampleSpeedGain.gain.setValueAtTime(this.synth.samplePeriods[waveformNumber], time);
+		this.setWaveform(context, this.synth.oscillatorConfigs[waveformNumber], time);
 	}
 
 	getWaveformNumber() {
-		return this.synth.waveforms.indexOf(this.sourceType);
-	}
-
-	getWaveformSample() {
-		if (this.sourceType instanceof AudioBuffer) {
-			return this.sourceType;
-		} else {
-			return null
-		}
-	}
-
-	setWaveformSample(context, audioBuffer, length = audioBuffer.length, time = 0) {
-		if (audioBuffer === undefined) throw new Error('Parameters: context, audioBuffer, [time]');
-		this.sourceType = audioBuffer;
-		this.sampleSpeedGain.gain.setValueAtTime(length / context.sampleRate, time);
+		return this.synth.oscillatorConfigs.indexOf(this.oscillatorConfig);
 	}
 
 }
@@ -1557,24 +1581,21 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
-		const sampleRate = context.sampleRate;
-		const sine = makeBasicWaveform(sampleRate);
-		const halfSine = makeBasicWaveform(sampleRate, {negative: 0});
-		const absSine = makeBasicWaveform(sampleRate, {negative: -1});
-		const pulseSine = makeBasicWaveform(sampleRate, {pulse: 1, negative: -1});
-		const oddSine = makeBasicWaveform(sampleRate, {length: 2048, width: 0.5});
-		const absOddSine = makeBasicWaveform(sampleRate, {negative: -1, length: 2048, width: 0.5});
+		const sine = new OscillatorConfig('sine');
+		const halfSine = new OscillatorConfig('sine', false, 'square', 1);
+		const absSine = new OscillatorConfig('sine', true);
+		const quarterSine = new OscillatorConfig('sine', true, 'square', 2);
+		const oddSine = new OscillatorConfig('sine', false, 'square', 1, 2);
+		const absOddSine = new OscillatorConfig('sine', true, 'square', 1, 2);
+		const square = new OscillatorConfig('square');
+		const sawtooth = new OscillatorConfig('sawtooth');
+		const triangle = new OscillatorConfig('triangle');
 
-		this.waveforms = [
-			'sine', halfSine, absSine, pulseSine,
-			oddSine, absOddSine,
-			'square', 'sawtooth', 'triangle'
+		this.oscillatorConfigs = [
+			sine, halfSine, absSine, quarterSine,
+			oddSine, absOddSine, square, sawtooth,
+			triangle
 		];
-		this.samplePeriods = [
-			1024, 1024, 1024, 1024,
-			2048, 2048,
-			0, 0, 0,
-		].map(x => x / sampleRate);
 
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
@@ -1619,6 +1640,8 @@ class FMSynth {
 		}
 		this.lfo.stop(time);
 		this.dacRegister.stop(time);
+		this.lfo = undefined;
+		this.dacRegister = undefined;
 	}
 
 	soundOff(time = 0) {
@@ -2026,7 +2049,7 @@ class TwoOperatorChannel {
 }
 
 export {
-	Envelope, FMOperator, Channel, FMSynth,
+	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
 	DETUNE_AMOUNTS, TREMOLO_PRESETS, CLOCK_RATE
 };

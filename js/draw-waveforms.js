@@ -12,22 +12,6 @@ window.drawWaveforms = function () {
 	const waveforms = [sine];
 	const cycles = [2];
 
-	// Half Sine
-	waveforms.push(synth.waveforms[1].getChannelData(0));
-	cycles.push(2);
-	// Absolute Sine
-	waveforms.push(synth.waveforms[2].getChannelData(0));
-	cycles.push(4);
-	// Pulse Sine
-	waveforms.push(synth.waveforms[3].getChannelData(0));
-	cycles.push(4);
-	// Sine, even periods only
-	waveforms.push(synth.waveforms[4].getChannelData(0));
-	cycles.push(1);
-	// Absolute Sine, even periods only
-	waveforms.push(synth.waveforms[5].getChannelData(0));
-	cycles.push(1);
-
 	const square = new Array(1024)
 	square.fill(1, 0, 512);
 	square.fill(-1, 512);
@@ -44,6 +28,14 @@ window.drawWaveforms = function () {
 		triangle[x + 256] = 1 - fraction;
 	}
 	waveforms.push(triangle);
+	cycles.push(2);
+
+	const stepped = new Array(1024)
+	stepped.fill(1, 0, 256);
+	stepped.fill(0, 256, 512);
+	stepped.fill(-1, 512, 768);
+	stepped.fill(0, 768);
+	waveforms.push(stepped);
 	cycles.push(2);
 
 	for (let i = 0; i < waveforms.length; i++) {

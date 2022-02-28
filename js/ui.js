@@ -1,7 +1,7 @@
-import {LFO_FREQUENCIES, VIBRATO_PRESETS, makeBasicWaveform} from './sound/common.js';
+import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
-import {logToLinear, linearToLog} from './sound/opn2.js';
+import {logToLinear, linearToLog, OscillatorConfig} from './sound/opn2.js';
 
 let channels;
 
@@ -18,7 +18,7 @@ function initialize() {
 	window.channel = synth.getChannel(1);
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm);
-	window.makeBasicWaveform = makeBasicWaveform;
+	window.OscillatorConfig = OscillatorConfig;
 
 	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);

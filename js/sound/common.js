@@ -1,4 +1,5 @@
 const TIMER_IMPRECISION = 0.002;
+const NEVER = 8388500;
 
 const CLOCK_RATE = {
 	PAL: 	53203424 / 7,
@@ -116,5 +117,5 @@ function makeBasicWaveform(sampleRate, options = {}) {
 
 export {
 	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
-	TIMER_IMPRECISION, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS,
+	TIMER_IMPRECISION, NEVER, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS,
 }
