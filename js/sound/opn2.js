@@ -865,6 +865,20 @@ class Operator {
 }
 
 class OscillatorConfig {
+	/**
+	 * @param {string} shape The waveform used for the carrier oscillator:
+	 * 'sine', 'sawtooth', square' or 'triangle'.
+	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
+	 * waveform when true.
+	 * @param {string} amShape The waveform used for the modulator oscillator:
+	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
+	 * @param {number} amFrequencyMultiple The frequency of the modulator relative to the base
+	 * frequency.
+	 * @param {number} frequencyMultiple The frequency of the carrier relative to the base
+	 * frequency, which is usually 1x but a few waveforms use 2x. If this parameter has a value
+	 * other than 1 then the value of amFrequencyMultiple must be 1 (or 0).
+	 * @param {number} amDepth How much amplitude modulation to apply [0..1].
+	 */
 	constructor(shape, waveShaping = false, amShape = undefined, amFrequencyMultiple = 0, frequencyMultiple = 1, amDepth = 1) {
 		this.shape = shape;
 		this.waveShaping = waveShaping;
@@ -872,6 +886,7 @@ class OscillatorConfig {
 		this.amFrequencyMultiple = amFrequencyMultiple;
 		this.amDepth = amDepth;
 		this.frequencyMultiple = frequencyMultiple;
+		this.frequencyMultiplier = frequencyMultiple !== 1 ? frequencyMultiple : amFrequencyMultiple;
 	}
 }
 
@@ -880,9 +895,9 @@ class FMOperator extends Operator {
 	constructor(synth, context, lfo, output, dbCurve) {
 		super(synth, context, lfo, output, dbCurve);
 
-		const twiceFrequency = new GainNode(context, {gain: 2});
-		this.frequencyNode.connect(twiceFrequency);
-		this.twiceFrequency = twiceFrequency;
+		const frequencyMultipler = new GainNode(context);
+		this.frequencyNode.connect(frequencyMultipler);
+		this.frequencyMultipler = frequencyMultipler;
 		const shaper = new WaveShaperNode(context, {curve: [1, 0, 1]});
 		this.shaper = shaper;
 		const amMod = new GainNode(context);
@@ -913,8 +928,9 @@ class FMOperator extends Operator {
 		if (config.frequencyMultiple === 1) {
 			this.frequencyNode.connect(oscillator.frequency);
 		} else {
-			this.twiceFrequency.connect(oscillator.frequency);
+			this.frequencyMultipler.connect(oscillator.frequency);
 		}
+		this.frequencyMultipler.gain.setValueAtTime(config.frequencyMultiplier, time);
 
 		let amOscillator;
 		if (config.amFrequencyMultiple > 0) {
@@ -922,7 +938,7 @@ class FMOperator extends Operator {
 			if (config.amFrequencyMultiple === 1) {
 				this.frequencyNode.connect(amOscillator.frequency);
 			} else {
-				this.twiceFrequency.connect(amOscillator.frequency);
+				this.frequencyMultipler.connect(amOscillator.frequency);
 			}
 			amOscillator.connect(this.amModAmp);
 			const amplitude = 0.5 * config.amDepth;
