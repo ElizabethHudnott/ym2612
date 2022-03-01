@@ -17,7 +17,7 @@ function initialize() {
 	channels = synth.channels;
 	window.channel = synth.getChannel(1);
 	window.psg = soundSystem.psg;
-	window.ym2612 = new YM2612(soundSystem.fm);
+	window.ym2612 = new YM2612(soundSystem.fm, context);
 	window.OscillatorConfig = OscillatorConfig;
 
 	soundSystem.start(context.currentTime + 0.02);

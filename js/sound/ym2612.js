@@ -9,13 +9,14 @@ const PCM_LEVELS = [0, 1, 6, 6];
 const write = [];
 
 export default class YM2612 {
-	constructor(synth) {
+	constructor(synth, context) {
 		this.synth = synth;
 		const channel = synth.getChannel(1);
 		const highFrequencyByte = (channel.getFrequencyBlock() << 3) + (channel.getFrequencyNumber() >> 8);
 		this.longRegisters = [
 			highFrequencyByte, highFrequencyByte, highFrequencyByte, highFrequencyByte
 		];
+		synth.enablePCMRegister(context);
 		this.pcmLevel = 0; // Bit 0 = DAC enable, Bit 1 = Loud PCM (test register)
 	}
 

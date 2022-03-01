@@ -6,7 +6,7 @@ New algorithms
 	1 & 2 & 3 -> 4
 
 Bug: Reading .value is broken in chrome
-Bug: Frequency modulating a sample isn't possible in Web Audio
+Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 and change to a dynamic diagram

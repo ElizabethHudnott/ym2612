@@ -149,13 +149,13 @@ class Envelope {
 
 		const totalLevelNode = new ConstantSourceNode(context, {offset: 0});
 		this.totalLevelNode = totalLevelNode;
-		this.totalLevel = totalLevelNode.offset;
 		const shaper = new WaveShaperNode(context, {curve: dbCurve});
 		this.shaper = shaper;
 		gainNode.connect(shaper);
 		totalLevelNode.connect(shaper);
 		shaper.connect(output.gain);
 
+		this.totalLevel = 0;
 		this.rateScaling = 0;
 		this.attackRate = 16;
 		this.decayRate = 0;
@@ -207,11 +207,12 @@ class Envelope {
 	 * For Algorithm 7, set total level to at least 29 to avoid distortion.
 	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		this.totalLevel[method](-level / 128, time);
+		this.totalLevelNode.offset[method](-level / 128, time);
+		this.totalLevel = level;
 	}
 
 	getTotalLevel() {
-		return -Math.round(this.totalLevel.value * 128);
+		return this.totalLevel;
 	}
 
 	setRateScaling(amount) {
@@ -641,6 +642,9 @@ class Operator {
 		this.keyIsOn = false;
 		this.disabled = false;
 		this.stopTime = 0;
+
+		this.tremoloDepth = 0;
+		this.volume = 1;
 	}
 
 	/**Starts the operator's oscillator.
@@ -757,19 +761,21 @@ class Operator {
 	setTremoloDepth(linearAmount, time = 0, method = 'setValueAtTime') {
 		this.tremoloAmp[method](-linearAmount, time);
 		this.tremolo[method](1 - linearAmount, time);
+		this.tremoloDepth = linearAmount;
 	}
 
 	/**Gets the amount of amplitude modulation being applied to the operator on a 0..1 linear scale. */
 	getTremoloDepth() {
-		return this.tremoloAmp.value;
+		return this.tremoloDepth;
 	}
 
 	setVolume(level, time = 0, method = 'setValueAtTime') {
 		this.mixer[method](level, time);
+		this.volume = level;
 	}
 
 	getVolume() {
-		return this.mixer.value;
+		return this.volume;
 	}
 
 	disable(time = 0) {
@@ -781,6 +787,10 @@ class Operator {
 
 	enable() {
 		this.disabled = false;
+	}
+
+	isDisabled() {
+		return this.disabled;
 	}
 
 	keyOn(context, time) {
@@ -920,6 +930,7 @@ class FMOperator extends Operator {
 		lfo.connect(vibratoGain);
 		vibratoGain.connect(fmModAmp);
 		this.vibratoAmp = vibratoGain.gain;
+		this.vibratoDepth = 0;
 	}
 
 	newOscillator(context, time = 0) {
@@ -978,10 +989,11 @@ class FMOperator extends Operator {
 
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
 		this.vibratoAmp[method](linearAmount, time);
+		this.vibratoDepth = linearAmount;
 	}
 
 	getVibratoDepth() {
-		return this.vibratoAmp.value;
+		return this.vibratoDepth;
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
@@ -1158,6 +1170,7 @@ class Channel {
 			op2To3.gain, op2To4.gain,
 			op3To4.gain
 		];
+		this.modulationDepths = new Array(this.gains.length);
 
 		this.freqBlockNumbers = [4, 4, 4, 4];
 		this.frequencyNumbers = [1093, 1093, 1093, 1093];
@@ -1200,7 +1213,9 @@ class Channel {
 
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
-			this.gains[i + 2][method](modulations[i], time);
+			const depth = modulations[i];
+			this.gains[i + 2][method](depth, time);
+			this.modulationDepths[i + 2] = depth;
 		}
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];
@@ -1214,20 +1229,41 @@ class Channel {
 	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
 		const algorithm = FOUR_OP_ALGORITHMS[algorithmNum];
 		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
-		this.algorithmNum = algorithmNum;
 	}
 
 	getAlgorithm() {
-		return this.algorithmNum;
+		algorithm: for (let i = 0; i < FOUR_OP_ALGORITHMS.length; i++) {
+			const algorithm = FOUR_OP_ALGORITHMS[i];
+			const modulations = algorithm[0];
+			for (let j = 0; j < modulations.length; j++) {
+				const algorithmModulates = modulations[j] !== 0;
+				const thisModulates = this.modulationDepths[j + 2] !== 0;
+				if (algorithmModulates !== thisModulates) {
+					continue algorithm;
+				}
+			}
+			const outputLevels = algorithm[1];
+			for (let j = 0; j < 4; j++) {
+				const algorithmOutputs = outputLevels[j] !== 0;
+				const thisOutputs = this.operators[j].getVolume() !== 0;
+				if (algorithmOutputs !== thisOutputs) {
+					continue algorithm;
+				}
+			}
+			return i;
+		} // end for each algorithm
+		return -1;
 	}
 
 	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
-		this.gains[indexOfGain(modulatorOpNum, carrierOpNum)][method](amount, time);
+		const index = indexOfGain(modulatorOpNum, carrierOpNum);
+		this.gains[index][method](amount, time);
+		this.modulationDepths[index] = amount;
 	}
 
 	getModulationDepth(modulatorOpNum, carrierOpNum) {
 		const index = indexOfGain(modulatorOpNum, carrierOpNum);
-		return index === -1 ? 0 : this.gains[index].value;
+		return index === -1 ? 0 : this.modulationDepths[index];
 	}
 
 	disableOperator(operatorNum, time = 0) {
@@ -1347,11 +1383,13 @@ class Channel {
 	}
 
 	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		this.gains[(operatorNum - 1) / 2][method](amount, time);
+		const index = (operatorNum - 1) / 2;
+		this.gains[index][method](amount, time);
+		this.modulationDepths[index] = amount;
 	}
 
 	getFeedback(operatorNum = 1) {
-		return this.gains[(operatorNum - 1) / 2].value;
+		return this.modulationDepths[(operatorNum - 1) / 2];
 	}
 
 	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
@@ -1627,11 +1665,16 @@ class FMSynth {
 		}
 		this.twoOpChannels = twoOpChannels;
 
-		const pcmGain = new GainNode(context, {gain: 0});
-		pcmGain.connect(channels[numChannels - 1].panner);
-		this.pcmGain = pcmGain.gain;
+		const pcmAmp = new GainNode(context, {gain: 0});
+		pcmAmp.connect(channels[numChannels - 1].panner);
+		this.pcmAmp = pcmAmp;
+		this.dacRegister = undefined;
+	}
+
+	enablePCMRegister(context) {
 		const dacRegister = new ConstantSourceNode(context, {offset: 0});
-		dacRegister.connect(pcmGain);
+		dacRegister.connect(this.pcmAmp);
+		dacRegister.start();
 		this.dacRegister = dacRegister;
 	}
 
@@ -1647,7 +1690,6 @@ class FMSynth {
 			channel.start(time);
 		}
 		this.lfo.start(time);
-		this.dacRegister.start(time);
 	}
 
 	stop(time = 0) {
@@ -1655,9 +1697,11 @@ class FMSynth {
 			channel.stop(time);
 		}
 		this.lfo.stop(time);
-		this.dacRegister.stop(time);
 		this.lfo = undefined;
-		this.dacRegister = undefined;
+		if (this.dacRegister) {
+			this.dacRegister.stop(time);
+			this.dacRegister = undefined;
+		}
 	}
 
 	soundOff(time = 0) {
@@ -1694,6 +1738,9 @@ class FMSynth {
 
 	/**
 	 * @param {number} amount The gain to apply to the PCM channel, in the range [0..numChannels].
+	 * Values in the range (0, 1] will fade down the volume of the highest numbered FM channel
+	 * to make space in the mix for PCM content. Values greater than one will fade down the
+	 * volume of the other FM channels in addition to silencing the last one.
 	 */
 	mixPCM(amount, time = 0, method = 'setValueAtTime') {
 		let lastChannelVolume, otherChannelsVolume;
@@ -1706,14 +1753,14 @@ class FMSynth {
 		}
 		const numChannels = this.channels.length;
 		this.channels[numChannels - 1].setVolume(lastChannelVolume, time, method);
-		this.pcmGain[method](amount, time);
+		this.pcmAmp.gain[method](amount, time);
 		for (let i = 0; i < numChannels - 1; i++) {
 			this.channels[i].setVolume(otherChannelsVolume, time, method);
 		}
 	}
 
 	getPCMMix() {
-		return this.pcmGain.value;
+		return this.pcmAmp.value;
 	}
 
 	writePCM(value, time) {
@@ -1770,7 +1817,6 @@ class TwoOperatorChannel {
 	constructor(parentChannel, startingOperator) {
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
-		this.algorithmNum = 1;
 		this.transpose = 0;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
@@ -1807,11 +1853,11 @@ class TwoOperatorChannel {
 	useAlgorithm(algorithmNum, time = 0, method = 'setValueAtTime') {
 		const algorithm = TWO_OP_ALGORITHMS[algorithmNum];
 		this.setAlgorithm(algorithm[0], algorithm[1], time, method);
-		this.algorithmNum = algorithmNum;
 	}
 
 	getAlgorithm() {
-		return this.algorithmNum;
+		const isFM = this.getModulationDepth(1, 2) !== 0;
+		return isFM ? 0 : 1;
 	}
 
 	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
