@@ -663,8 +663,8 @@ class Operator {
 		this.frequencyNode.stop(time);
 		this.envelope.stop(time);
 		this.frequencyNode = undefined;
-		this.oscillator = undefined;
-		this.amOscillator = undefined;
+		this.oscillator1 = undefined;
+		this.oscillator2 = undefined;
 	}
 
 	/**Configures this operator to modulate an external source (usually another operator).
@@ -779,7 +779,7 @@ class Operator {
 	}
 
 	disable(time = 0) {
-		if (this.oscillator) {
+		if (this.oscillator1) {
 			this.stopOscillator(time);
 		}
 		this.disabled = true;
@@ -876,28 +876,49 @@ class Operator {
 
 class OscillatorConfig {
 	/**
-	 * @param {string} shape The waveform used for the carrier oscillator:
+	 * @param {string} oscillator1Shape The waveform used for the carrier oscillator:
 	 * 'sine', 'sawtooth', square' or 'triangle'.
 	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
 	 * waveform when true.
-	 * @param {string} amShape The waveform used for the modulator oscillator:
+	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
 	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
-	 * @param {number} amFrequencyMultiple The frequency of the modulator relative to the base
+	 * @param {number} oscillator2FrequencyMult The frequency of the modulator relative to the base
 	 * frequency.
-	 * @param {number} frequencyMultiple The frequency of the carrier relative to the base
+	 * @param {number} oscillator1FrequencyMult The frequency of the carrier relative to the base
 	 * frequency, which is usually 1x but a few waveforms use 2x. If this parameter has a value
-	 * other than 1 then the value of amFrequencyMultiple must be 1 (or 0).
+	 * other than 1 then the value of oscillator2FrequencyMult must be 1 (or 0).
 	 * @param {number} amDepth How much amplitude modulation to apply [0..1].
 	 */
-	constructor(shape, waveShaping = false, amShape = undefined, amFrequencyMultiple = 0, frequencyMultiple = 1, amDepth = 1) {
-		this.shape = shape;
+	constructor(
+		oscillator1Shape, waveShaping = false,
+		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
+		amDepth = 1, additive = false
+	) {
+		this.oscillator1Shape = oscillator1Shape;
 		this.waveShaping = waveShaping;
-		this.amShape = amShape;
-		this.amFrequencyMultiple = amFrequencyMultiple;
+		this.oscillator2Shape = oscillator2Shape;
+		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
 		this.amDepth = amDepth;
-		this.frequencyMultiple = frequencyMultiple;
-		this.frequencyMultiplier = frequencyMultiple !== 1 ? frequencyMultiple : amFrequencyMultiple;
+		this.oscillator1FrequencyMult = oscillator1FrequencyMult;
+		this.frequencyMultiplier = oscillator1FrequencyMult !== 1 ? oscillator1FrequencyMult : oscillator2FrequencyMult;
+		this.additive = additive;
 	}
+
+	static mono(shape, waveShaping = false) {
+		return new OscillatorConfig(shape, waveShaping);
+	}
+
+	static am(
+		oscillator1Shape, waveShaping, oscillator2Shape,
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, amDepth = 1
+	) {
+		return new OscillatorConfig(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth);
+	}
+
+	static additive(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult) {
+		return new OscillatorConfig(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult, 1, 0, true);
+	}
+
 }
 
 class FMOperator extends Operator {
@@ -918,8 +939,8 @@ class FMOperator extends Operator {
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
 
-		this.oscillator = undefined;
-		this.amOscillator = undefined;
+		this.oscillator1 = undefined;
+		this.oscillator2 = undefined;
 		this.oscillatorConfig = synth.oscillatorConfigs[0];
 
 		const fmModAmp = new GainNode(context, {gain: 440});
@@ -935,45 +956,56 @@ class FMOperator extends Operator {
 
 	newOscillator(context, time = 0) {
 		const config = this.oscillatorConfig;
-		const oscillator = new OscillatorNode(context, {frequency: 0, type: config.shape});
-		if (config.frequencyMultiple === 1) {
-			this.frequencyNode.connect(oscillator.frequency);
+
+		const oscillator1 = new OscillatorNode(
+			context,
+			{frequency: 0, type: config.oscillator1Shape}
+		);
+
+		if (config.oscillator1FrequencyMult === 1) {
+			this.frequencyNode.connect(oscillator1.frequency);
 		} else {
-			this.frequencyMultipler.connect(oscillator.frequency);
+			this.frequencyMultipler.connect(oscillator1.frequency);
 		}
 		this.frequencyMultipler.gain.setValueAtTime(config.frequencyMultiplier, time);
 
-		let amOscillator;
-		if (config.amFrequencyMultiple > 0) {
-			amOscillator = new OscillatorNode(context, {frequency: 0, type: config.amShape});
-			if (config.amFrequencyMultiple === 1) {
-				this.frequencyNode.connect(amOscillator.frequency);
+		let oscillator2;
+		if (config.oscillator2FrequencyMult !== 0) {
+			oscillator2 = new OscillatorNode(context, {frequency: 0, type: config.oscillator2Shape});
+			if (config.oscillator2FrequencyMult === 1) {
+				this.frequencyNode.connect(oscillator2.frequency);
 			} else {
-				this.frequencyMultipler.connect(amOscillator.frequency);
+				this.frequencyMultipler.connect(oscillator2.frequency);
 			}
-			amOscillator.connect(this.amModAmp);
-			const amplitude = 0.5 * config.amDepth;
+			oscillator2.connect(this.amModAmp);
+			let maxGain = 1;
+			if (config.additive) {
+				oscillator2.connect(this.amMod);
+				maxGain = 0.5;
+			}
+
+			const amplitude = maxGain * 0.5 * config.amDepth;
 			this.amModAmp.gain.setValueAtTime(amplitude, time);
-			this.amMod.gain.setValueAtTime(1 - amplitude, time);
-			amOscillator.start(time);
+			this.amMod.gain.setValueAtTime(maxGain - amplitude, time);
+			oscillator2.start(time);
 		} else {
 			this.amMod.gain.setValueAtTime(1, time);
 		}
-		oscillator.start(time);
-		if (this.oscillator) {
+		oscillator1.start(time);
+		if (this.oscillator1) {
 			this.stopOscillator(time);
 		}
 
-		oscillator.connect(config.waveShaping ? this.shaper : this.amMod);
-		this.oscillator = oscillator;
-		this.amOscillator = amOscillator;
+		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
+		this.oscillator1 = oscillator1;
+		this.oscillator2 = oscillator2;
 	}
 
 	stopOscillator(time) {
-		this.oscillator.stop(time);
+		this.oscillator1.stop(time);
 
-		if (this.amOscillator) {
-			this.amOscillator.stop(time);
+		if (this.oscillator2) {
+			this.oscillator2.stop(time);
 		}
 		this.stopTime = time;
 	}
@@ -998,7 +1030,7 @@ class FMOperator extends Operator {
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		if (!this.keyIsOn && !this.disabled) {
-			if (this.oscillator && this.stopTime > time) {
+			if (this.oscillator1 && this.stopTime > time) {
 				this.stopOscillator(context.currentTime + NEVER);
 			} else {
 				this.newOscillator(context, time);
@@ -1635,15 +1667,15 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
-		const sine = new OscillatorConfig('sine');
-		const halfSine = new OscillatorConfig('sine', false, 'square', 1);
-		const absSine = new OscillatorConfig('sine', true);
-		const quarterSine = new OscillatorConfig('sine', true, 'square', 2);
-		const oddSine = new OscillatorConfig('sine', false, 'square', 1, 2);
-		const absOddSine = new OscillatorConfig('sine', true, 'square', 1, 2);
-		const square = new OscillatorConfig('square');
-		const sawtooth = new OscillatorConfig('sawtooth');
-		const triangle = new OscillatorConfig('triangle');
+		const sine = OscillatorConfig.mono('sine');
+		const halfSine = OscillatorConfig.am('sine', false, 'square', 1);
+		const absSine = OscillatorConfig.mono('sine', true);
+		const quarterSine = OscillatorConfig.am('sine', true, 'square', 2);
+		const oddSine = OscillatorConfig.am('sine', false, 'square', 1, 2);
+		const absOddSine = OscillatorConfig.am('sine', true, 'square', 1, 2);
+		const square = OscillatorConfig.mono('square');
+		const sawtooth = OscillatorConfig.mono('sawtooth');
+		const triangle = OscillatorConfig.mono('triangle');
 
 		this.oscillatorConfigs = [
 			sine, halfSine, absSine, quarterSine,
