@@ -602,8 +602,7 @@ class Operator {
 	 * invoking the {@link FMSynth} constructor.
 	 * @param {AudioContext} context The Web Audio context.
 	 * @param {AudioNode} lfo The signal used to control the operator's vibrato and tremolo effects.
-	 * @param {AudioNode} output The destination to route the operator's audio output to
-	 * or undefined if the operator will always be used as a modulator.
+	 * @param {AudioNode} output The destination to route the operator's audio output to.
 	 *
 	 */
 	constructor(synth, context, lfo, output, dbCurve) {
@@ -629,12 +628,10 @@ class Operator {
 		this.envelope = new Envelope(synth, context, envelopeGain, dbCurve);
 		this.envelopeGain = envelopeGain;
 
-		if (output !== undefined) {
-			const mixer = new GainNode(context);
-			envelopeGain.connect(mixer);
-			mixer.connect(output);
-			this.mixer = mixer.gain;
-		}
+		const mixer = new GainNode(context);
+		envelopeGain.connect(mixer);
+		mixer.connect(output);
+		this.mixer = mixer.gain;
 
 		this.keyCode = calcKeyCode(4, 1093);
 		this.frequencyMultiple = 1;
@@ -783,6 +780,7 @@ class Operator {
 			this.stopOscillator(time);
 		}
 		this.disabled = true;
+		this.keyIsOn = false;
 	}
 
 	enable() {
@@ -794,10 +792,8 @@ class Operator {
 	}
 
 	keyOn(context, time) {
-		if (!this.disabled) {
-			this.envelope.keyOn(context, this, this.keyCode, time);
-			this.keyIsOn = true;
-		}
+		this.envelope.keyOn(context, this, this.keyCode, time);
+		this.keyIsOn = true;
 	}
 
 	keyOff(time) {
@@ -810,6 +806,7 @@ class Operator {
 	soundOff(time = 0) {
 		this.stopOscillator(time);
 		this.envelope.soundOff(time);
+		this.keyIsOn = false;
 	}
 
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {

@@ -6,7 +6,7 @@ New algorithms
 	1 & 2 & 3 -> 4
 
 Bug: Reading .value is broken in chrome
-Bug: should only reuse oscillators in output operators
+Bug when only some oscillators are reused
 Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
