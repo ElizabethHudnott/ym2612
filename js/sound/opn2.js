@@ -877,6 +877,7 @@ class OscillatorConfig {
 	 * 'sine', 'sawtooth', square' or 'triangle'.
 	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
 	 * waveform when true.
+	 * @param {number} dcOffset The amount of DC offset to add.
 	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
 	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
 	 * @param {number} oscillator2FrequencyMult The frequency of the modulator relative to the base
@@ -887,12 +888,13 @@ class OscillatorConfig {
 	 * @param {number} amDepth How much amplitude modulation to apply [0..1].
 	 */
 	constructor(
-		oscillator1Shape, waveShaping = false,
+		oscillator1Shape, waveShaping = false, dcOffset = 0,
 		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
 		amDepth = 1, additive = false
 	) {
 		this.oscillator1Shape = oscillator1Shape;
 		this.waveShaping = waveShaping;
+		this.dcOffset = dcOffset;
 		this.oscillator2Shape = oscillator2Shape;
 		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
 		this.amDepth = amDepth;
@@ -902,18 +904,26 @@ class OscillatorConfig {
 	}
 
 	static mono(shape, waveShaping = false) {
-		return new OscillatorConfig(shape, waveShaping);
+		let dcOffset;
+		if (!waveShaping) {
+			dcOffset = 0;
+		} else if (shape === 'sine') {
+			dcOffset = -2 / Math.PI;
+		} else {
+			dcOffset = -0.5;
+		}
+		return new OscillatorConfig(shape, waveShaping, dcOffset);
 	}
 
 	static am(
-		oscillator1Shape, waveShaping, oscillator2Shape,
+		oscillator1Shape, waveShaping, dcOffset, oscillator2Shape,
 		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, amDepth = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth);
 	}
 
-	static additive(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, oscillator2Shape, oscillator2FrequencyMult, 1, 0, true);
+	static additive(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult) {
+		return new OscillatorConfig(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult, 1, 0, true);
 	}
 
 }
@@ -928,6 +938,7 @@ class FMOperator extends Operator {
 		this.frequencyMultipler = frequencyMultipler;
 		const shaper = new WaveShaperNode(context, {curve: [1, 0, 1]});
 		this.shaper = shaper;
+
 		const amMod = new GainNode(context);
 		shaper.connect(amMod);
 		amMod.connect(this.tremoloNode);
@@ -935,6 +946,10 @@ class FMOperator extends Operator {
 		const amModAmp = new GainNode(context);
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
+		const dcOffset = new GainNode(context, {gain: 0});
+		synth.dcOffset.connect(dcOffset);
+		dcOffset.connect(this.tremoloNode);
+		this.dcOffset = dcOffset.gain;
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
@@ -994,6 +1009,7 @@ class FMOperator extends Operator {
 		}
 
 		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
+		this.dcOffset.setValueAtTime(config.dcOffset, time);
 		this.oscillator1 = oscillator1;
 		this.oscillator2 = oscillator2;
 	}
@@ -1664,12 +1680,15 @@ class FMSynth {
 		 */
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
+		// Used by the operators to remove the DC offset inherent in certain wave shapes.
+		this.dcOffset = new ConstantSourceNode(context);
+
 		const sine = OscillatorConfig.mono('sine');
-		const halfSine = OscillatorConfig.am('sine', false, 'square', 1);
+		const halfSine = OscillatorConfig.am('sine', false, -0.85 / Math.PI, 'square', 1);
 		const absSine = OscillatorConfig.mono('sine', true);
-		const quarterSine = OscillatorConfig.am('sine', true, 'square', 2);
-		const oddSine = OscillatorConfig.am('sine', false, 'square', 1, 2);
-		const absOddSine = OscillatorConfig.am('sine', true, 'square', 1, 2);
+		const quarterSine = OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 2);
+		const oddSine = OscillatorConfig.am('sine', false, 0, 'square', 1, 2);
+		const absOddSine = OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2);
 		const square = OscillatorConfig.mono('square');
 		const sawtooth = OscillatorConfig.mono('sawtooth');
 		const triangle = OscillatorConfig.mono('triangle');
@@ -1719,6 +1738,7 @@ class FMSynth {
 			channel.start(time);
 		}
 		this.lfo.start(time);
+		this.dcOffset.start(time);
 	}
 
 	stop(time = 0) {
@@ -1731,6 +1751,7 @@ class FMSynth {
 			this.dacRegister.stop(time);
 			this.dacRegister = undefined;
 		}
+		this.dcOffset(time);
 	}
 
 	soundOff(time = 0) {
