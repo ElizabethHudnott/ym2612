@@ -5,6 +5,7 @@ New algorithms
 	1 -> 2 -> 3 & 4
 	1 & 2 & 3 -> 4
 
+LFO Envelope: Support hold & decay as alternative to delay and attack
 Bug: Reading .value is broken in chrome
 Bug when only some oscillators are reused
 Bug: mixPCM doesn't support 2-op channels
@@ -33,6 +34,8 @@ Envelopes
 	Custom amplitude envelope on key on after attack phase using setValuesAtTime
 	Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
 		Auto Wah
+
+	Feedback amount envelope
 
 UI
 	2 op / 4 op selector UI

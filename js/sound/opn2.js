@@ -14,12 +14,14 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 	param.setValueAtTime(holdValue, time);
 }
 
+const MAX_DB = 48;
+
 function logToLinear(x) {
-	return Math.sign(x) * 10 ** (54 / 20 * (Math.abs(x) - 1));
+	return Math.sign(x) * 10 ** (MAX_DB / 20 * (Math.abs(x) - 1));
 }
 
 function linearToLog(y) {
-	return y === 0 ? 0 : Math.sign(y) * (20 / 54 * Math.log10(Math.abs(y)) + 1);
+	return y === 0 ? 0 : Math.sign(y) * (20 / MAX_DB * Math.log10(Math.abs(y)) + 1);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -756,8 +758,8 @@ class Operator {
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
 	setTremoloDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		this.tremoloAmp[method](-linearAmount, time);
-		this.tremolo[method](1 - linearAmount, time);
+		this.tremoloAmp[method](linearAmount, time);
+		this.tremolo[method](1 - Math.abs(linearAmount), time);
 		this.tremoloDepth = linearAmount;
 	}
 
@@ -877,7 +879,7 @@ class OscillatorConfig {
 	 * 'sine', 'sawtooth', square' or 'triangle'.
 	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
 	 * waveform when true.
-	 * @param {number} dcOffset The amount of DC offset to add.
+	 * @param {number} bias The amount of DC offset to add.
 	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
 	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
 	 * @param {number} oscillator2FrequencyMult The frequency of the modulator relative to the base
@@ -888,42 +890,46 @@ class OscillatorConfig {
 	 * @param {number} amDepth How much amplitude modulation to apply [0..1].
 	 */
 	constructor(
-		oscillator1Shape, waveShaping = false, dcOffset = 0,
+		oscillator1Shape, waveShaping = false, bias = 0,
 		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
-		amDepth = 1, additive = false
+		amDepth = 1, gain = 1, additive = false
 	) {
 		this.oscillator1Shape = oscillator1Shape;
 		this.waveShaping = waveShaping;
-		this.dcOffset = dcOffset;
+		this.bias = bias;
 		this.oscillator2Shape = oscillator2Shape;
 		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
 		this.amDepth = amDepth;
 		this.oscillator1FrequencyMult = oscillator1FrequencyMult;
 		this.frequencyMultiplier = oscillator1FrequencyMult !== 1 ? oscillator1FrequencyMult : oscillator2FrequencyMult;
+		this.gain = gain;
 		this.additive = additive;
 	}
 
 	static mono(shape, waveShaping = false) {
-		let dcOffset;
+		let bias;
 		if (!waveShaping) {
-			dcOffset = 0;
+			bias = 0;
 		} else if (shape === 'sine') {
-			dcOffset = -2 / Math.PI;
+			bias = -2 / Math.PI;
 		} else {
-			dcOffset = -0.5;
+			bias = -0.5;
 		}
-		return new OscillatorConfig(shape, waveShaping, dcOffset);
+		return new OscillatorConfig(shape, waveShaping, bias);
 	}
 
 	static am(
-		oscillator1Shape, waveShaping, dcOffset, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, amDepth = 1
+		oscillator1Shape, waveShaping, bias, oscillator2Shape,
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, amDepth = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth, gain);
 	}
 
-	static additive(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, dcOffset, oscillator2Shape, oscillator2FrequencyMult, 1, 0, true);
+	static additive(
+		oscillator1Shape, waveShaping, bias, oscillator2Shape,
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 0.5
+	) {
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, gain, true);
 	}
 
 }
@@ -946,10 +952,10 @@ class FMOperator extends Operator {
 		const amModAmp = new GainNode(context);
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
-		const dcOffset = new GainNode(context, {gain: 0});
-		synth.dcOffset.connect(dcOffset);
-		dcOffset.connect(this.tremoloNode);
-		this.dcOffset = dcOffset.gain;
+		const bias = new GainNode(context, {gain: 0});
+		synth.dcOffset.connect(bias);
+		bias.connect(this.tremoloNode);
+		this.bias = bias.gain;
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
@@ -981,6 +987,7 @@ class FMOperator extends Operator {
 		}
 		this.frequencyMultipler.gain.setValueAtTime(config.frequencyMultiplier, time);
 
+		const gain = config.gain;	// Overall gain
 		let oscillator2;
 		if (config.oscillator2FrequencyMult !== 0) {
 			oscillator2 = new OscillatorNode(context, {frequency: 0, type: config.oscillator2Shape});
@@ -990,15 +997,14 @@ class FMOperator extends Operator {
 				this.frequencyMultipler.connect(oscillator2.frequency);
 			}
 			oscillator2.connect(this.amModAmp);
-			let maxGain = 1;
 			if (config.additive) {
 				oscillator2.connect(this.amMod);
-				maxGain = 0.5;
 			}
 
-			const amplitude = maxGain * 0.5 * config.amDepth;
-			this.amModAmp.gain.setValueAtTime(amplitude, time);
-			this.amMod.gain.setValueAtTime(maxGain - amplitude, time);
+			// Amplitude of the modulator, before gain
+			const amplitude = 0.5 * config.amDepth;
+			this.amModAmp.gain.setValueAtTime(gain * amplitude, time);
+			this.amMod.gain.setValueAtTime(gain * (1 - Math.abs(amplitude)), time);
 			oscillator2.start(time);
 		} else {
 			this.amMod.gain.setValueAtTime(1, time);
@@ -1009,7 +1015,7 @@ class FMOperator extends Operator {
 		}
 
 		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
-		this.dcOffset.setValueAtTime(config.dcOffset, time);
+		this.bias.setValueAtTime(gain * config.bias, time);
 		this.oscillator1 = oscillator1;
 		this.oscillator2 = oscillator2;
 	}
@@ -1121,7 +1127,7 @@ const TWO_OP_ALGORITHMS = [
 	[[0], [1, 1]]	// Additive
 ];
 
-const TREMOLO_PRESETS = [0, 1.4, 5.9, 11.8];
+const TREMOLO_PRESETS = [0, -1.4, -5.9, -11.8];
 
 function indexOfGain(modulatorOpNum, carrierOpNum) {
 	if (modulatorOpNum === carrierOpNum) {
