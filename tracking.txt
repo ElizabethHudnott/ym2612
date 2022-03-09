@@ -1,0 +1,52 @@
+Note Track Fields
+	Pitch
+		No glide, linear or exponential
+	Note length (in lines and ticks) or sustained
+	Velocity, slur, key off
+	Load Instrument (or stick with previous)
+	Effects
+
+Master Control Track Fields
+	Effects
+
+Pitch Effects
+	Arpeggio offsets (two of them, each played once)
+	Portamento Up/Down
+	Portamento to Current Note
+	Pitch Bend
+	Vibrato Depth
+
+Amplitude Effects
+	Volume Bend
+	Set Volume
+	Tremolo Depth
+
+Other Standard Note Effects
+	Set Panning
+	Sample Offset
+	Sample Fine-Tune
+	Retrigger (with optional velocity change)
+	Note Cut (after x ticks)
+	Note Delay
+	Funk Loop
+
+Other Note Effects
+	Operator Modulation Depth
+
+
+Master Control Effects
+	Loop Start
+	Loop End
+	Pattern Delay
+	Set Tempo (absolute or relative)
+	Set ticks per line
+	Groove
+	LFO Rate
+
+Portamento::
+
+Normal		N * x / 16 semitones for N lines
+Fine			T x / 16 semitones for T ticks
+Glissando	floor(T * x / 16) for T ticks
+
+Not an effect but the list of patterns to play includes starting offsets.

@@ -1238,7 +1238,6 @@ class Channel {
 		this.tremoloEnabled = [false, false, false, false];
 		this.vibratoDepth = 0;
 		this.vibratoEnabled = [true, true, true, true];
-		this.transpose = 0;
 		this.keyVelocity = [1, 1, 1, 1];
 		this.useAlgorithm(7);
 	}
@@ -1409,16 +1408,7 @@ class Channel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
-	setTranspose(transpose) {
-		this.transpose = transpose;
-	}
-
-	getTranspose() {
-		return this.transpose;
-	}
-
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		noteNumber += this.transpose;
 		const [block, freqNum] = this.synth.noteFrequencies[noteNumber];
 		this.setFrequency(block, freqNum, time, method);
 	}
@@ -1433,9 +1423,6 @@ class Channel {
 		const block = this.freqBlockNumbers[operatorNum - 1];
 		const freqNum = this.frequencyNumbers[operatorNum - 1];
 		let note = this.synth.frequencyToNote(block, freqNum);
-		if (!this.fixedFrequency[operatorNum - 1]) {
-			note -= this.transpose;
-		}
 		return note;
 	}
 
@@ -1673,6 +1660,7 @@ class Channel {
 }
 
 class FMSynth {
+
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo = lfo;
@@ -1888,7 +1876,6 @@ class TwoOperatorChannel {
 	constructor(parentChannel, startingOperator) {
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
-		this.transpose = 0;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
 	}
@@ -2000,16 +1987,7 @@ class TwoOperatorChannel {
 		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
 	}
 
-	setTranspose(transpose) {
-		this.transpose = transpose;
-	}
-
-	getTranspose() {
-		return this.transpose;
-	}
-
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		noteNumber += this.transpose;
 		const parent = this.parentChannel;
 		const [block, freqNum] = parent.synth.noteFrequencies[noteNumber];
 		this.setFrequency(block, freqNum, time, method);
