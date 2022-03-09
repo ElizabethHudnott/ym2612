@@ -5,7 +5,6 @@ New algorithms
 	1 -> 2 -> 3 & 4
 	1 & 2 & 3 -> 4
 
-LFO Envelope: Support hold & decay as alternative to delay and attack
 Bug: Reading .value is broken in chrome
 Bug when only some oscillators are reused
 Bug: mixPCM doesn't support 2-op channels
@@ -13,11 +12,12 @@ Bug: mixPCM doesn't support 2-op channels
 Add "Key On" and "Key Off" annotations to envelope diagram
 and change to a dynamic diagram
 
+Envelope trigger method (regardless of key currently on or off)
 Ability to sync LFO to song tempo or to note on
 Bigger detune
-Level scaling
+Level scaling (per operator)
 
-Add panning to PSG
+Add panning to PSG (like Sega Game Gear)
 White noise as a modulator
 
 OPL2/3-like features
@@ -38,6 +38,7 @@ Envelopes
 	Feedback amount envelope
 
 UI
+	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI
 	Separate coarse and fine (fractional) frequency ratio sliders
 	Pad LED display with trailing zeros

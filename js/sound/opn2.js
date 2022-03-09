@@ -913,7 +913,7 @@ class OscillatorConfig {
 		} else if (shape === 'sine') {
 			bias = -2 / Math.PI;
 		} else {
-			bias = -0.5;
+			bias = -0.5;	// Triangle or sawtooth
 		}
 		return new OscillatorConfig(shape, waveShaping, bias);
 	}
@@ -927,9 +927,9 @@ class OscillatorConfig {
 
 	static additive(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 0.5
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, gain, true);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, 0.5 * gain, true);
 	}
 
 }
@@ -1129,6 +1129,11 @@ const TWO_OP_ALGORITHMS = [
 
 const TREMOLO_PRESETS = [0, -1.4, -5.9, -11.8];
 
+const ENVELOPE_TYPE = Object.freeze({
+	'DELAY_ATTACK': 0,
+	'HOLD_DECAY': 1,
+});
+
 function indexOfGain(modulatorOpNum, carrierOpNum) {
 	if (modulatorOpNum === carrierOpNum) {
 		switch (modulatorOpNum) {
@@ -1168,7 +1173,8 @@ class Channel {
 		lfo.connect(lfoEnvelope);
 		this.lfoEnvelope = lfoEnvelope.gain;
 		this.lfoDelay = 0;
-		this.lfoAttack = 0;
+		this.lfoFadeTime = 0;
+		this.lfoEnvelopeType = ENVELOPE_TYPE.DELAY_ATTACK;
 
 		const op1 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
 		const op2 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
@@ -1527,28 +1533,37 @@ class Channel {
 		return this.vibratoEnabled[operatorNum - 1];
 	}
 
-	setLFODelay(seconds) {
+	setLFODelayOrHold(seconds) {
 		this.lfoDelay = seconds;
 	}
 
-	getLFODelay() {
+	getLFODelayOrHold() {
 		return this.lfoDelay;
 	}
 
-	setLFOAttack(seconds) {
-		this.lfoAttack = seconds;
+	setLFOFadeTime(seconds) {
+		this.lfoFadeTime = seconds;
 	}
 
-	getLFOAttack() {
-		return this.lfoAttack;
+	getLFOFadeTime() {
+		return this.lfoFadeTime;
+	}
+
+	setLFOEnvelopeType(type) {
+		this.lfoEnvelopeType = type;
+	}
+
+	getLFOEnvelopeType() {
+		return this.lfoEnvelopeType;
 	}
 
 	triggerLFOEnvelope(time) {
 		const envelope = this.lfoEnvelope;
-		cancelAndHoldAtTime(envelope, 0, time);
+		const initialAmplitude = this.lfoEnvelopeType;	// 0 or 1
+		cancelAndHoldAtTime(envelope, initialAmplitude, time);
 		const endDelay = time + this.lfoDelay;
-		envelope.setValueAtTime(0, endDelay)
-		envelope.linearRampToValueAtTime(1, endDelay + this.lfoAttack);
+		envelope.setValueAtTime(initialAmplitude, endDelay)
+		envelope.linearRampToValueAtTime(1 - initialAmplitude, endDelay + this.lfoFadeTime);
 	}
 
 	applyLFO(time) {
@@ -2169,7 +2184,7 @@ class TwoOperatorChannel {
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	DETUNE_AMOUNTS, TREMOLO_PRESETS, CLOCK_RATE
+	DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
