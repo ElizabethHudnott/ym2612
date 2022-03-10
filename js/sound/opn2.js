@@ -789,6 +789,7 @@ class Operator {
 		this.stopOscillator(time);
 		this.disabled = true;
 		this.keyIsOn = false;
+		this.scheduledOff = true;
 	}
 
 	enable() {
@@ -1568,29 +1569,23 @@ class Channel {
 	}
 
 	scheduleSoundOff(operator, time) {
+		operator.scheduledOff = true;
 		if (operator.getVolume() !== 0) {
-			operator.scheduledOff = true;
 			this.stopTime = Math.max(this.stopTime, time);
 		}
 	}
 
 	scheduleOscillators() {
-		const stopTime = this.stopTime;
-		if (stopTime !== this.oldStopTime) {
-			let canStop = true;
-			for (let operator of this.operators) {
-				if (!operator.scheduledOff && operator.getVolume() !== 0) {
-					canStop = false;
-					break;
-				}
-			}
-			if (canStop) {
-				for (let operator of this.operators) {
-					operator.stopOscillator(stopTime);
-				}
-				this.oldStopTime = stopTime;
+		for (let operator of this.operators) {
+			if (!operator.scheduledOff && operator.getVolume() !== 0) {
+				return
 			}
 		}
+		const stopTime = this.stopTime;
+		for (let operator of this.operators) {
+			operator.stopOscillator(stopTime);
+		}
+		this.oldStopTime = stopTime;
 	}
 
 	/**
