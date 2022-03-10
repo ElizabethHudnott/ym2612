@@ -142,8 +142,8 @@ class Envelope {
 	/**Creates an envelope.
 	 * @param {GainNode} output The GainNode to be controlled by the envelope.
 	 */
-	constructor(synth, context, output, dbCurve) {
-		this.synth = synth;
+	constructor(channel, context, output, dbCurve) {
+		this.channel = channel;
 		output.gain.value = 0;
 		const gainNode = new ConstantSourceNode(context, {offset: 0});
 		this.gainNode = gainNode;
@@ -300,14 +300,14 @@ class Envelope {
 	decayTime(from, to, basicRate, rateAdjust) {
 		const rate = Math.min(Math.round(2 * basicRate + rateAdjust), 63);
 		const gradient = ENV_INCREMENT[rate];
-		return this.synth.envelopeTick * Math.ceil((from - to) / gradient);
+		return this.channel.synth.envelopeTick * Math.ceil((from - to) / gradient);
 	}
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(context, operator, keyCode, time) {
-		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
-		const tickRate = this.synth.envelopeTick;
+	keyOn(context, operator, time) {
+		const rateAdjust = Math.trunc(operator.keyCode / 2 ** (3 - this.rateScaling));
+		const tickRate = this.channel.synth.envelopeTick;
 		const gain = this.gain;
 		const invert = this.inverted;
 		const ssgScale = this.ssgEnabled ? 6 : 1;
@@ -346,7 +346,7 @@ class Envelope {
 				// Level never rises
 				if (beginLevel === 0) {
 					this.endSustain = time;
-					operator.stopOscillator(time);
+					channel.scheduleSoundOff(operator, time);
 				} else {
 					cancelAndHoldAtTime(gain, beginLevel, time);
 					this.hasAttack = false;
@@ -429,7 +429,7 @@ class Envelope {
 			let endTime;
 			if (invert) {
 				endTime = time;
-				operator.stopOscillator(time);
+				channel.scheduleSoundOff(operator, time);
 			} else {
 				endTime = Infinity;
 			}
@@ -444,6 +444,7 @@ class Envelope {
 		let finalValue = invert ? 1 : 0
 		gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		this.endDecay = endDecay;
+		let endSustain = endDecay;
 		if (this.sustainRate === 0) {
 
 			// Infinite sustain or no sustain
@@ -458,7 +459,7 @@ class Envelope {
 
 			// Sustain phase
 			const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
-			let endSustain = endDecay + sustainTime;
+			endSustain += sustainTime;
 			gain.linearRampToValueAtTime(finalValue, endSustain);
 
 		}
@@ -470,7 +471,7 @@ class Envelope {
 		}
 		this.endSustain = endSustain;
 		if (finalValue === 0) {
-			operator.stopOscillator(endSustain);
+			channel.scheduleSoundOff(operator, endSustain);
 		}
 	}
 
@@ -488,7 +489,7 @@ class Envelope {
 			// In the attack phase.
 			const attackRate = this.prevAttackRate;
 			const target = ATTACK_TARGET[attackRate - 2];
-			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.synth.envelopeTick;
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
 			const beginAttack = this.beginAttack;
 			const beginLevel = this.beginLevel;
 			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
@@ -543,20 +544,20 @@ class Envelope {
 
 	/**Closes the envelope at a specified time.
 	 */
-	keyOff(operator, keyCode, time) {
+	keyOff(operator, time) {
 		const currentValue = this.linearValueAtTime(time);
 		if (this.sampleNode) {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
 		}
-		const rateAdjust = Math.trunc(keyCode / 2 ** (3 - this.rateScaling));
+		const rateAdjust = Math.trunc(operator.keyCode / 2 ** (3 - this.rateScaling));
 		const ssgScale = this.ssgEnabled ? 6 : 1;
 		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
-		operator.stopOscillator(endRelease);
+		channel.scheduleSoundOff(operator, endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
 		this.endRelease = endRelease;
@@ -612,11 +613,13 @@ class Operator {
 	 * @param {AudioNode} output The destination to route the operator's audio output to.
 	 *
 	 */
-	constructor(synth, context, lfo, output, dbCurve) {
-		this.synth = synth;
+	constructor(channel, context, lfo, output, dbCurve) {
+		this.channel = channel;
 		this.freqBlockNumber = 4;
 		this.frequencyNumber = 1093;
-		this.frequency = synth.frequencyStep * componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
+		this.frequency =
+			channel.synth.frequencyStep *
+			componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
 		const frequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
 
 		this.frequencyNode = frequencyNode;
@@ -632,7 +635,7 @@ class Operator {
 
 		const envelopeGain = new GainNode(context);
 		tremolo.connect(envelopeGain);
-		this.envelope = new Envelope(synth, context, envelopeGain, dbCurve);
+		this.envelope = new Envelope(channel, context, envelopeGain, dbCurve);
 		this.envelopeGain = envelopeGain;
 
 		const mixer = new GainNode(context);
@@ -645,7 +648,6 @@ class Operator {
 		this.detune = 0;
 		this.keyIsOn = false;
 		this.disabled = false;
-		this.stopTime = 0;
 
 		this.tremoloDepth = 0;
 		this.volume = 1;
@@ -703,7 +705,7 @@ class Operator {
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
 		}
-		const frequencyStep = this.synth.frequencyStep;
+		const frequencyStep = this.channel.synth.frequencyStep;
 		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 		this.frequencyParam[method](frequency, time);
 		this.frequency = frequency;
@@ -783,9 +785,7 @@ class Operator {
 	}
 
 	disable(time = 0) {
-		if (this.oscillator1) {
-			this.stopOscillator(time);
-		}
+		this.stopOscillator(time);
 		this.disabled = true;
 		this.keyIsOn = false;
 	}
@@ -799,13 +799,13 @@ class Operator {
 	}
 
 	keyOn(context, time) {
-		this.envelope.keyOn(context, this, this.keyCode, time);
+		this.envelope.keyOn(context, this, time);
 		this.keyIsOn = true;
 	}
 
 	keyOff(time) {
 		if (this.keyIsOn) {
-			this.envelope.keyOff(this, this.keyCode, time);
+			this.envelope.keyOff(this, time);
 			this.keyIsOn = false;
 		}
 	}
@@ -941,8 +941,8 @@ class OscillatorConfig {
 
 class FMOperator extends Operator {
 
-	constructor(synth, context, lfo, output, dbCurve) {
-		super(synth, context, lfo, output, dbCurve);
+	constructor(channel, context, lfo, output, dbCurve) {
+		super(channel, context, lfo, output, dbCurve);
 
 		const frequencyMultipler = new GainNode(context);
 		this.frequencyNode.connect(frequencyMultipler);
@@ -958,13 +958,13 @@ class FMOperator extends Operator {
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
 		const bias = new GainNode(context, {gain: 0});
-		synth.dcOffset.connect(bias);
+		channel.synth.dcOffset.connect(bias);
 		bias.connect(this.tremoloNode);
 		this.bias = bias.gain;
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
-		this.oscillatorConfig = synth.oscillatorConfigs[0];
+		this.oscillatorConfig = channel.synth.oscillatorConfigs[0];
 
 		const fmModAmp = new GainNode(context, {gain: 440});
 		fmModAmp.connect(this.frequencyParam);
@@ -1015,9 +1015,7 @@ class FMOperator extends Operator {
 			this.amMod.gain.setValueAtTime(1, time);
 		}
 		oscillator1.start(time);
-		if (this.oscillator1) {
-			this.stopOscillator(time);
-		}
+		this.stopOscillator(time);	// Stop old oscillator
 
 		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
 		this.bias.setValueAtTime(gain * config.bias, time);
@@ -1026,12 +1024,15 @@ class FMOperator extends Operator {
 	}
 
 	stopOscillator(time) {
+		if (!this.oscillator1) {
+			return;
+		}
+
 		this.oscillator1.stop(time);
 
 		if (this.oscillator2) {
 			this.oscillator2.stop(time);
 		}
-		this.stopTime = time;
 	}
 
 	connectIn(source) {
@@ -1052,9 +1053,9 @@ class FMOperator extends Operator {
 		return this.vibratoDepth;
 	}
 
-	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOn(context, time) {
 		if (!this.keyIsOn && !this.disabled) {
-			if (this.oscillator1 && this.stopTime > time) {
+			if (this.oscillator1 && this.channel.oldStopTime > time) {
 				this.stopOscillator(context.currentTime + NEVER);
 			} else {
 				this.newOscillator(context, time);
@@ -1070,11 +1071,11 @@ class FMOperator extends Operator {
 	}
 
 	setWaveformNumber(context, waveformNumber, time = 0) {
-		this.setWaveform(context, this.synth.oscillatorConfigs[waveformNumber], time);
+		this.setWaveform(context, this.channel.synth.oscillatorConfigs[waveformNumber], time);
 	}
 
 	getWaveformNumber() {
-		return this.synth.oscillatorConfigs.indexOf(this.oscillatorConfig);
+		return this.channel.synth.oscillatorConfigs.indexOf(this.oscillatorConfig);
 	}
 
 }
@@ -1181,10 +1182,10 @@ class Channel {
 		this.lfoFadeTime = 0;
 		this.lfoEnvelopeType = ENVELOPE_TYPE.DELAY_ATTACK;
 
-		const op1 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
-		const op2 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
-		const op3 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
-		const op4 = new FMOperator(synth, context, lfoEnvelope, shaper, dbCurve);
+		const op1 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
+		const op2 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
+		const op3 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
+		const op4 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
 		this.operators = [op1, op2, op3, op4];
 
 		const minDelay = 128 / context.sampleRate;
@@ -1244,6 +1245,8 @@ class Channel {
 		this.vibratoDepth = 0;
 		this.vibratoEnabled = [true, true, true, true];
 		this.keyVelocity = [1, 1, 1, 1];
+		this.stopTime = 0;
+		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 		this.useAlgorithm(7);
 	}
 
@@ -1562,6 +1565,22 @@ class Channel {
 		cancelAndHoldAtTime(this.lfoEnvelope, 1, time);
 	}
 
+	scheduleSoundOff(operator, time) {
+		if (operator.getVolume() !== 0) {
+			this.stopTime = Math.max(this.stopTime, time);
+		}
+	}
+
+	scheduleOscillators() {
+		const stopTime = this.stopTime;
+		if (stopTime !== this.oldStopTime) {
+			for (let operator of this.operators) {
+				operator.stopOscillator(stopTime);
+			}
+			this.oldStopTime = stopTime;
+		}
+	}
+
 	/**
 	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} or
 	 * {@link Channel.keyOnWithVelocity} for that.
@@ -1588,6 +1607,7 @@ class Channel {
 		} else {
 			operators[3].keyOff(time);
 		}
+		this.scheduleOscillators();
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
@@ -1599,6 +1619,8 @@ class Channel {
 		this.keyOnOff(undefined, time, false);
 	}
 
+	/**Invoke directly to apply aftertouch.
+	 */
 	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 4; i++) {
 			const sensitivity = this.keyVelocity[i];
@@ -2111,24 +2133,27 @@ class TwoOperatorChannel {
 	keyOnOff(context, time, op1, op2 = op1) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
+		const operator1 = parent.getOperator(offset + 1);
+		const operator2 = parent.getOperator(offset + 2);
 		if (op1) {
-			parent.getOperator(offset + 1).keyOn(context, time);
+			operator1.keyOn(context, time);
 		} else {
-			parent.getOperator(offset + 1).keyOff(time);
+			operator1.keyOff(time);
 		}
 		if (op2) {
-			parent.getOperator(offset + 2).keyOn(context, time);
+			operator2.keyOn(context, time);
 		} else {
-			parent.getOperator(offset + 2).keyOff(time);
+			operator2.keyOff(time);
 		}
+		parent.scheduleOscillators();
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
 		this.keyOnOff(context, time, true);
 	}
 
-	keyOff(time) {
-		this.keyOnOff(undefined, time, false);
+	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
+		this.keyOnOff(context, time, false);
 	}
 
 	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {

@@ -29,7 +29,7 @@ document.body.addEventListener('keydown', function (event) {
 	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
-	channel.keyOn(audioContext, audioContext.currentTime + 0.02);
+	channel.keyOn(audioContext);
 });
 
 document.body.addEventListener('keyup', function (event) {

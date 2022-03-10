@@ -6,12 +6,12 @@ New algorithms
 	1 & 2 & 3 -> 4
 
 Bug: Reading .value is broken in chrome
-Bug when only some oscillators are reused
 Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 and change to a dynamic diagram
 
+Support changing waveforms while envelope is open
 Envelope trigger method (regardless of key currently on or off)
 Ability to sync LFO to song tempo or to note on
 LFO per channel, free running or not, different shapes
