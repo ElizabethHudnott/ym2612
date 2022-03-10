@@ -21,6 +21,10 @@ Amplitude Effects
 	Set Volume
 	Tremolo Depth
 
+Modulation
+	LFO Rate
+	LFO Shape
+
 Other Standard Note Effects
 	Set Panning
 	Sample Offset
@@ -41,7 +45,6 @@ Master Control Effects
 	Set Tempo (absolute or relative)
 	Set ticks per line
 	Groove
-	LFO Rate
 
 Portamento::
 

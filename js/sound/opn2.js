@@ -441,22 +441,27 @@ class Envelope {
 		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / ssgScale;
 		const endDecay = endAttack + decay;
 		const sustain = invert ? 1023 - this.sustain : this.sustain;
+		let finalValue = invert ? 1 : 0
 		gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		this.endDecay = endDecay;
 		if (this.sustainRate === 0) {
+
+			// Infinite sustain or no sustain
 			if (sustain === 0) {
 				this.endSustain = endDecay;
-				operator.stopOscillator(endDecay);
 			} else {
 				this.endSustain = Infinity;
+				return;
 			}
-			return;
-		}
 
-		const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
-		let endSustain = endDecay + sustainTime;
-		let finalValue = invert ? 1 : 0
-		gain.linearRampToValueAtTime(finalValue, endSustain);
+		} else {
+
+			// Sustain phase
+			const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
+			let endSustain = endDecay + sustainTime;
+			gain.linearRampToValueAtTime(finalValue, endSustain);
+
+		}
 
 		if (this.jump) {
 			finalValue = 1 - finalValue;
