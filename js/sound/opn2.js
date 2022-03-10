@@ -648,6 +648,7 @@ class Operator {
 		this.detune = 0;
 		this.keyIsOn = false;
 		this.disabled = false;
+		this.scheduledOff = false;
 
 		this.tremoloDepth = 0;
 		this.volume = 1;
@@ -799,6 +800,7 @@ class Operator {
 	}
 
 	keyOn(context, time) {
+		this.scheduledOff = false;
 		this.envelope.keyOn(context, this, time);
 		this.keyIsOn = true;
 	}
@@ -1567,6 +1569,7 @@ class Channel {
 
 	scheduleSoundOff(operator, time) {
 		if (operator.getVolume() !== 0) {
+			operator.scheduledOff = true;
 			this.stopTime = Math.max(this.stopTime, time);
 		}
 	}
@@ -1574,10 +1577,19 @@ class Channel {
 	scheduleOscillators() {
 		const stopTime = this.stopTime;
 		if (stopTime !== this.oldStopTime) {
+			let canStop = true;
 			for (let operator of this.operators) {
-				operator.stopOscillator(stopTime);
+				if (!operator.scheduledOff && operator.getVolume() !== 0) {
+					canStop = false;
+					break;
+				}
 			}
-			this.oldStopTime = stopTime;
+			if (canStop) {
+				for (let operator of this.operators) {
+					operator.stopOscillator(stopTime);
+				}
+				this.oldStopTime = stopTime;
+			}
 		}
 	}
 
