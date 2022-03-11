@@ -1163,7 +1163,7 @@ function indexOfGain(modulatorOpNum, carrierOpNum) {
 
 class Channel {
 
-	constructor(synth, context, lfo, output, dbCurve) {
+	constructor(synth, context, output, dbCurve) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const volume = new GainNode(context);
@@ -1178,9 +1178,12 @@ class Channel {
 		mute.connect(output);
 		this.muteControl = mute.gain;
 
+		this.lfoRate = 0;
+		this.lfoShape = 'triangle';
+		this.lfoKeySync = false;
+		this.lfo = undefined;
 		const lfoEnvelope = new GainNode(context);
-		lfo.connect(lfoEnvelope);
-		this.lfoEnvelope = lfoEnvelope.gain;
+		this.lfoEnvelope = lfoEnvelope;
 		this.lfoDelay = 0;
 		this.lfoFadeTime = 0;
 		this.lfoEnvelopeType = ENVELOPE_TYPE.DELAY_ATTACK;
@@ -1263,6 +1266,10 @@ class Channel {
 		for (let operator of this.operators) {
 			operator.stop(time);
 		}
+		if (this.lfo) {
+			this.lfo.stop(time);
+			this.lfo = undefined;
+		}
 	}
 
 	getOperator(operatorNum) {
@@ -1274,7 +1281,7 @@ class Channel {
 	 * before the normal four operator behaviour is completely restored.
 	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM remains disabled
 	 */
-	activate(time = 0) {
+	activate(context, time = 0) {
 		this.setVolume(1, time, method);
 	}
 
@@ -1555,8 +1562,81 @@ class Channel {
 		return this.lfoEnvelopeType;
 	}
 
-	triggerLFOEnvelope(time) {
-		const envelope = this.lfoEnvelope;
+	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
+		if (this.lfo) {
+			this.lfo.frequency[method](frequency, time);
+			if (frequency === 0) {
+				this.lfo.stop(time);
+				this.lfo = undefined;
+			}
+		} else if (frequency !== 0 && !this.lfoKeySync) {
+			// Start LFO running in the background.
+			const lfo = new OscillatorNode(context, {frequency: frequency, type: this.lfoShape});
+			lfo.start(time);
+			lfo.connect(this.lfoEnvelope);
+			this.lfo = lfo;
+		}
+		this.lfoRate = frequency;
+	}
+
+	setLFOShape(context, shape, time = undefined) {
+		if (shape === this.lfoShape) {
+			return;
+		}
+		if (this.lfo && (time !== undefined || !this.lfoKeySync)) {
+			// Change LFO shape immediately.
+			// Frequency will never be 0 when this.lfo is defined.
+			const lfo = new OscillatorNode(context, {frequency: this.lfoRate, type: shape});
+			lfo.start(time);
+			lfo.connect(this.lfoEnvelope);
+			this.lfo.stop(time);
+			this.lfo = lfo;
+		}
+		this.lfoShape = shape;
+	}
+
+	setLFOKeySync(context, enabled, time = 0) {
+		if (!enabled && this.lfo) {
+			this.lfo.stop(context.currentTime + NEVER);
+		}
+		this.lfoKeySync = enabled;
+	}
+
+	getLFORate() {
+		return this.lfoRate;
+	}
+
+	getLFOShape() {
+		return this.lfoShape;
+	}
+
+	getLFOKeySync() {
+		return this.lfoKeySync;
+	}
+
+	useLFOPreset(context, presetNum, time = 0, method = 'setValueAtTime') {
+		this.setLFORate(context, LFO_FREQUENCIES[presetNum] * this.synth.lfoRateMultiplier, time, method);
+	}
+
+	getLFOPreset() {
+		let frequency = this.lfoRate / this.synth.lfoRateMultiplier;
+		frequency = Math.round(frequency * 100) / 100;
+		return LFO_FREQUENCIES.indexOf(frequency);
+	}
+
+	triggerLFO(context, time) {
+		if (this.lfoKeySync && this.lfoRate !== 0) {
+			// Reset LFO phase
+			const lfo = new OscillatorNode(context, {frequency: this.lfoRate, type: this.lfoShape});
+			lfo.start(time);
+			lfo.connect(this.lfoEnvelope);
+			if (this.lfo) {
+				this.lfo.stop(time);
+			}
+			this.lfo = lfo;
+		}
+
+		const envelope = this.lfoEnvelope.gain;
 		const initialAmplitude = this.lfoEnvelopeType;	// 0 or 1
 		cancelAndHoldAtTime(envelope, initialAmplitude, time);
 		const endDelay = time + this.lfoDelay;
@@ -1565,7 +1645,7 @@ class Channel {
 	}
 
 	applyLFO(time) {
-		cancelAndHoldAtTime(this.lfoEnvelope, 1, time);
+		cancelAndHoldAtTime(this.lfoEnvelope.gain, 1, time);
 	}
 
 	scheduleSoundOff(operator, time) {
@@ -1584,6 +1664,9 @@ class Channel {
 		const stopTime = this.stopTime;
 		for (let operator of this.operators) {
 			operator.stopOscillator(stopTime);
+		}
+		if (this.lfo && this.lfoKeySync) {
+			this.lfo.stop(stopTime);
 		}
 		this.oldStopTime = stopTime;
 	}
@@ -1618,7 +1701,7 @@ class Channel {
 	}
 
 	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		this.triggerLFOEnvelope(time);
+		this.triggerLFO(context, time);
 		this.keyOnOff(context, time, true);
 	}
 
@@ -1658,6 +1741,9 @@ class Channel {
 		for (let operator of this.operators) {
 			operator.soundOff(time);
 		}
+		if (this.lfo && this.lfoKeySync) {
+			this.lfo.stop(time);
+		}
 	}
 
 	/**
@@ -1696,14 +1782,12 @@ class Channel {
 class FMSynth {
 
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
-		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
-		this.lfo = lfo;
-		supportsCancelAndHold = lfo.frequency.cancelAndHoldAtTime !== undefined;
 		this.setClockRate(clockRate);
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
 		channelGain.connect(output);
 		this.channelGain = channelGain.gain;
+		supportsCancelAndHold = channelGain.gain.cancelAndHoldAtTime !== undefined;
 
 		const dbCurve = new Float32Array(2047);
 		dbCurve.fill(0, 0, 1024);
@@ -1744,7 +1828,7 @@ class FMSynth {
 
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
-			channels[i] = new Channel(this, context, lfo, channelGain, dbCurve);
+			channels[i] = new Channel(this, context, channelGain, dbCurve);
 		}
 		this.channels = channels;
 
@@ -1770,7 +1854,6 @@ class FMSynth {
 	}
 
 	setClockRate(clockRate) {
-		const lfoPresetNum = this.getLFOPreset();
 		this.envelopeTick = 72 * 6 / clockRate;
 		this.frequencyStep = clockRate / (144 * 2 ** 20);
 		this.lfoRateMultiplier = clockRate / 8000000;
@@ -1780,7 +1863,6 @@ class FMSynth {
 		for (let channel of this.channels) {
 			channel.start(time);
 		}
-		this.lfo.start(time);
 		this.dcOffset.start(time);
 	}
 
@@ -1788,13 +1870,12 @@ class FMSynth {
 		for (let channel of this.channels) {
 			channel.stop(time);
 		}
-		this.lfo.stop(time);
-		this.lfo = undefined;
 		if (this.dacRegister) {
 			this.dacRegister.stop(time);
 			this.dacRegister = undefined;
 		}
-		this.dcOffset(time);
+		this.dcOffset.stop(time);
+		this.dcOffset = undefined;
 	}
 
 	soundOff(time = 0) {
@@ -1809,24 +1890,6 @@ class FMSynth {
 
 	get2OperatorChannel(channelNum) {
 		return this.twoOpChannels[channelNum - 1];
-	}
-
-	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		this.lfo.frequency[method](frequency, time);
-	}
-
-	getLFOFrequency() {
-		return this.lfo.frequency.value;
-	}
-
-	useLFOPreset(n, time = 0, method = 'setValueAtTime') {
-		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time, method);
-	}
-
-	getLFOPreset() {
-		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
-		frequency = Math.round(frequency * 100) / 100;
-		return LFO_FREQUENCIES.indexOf(frequency);
 	}
 
 	/**
@@ -1859,6 +1922,34 @@ class FMSynth {
 	writePCM(value, time) {
 		const floatValue = (value - 128) / 128;
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
+	}
+
+	syncLFOs(context, frequency = undefined, time = context.currentTime + TIMER_IMPRECISION, ...channels) {
+		if (channels.length === 0) {
+			channels = new Array(this.channels.length);
+			channels.fill(true);
+		}
+		const index = channels.indexOf(true);
+		if (index === -1) {
+			return;
+		}
+		if (frequency === undefined) {
+			frequency = this.channels[index].getLFORate();
+		}
+		for (let i = index; i < channels.length; i++) {
+			if (channels[i]) {
+				const channel = this.channels[i];
+				channel.setLFORate(context, 0, time);
+				channel.setLFOKeySync(context, false, time);
+			}
+		}
+		if (frequency !== 0) {
+			for (let i = index; i < channels.length; i++) {
+				if (channels[i]) {
+					this.channels[i].setLFORate(context, frequency, time);
+				}
+			}
+		}
 	}
 
 	setChannelGain(level, time = 0, method = 'setValueAtTime') {
@@ -1899,10 +1990,6 @@ class FMSynth {
 		return lb;
 	}
 
-	getLFO() {
-		return this.lfo;
-	}
-
 }
 
 class TwoOperatorChannel {
@@ -1921,11 +2008,13 @@ class TwoOperatorChannel {
 	/**Switches into two operator mode. A fixed panning setting for the pair of two
 	 * operator channels needs to be configured on the parent channel.
 	 */
-	activate(time = 0) {
+	activate(context, time = 0) {
 		const parent = this.parentChannel;
 		parent.setVolume(0.5, time);	// Reserve half the output level for the other 2 op channel.
 		// Disable features that don't apply to 2 op channels.
-		parent.applyLFO();	// No LFO envelope
+		parent.setLFOShape(context, 'triangle', time);
+		parent.setLFOKeySync(context, false);
+		parent.applyLFO(time);	// No LFO envelope
 		parent.mute(false, time);
 	}
 
@@ -2135,6 +2224,22 @@ class TwoOperatorChannel {
 
 	isTremoloEnabled(operatorNum) {
 		return this.parentChannel.isVibratoEnabled(this.operatorOffset + operatorNum);
+	}
+
+	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.setLFORate(context, frequency, time, method);
+	}
+
+	getLFORate() {
+		return this.parentChannel.getLFORate();
+	}
+
+	useLFOPreset(context, presetNum, time = 0, method = 'setValueAtTime') {
+		this.parentChannel.useLFOPreset(context, presetNum, time, method);
+	}
+
+	getLFOPreset() {
+		return this.parentChannel.getLFOPreset();
 	}
 
 	keyOnOff(context, time, op1, op2 = op1) {

@@ -11,6 +11,7 @@ const write = [];
 export default class YM2612 {
 	constructor(synth, context) {
 		this.synth = synth;
+		this.context = context;
 		const channel = synth.getChannel(1);
 		const highFrequencyByte = (channel.getFrequencyBlock() << 3) + (channel.getFrequencyNumber() >> 8);
 		this.longRegisters = [
@@ -31,7 +32,11 @@ export default class YM2612 {
 
 }
 
-write[0x22] = (chip, n, t) => chip.synth.setLFOFrequencyNumber(n, t);
+write[0x22] = (chip, n, t) => {
+	for (let i = 1; i <= 6; i++) {
+		chip.synth.getChannel(i).setLFORate(chip.context, n, t);
+	}
+}
 
 write[0x2b] = (chip, n, t) => chip.enablePCM(1, (n & 128) === 128, t);
 write[0x2c] = (chip, n, t) => chip.enablePCM(2, (n & 16) === 16, t);
@@ -50,7 +55,7 @@ write[0x28] = (chip, b, t) => {
 	const op2 = (b & 32) === 32;
 	const op3 = (b & 64) === 64;
 	const op4 = (b & 128) === 128;
-	chip.synth.getChannel(channelNum + 1).keyOnOff(t, op1, op2, op3, op4);
+	chip.synth.getChannel(channelNum + 1).keyOnOff(chip.context, t, op1, op2, op3, op4);
 }
 
 function multiplyAndDetune(chip, port, relativeChannelNum, operatorNum, value, time) {

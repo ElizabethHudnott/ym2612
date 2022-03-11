@@ -3,8 +3,6 @@ import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {logToLinear, linearToLog, OscillatorConfig} from './sound/opn2.js';
 
-let channels;
-
 function initialize() {
 	if (window.audioContext !== undefined) {
 		return;
@@ -14,7 +12,6 @@ function initialize() {
 	const soundSystem = new GenesisSound(context);
 	window.soundSystem = soundSystem;
 	window.synth = soundSystem.fm;
-	channels = synth.channels;
 	window.channel = synth.getChannel(1);
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm, context);
@@ -196,23 +193,23 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('overdrive').value = 0;
 });
 
-document.getElementById('lfo-frequency-slider').addEventListener('input', function (event) {
+document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
 	initialize();
 	const value = parseFloat(this.value);
 	const fast = document.getElementById('fast-lfo').checked;
-	const free = document.getElementById('lfo-frequency-free').checked;
+	const free = document.getElementById('lfo-rate-free').checked;
 	let frequency;
 	if (free) {
 		frequency = value;
 	} else {
 		frequency = value === 0 ? 0 : LFO_FREQUENCIES[value - 1] * synth.lfoRateMultiplier;
 	}
-	synth.setLFOFrequency(frequency);
-	document.getElementById('lfo-frequency').value = Math.round(frequency * 100) / 100;
+	channel.setLFORate(audioContext, frequency);
+	document.getElementById('lfo-rate').value = Math.round(frequency * 100) / 100;
 });
 
 function configureLFOFreqSlider(fast, free) {
-	const slider = document.getElementById('lfo-frequency-slider');
+	const slider = document.getElementById('lfo-rate-slider');
 	if (fast) {
 		// Enable faster rates
 		if (free) {
@@ -238,7 +235,7 @@ function configureLFOFreqSlider(fast, free) {
 	}
 }
 
-document.getElementById('lfo-frequency').addEventListener('input', function (event) {
+document.getElementById('lfo-rate').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		const fastCheckbox = document.getElementById('fast-lfo');
@@ -250,17 +247,17 @@ document.getElementById('lfo-frequency').addEventListener('input', function (eve
 			fastCheckbox.checked = true;
 			configureLFOFreqSlider(true, true);
 		}
-		document.getElementById('lfo-frequency-slider').value = value;
-		synth.setLFOFrequency(value);
+		document.getElementById('lfo-rate-slider').value = value;
+		channel.setLFORate(audioContext, value);
 	}
 });
 
 document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	initialize();
-	const slider = document.getElementById('lfo-frequency-slider');
-	const box = document.getElementById('lfo-frequency');
+	const slider = document.getElementById('lfo-rate-slider');
+	const box = document.getElementById('lfo-rate');
 	const fast = this.checked;
-	const free = document.getElementById('lfo-frequency-free').checked;
+	const free = document.getElementById('lfo-rate-free').checked;
 	configureLFOFreqSlider(fast, free);
 	if (fast) {
 		slider.value = slider.min;
@@ -269,14 +266,14 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	}
 	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[5] * synth.lfoRateMultiplier;
 	box.value = Math.round(frequency * 100) / 100;
-	synth.setLFOFrequency(frequency);
+	channel.setLFORate(audioContext, frequency);
 });
 
-document.getElementById('lfo-frequency-free').addEventListener('input', function (event) {
+document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
 	initialize();
-	const slider = document.getElementById('lfo-frequency-slider');
-	const box = document.getElementById('lfo-frequency');
-	const value = synth.getLFOFrequency();
+	const slider = document.getElementById('lfo-rate-slider');
+	const box = document.getElementById('lfo-rate');
+	const value = channel.getLFORate();
 	const fast = document.getElementById('fast-lfo').checked;
 	const free = this.checked;
 	box.disabled = !free;
@@ -299,7 +296,7 @@ document.getElementById('lfo-frequency-free').addEventListener('input', function
 		}
 		slider.value = presetNum === 8 ? 0 : presetNum + 1;
 		box.value = Math.round(LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier * 100) / 100;
-		synth.useLFOPreset(presetNum);
+		channel.useLFOPreset(audioContext, presetNum);
 	}
 });
 
