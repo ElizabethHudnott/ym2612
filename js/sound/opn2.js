@@ -619,8 +619,10 @@ const DETUNE_AMOUNTS = [
 	5, 6, 6, 7, 8, 8, 9,10,11,12,13,14,16,16,16,16,
 /* Preset +-3 */
 	2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7,
-	8 , 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
+	8, 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
 ];
+
+const DETUNE2_PRESETS = [0, 600, 781, 950].map( x => 2 ** (x / 1200) );
 
 /**Represents a single operator in the FM synthesizer. The synthesizer alters frequency
  * using phase modulation (PM). There are 4 operators per sound channel and 6 independent
@@ -667,7 +669,8 @@ class Operator {
 
 		this.keyCode = calcKeyCode(4, 1093);
 		this.frequencyMultiple = 1;
-		this.detune = 0;
+		this.detune = 0;		// Fine detune, YM2612 specific
+		this.detune2 = 1;		// Arbitrary detuning
 		this.keyIsOn = false;
 		this.disabled = false;
 		this.scheduledOff = false;
@@ -729,7 +732,7 @@ class Operator {
 			fullFreqNumber += 0x1FFFF;
 		}
 		const frequencyStep = this.channel.synth.frequencyStep;
-		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
+		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep * this.detune2;
 		this.frequencyParam[method](frequency, time);
 		this.frequency = frequency;
 		this.freqBlockNumber = blockNumber;
@@ -767,6 +770,28 @@ class Operator {
 	/**Returns the most recently set detuning value. */
 	getDetune() {
 		return this.detune;
+	}
+
+	setDetune2(cents, time = undefined, method = 'setValueAtTime') {
+		this.detune2 = 2 ** (cents / 1200);
+		if (time !== undefined) {
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+		}
+	}
+
+	getDetune2() {
+		return Math.round(Math.log2(this.detune2) * 1200);
+	}
+
+	useDetune2Preset(presetNum, time = undefined, method = 'setValueAtTime') {
+		this.detune2 = DETUNE2_PRESETS[presetNum];
+		if (time !== undefined) {
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+		}
+	}
+
+	getDetune2Preset() {
+		return DETUNE2_PRESETS.indexOf(this.detune2);
 	}
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
@@ -2323,7 +2348,7 @@ class TwoOperatorChannel {
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
+	MAX_DB, DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,

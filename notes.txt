@@ -13,8 +13,11 @@ and change to a dynamic diagram
 
 Envelope trigger method (regardless of key currently on or off)
 Ability to sync LFO to song tempo or to note on
-LFO per channel, free running or not, different shapes
-Bigger detune
+
+Tremolo/Vibrato preset depth 0..128
+Coarse detune
+Allow special mode to act as fixed or +/- the current note
+Noise as LFO source
 Level scaling (per operator)
 
 Add panning to PSG (like Sega Game Gear?)
@@ -25,11 +28,15 @@ OPL2/3-like features
 	Compatibility
 		Separate LFOs for pitch and volume?
 
+CSM mode
+
 Pitch Bend
 	How to handle special mode?
 	Any sequence of straight lines (triggered by note on or as a tracker effect)
 	Scaled by velocity?
 Amplitude Bend
+	Plain
+	Repeating via SSG
 
 Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
 	Auto Wah
