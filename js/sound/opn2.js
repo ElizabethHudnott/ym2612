@@ -14,14 +14,17 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 	param.setValueAtTime(holdValue, time);
 }
 
-const MAX_DB = 48;
+/** Notional 48db converted to base 2.
+ *  https://gendev.spritesmind.net/forum/viewtopic.php?f=24&t=386&p=6114&hilit=48db#p6114
+ */
+const ATTENUATION_BITS = 10;
 
 function logToLinear(x) {
-	return Math.sign(x) * 10 ** (MAX_DB / 20 * (Math.abs(x) - 1));
+	return Math.sign(x) * 2 ** (ATTENUATION_BITS * (Math.abs(x) - 1));
 }
 
 function linearToLog(y) {
-	return y === 0 ? 0 : Math.sign(y) * (20 / MAX_DB * Math.log10(Math.abs(y)) + 1);
+	return y === 0 ? 0 : Math.sign(y) * (Math.log2(Math.abs(y)) / ATTENUATION_BITS + 1);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -227,9 +230,6 @@ class Envelope {
 		this.totalLevelNode = undefined;
 	}
 
-	/**
-	 * For Algorithm 7, set total level to at least 29 to avoid distortion.
-	 */
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.totalLevelNode.offset[method](-level / 128, time);
 		this.totalLevel = level;
@@ -2348,7 +2348,7 @@ class TwoOperatorChannel {
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
 	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
-	MAX_DB, DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
+	DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,

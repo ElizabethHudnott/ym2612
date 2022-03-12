@@ -100,7 +100,7 @@ function updateAlgorithmDetails() {
 			const outputLevel = operator.getVolume();
 			total += outputLevel;
 			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(linearToLog(outputLevel) * 200) / 2;
+			box.value = Math.round(linearToLog(outputLevel) * 1000) / 10;
 		}
 	}
 	const overdrive = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
