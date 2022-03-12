@@ -50,6 +50,28 @@ function fullFreqToComponents(fullFrequencyNumber) {
 	return [block, Math.round(freqNum)];
 }
 
+function frequencyToNote(block, frequencyNum, notes, detune) {
+	let lb = 0;
+	let ub = 127;
+	while (lb < ub) {
+		let mid = Math.trunc((lb + ub) / 2);
+		const frequency = notes[mid] / detune;
+		const [noteBlock, noteFreqNum] = fullFreqToComponents(frequency);
+		if (block < noteBlock) {
+			ub = mid - 1;
+		} else if (block > noteBlock) {
+			lb = mid + 1;
+		} else if (frequencyNum < noteFreqNum) {
+			ub = mid - 1;
+		} else if (frequencyNum > noteFreqNum) {
+			lb = mid + 1;
+		} else {
+			return mid;
+		}
+	}
+	return lb;
+}
+
 const ENV_INCREMENT_MOD = [0, 0, 4, 4, 4, 4, 6, 6];
 for (let i = 8; i < 60; i++) {
 	ENV_INCREMENT_MOD[i] = (i % 4) + 4;
@@ -685,8 +707,8 @@ class Operator {
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
 	 * {@link Channel} (e.g. by its setFrequency() method) but it can also be useful to
 	 * invoke this method directly for individual operators to create dissonant sounds.
-	 * @param {number} blockNumber A kind of octave measurement. See {@link FMSynth.noteFrequencies}.
-	 * @param {number} frequencyNumber A linear frequency measurement. See {@link FMSynth.noteFrequencies}.
+	 * @param {number} blockNumber A kind of octave measurement.
+	 * @param {number} frequencyNumber A linear frequency measurement.
 	 * @param {number} [frequencyMultiple] After the basic frequency in Hertz is calculated
 	 * from the block number and frequency number the result is then multiplied by this
 	 * number. Defaults to 1.
@@ -717,16 +739,12 @@ class Operator {
 	}
 
 
-	/**Returns the block number associated with the operator's current frequency.
-	 * See {@link FMSynth.noteFrequencies}.
-	 */
+	/**Returns the block number associated with the operator's current frequency. */
 	getFrequencyBlock() {
 		return this.freqBlockNumber;
 	}
 
-	/**Returns the frequency number associated with the operator's current frequency.
-	 * See {@link FMSynth.noteFrequencies}.
-	 */
+	/**Returns the frequency number associated with the operator's current frequency. */
 	getFrequencyNumber() {
 		return this.frequencyNumber;
 	}
@@ -1245,6 +1263,7 @@ class Channel {
 		this.frequencyNumbers = [1093, 1093, 1093, 1093];
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.fixedFrequency = [false, false, false, false];
+		this.detune = 1;	// 1:1 with non-detuned frequency
 
 		this.tremoloDepth = 0;
 		this.tremoloEnabled = [false, false, false, false];
@@ -1426,22 +1445,31 @@ class Channel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
+	setDetune(cents) {
+		this.detune = 2 ** (cents / 1200);
+	}
+
+	getDetune() {
+		return Math.round(Math.log2(this.detune) * 12000) / 10;
+	}
+
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const [block, freqNum] = this.synth.noteFrequencies[noteNumber];
+		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
+		const [block, freqNum] = fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
 	}
 
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		this.fixedFrequency[operatorNum - 1] = true;
-		const [block, freqNum] = this.synth.noteFrequencies[noteNumber];
+		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
+		const [block, freqNum] = fullFreqToComponents(frequency);
 		this.setOperatorFrequency(operatorNum, block, freqNum, time, method);
 	}
 
 	getMIDINote(operatorNum = 4) {
 		const block = this.freqBlockNumbers[operatorNum - 1];
 		const freqNum = this.frequencyNumbers[operatorNum - 1];
-		let note = this.synth.frequencyToNote(block, freqNum);
-		return note;
+		return frequencyToNote(block, freqNum, this.synth.noteFrequencies, this.detune);
 	}
 
 	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
@@ -1506,7 +1534,7 @@ class Channel {
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
-		const linearAmount = (2 ** (cents / 1200)) - 1;
+		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200)) - 1;
 		for (let i = 0; i < 4; i++) {
 			if (this.vibratoEnabled[i]) {
 				this.operators[i].setVibratoDepth(linearAmount, time, method);
@@ -1516,7 +1544,7 @@ class Channel {
 	}
 
 	getVibratoDepth() {
-		return Math.log2(this.vibratoDepth + 1) * 1200;
+		return Math.round(Math.log2(this.vibratoDepth + 1) * 12000) / 10;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -1795,16 +1823,7 @@ class FMSynth {
 			dbCurve[i] = logToLinear((i - 1023) / 1023);
 		}
 
-		/**Provides frequency information for each MIDI note in terms of the YM2612's block and
-		 * frequency number notation. The block number is stored in the first element of each
-		 * entry and the frequency number is stored in the nested array's second element. When the
-		 * block number is zero then increasing the frequency number by one raises the note's
-		 * frequency by 0.025157Hz. Increasing the block number by one multiplies the frequency in
-		 * Hertz by two. You can edit this table if you want to tune to something other than A440
-		 * pitch (see {@link tunedMIDINotes}). The only constraint is that the table is sorted
-		 * first by block number and then by frequency number.
-		 * @type {Array<Array<number>>}
-		 */
+		// Table of frequencies in Hertz divided the synth's frequency step.
 		this.noteFrequencies = this.tunedMIDINotes(440);
 
 		// Used by the operators to remove the DC offset inherent in certain wave shapes.
@@ -1855,8 +1874,15 @@ class FMSynth {
 
 	setClockRate(clockRate) {
 		this.envelopeTick = 72 * 6 / clockRate;
-		this.frequencyStep = clockRate / (144 * 2 ** 20);
 		this.lfoRateMultiplier = clockRate / 8000000;
+		const oldFrequencyStep = this.frequencyStep;
+		this.frequencyStep = clockRate / (144 * 2 ** 20);
+		if (this.noteFrequencies) {
+			const ratio = oldFrequencyStep / this.frequencyStep;
+			for (let i = 0; i < 128; i++) {
+				this.noteFrequencies[i] *= ratio;
+			}
+		}
 	}
 
 	start(time) {
@@ -1964,30 +1990,9 @@ class FMSynth {
 		const frequencyData = new Array(128);
 		for (let i = 0; i < 128; i++) {
 			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
-			frequencyData[i] = fullFreqToComponents(frequency / this.frequencyStep);
+			frequencyData[i] = frequency / this.frequencyStep;
 		}
 		return frequencyData;
-	}
-
-	frequencyToNote(block, frequencyNum) {
-		let lb = 0;
-		let ub = 127;
-		while (lb < ub) {
-			let mid = Math.trunc((lb + ub) / 2);
-			const [noteBlock, noteFreqNum] = this.noteFrequencies[mid];
-			if (block < noteBlock) {
-				ub = mid - 1;
-			} else if (block > noteBlock) {
-				lb = mid + 1;
-			} else if (frequencyNum < noteFreqNum) {
-				ub = mid - 1;
-			} else if (frequencyNum > noteFreqNum) {
-				lb = mid + 1;
-			} else {
-				return mid;
-			}
-		}
-		return lb;
 	}
 
 }
@@ -1999,6 +2004,7 @@ class TwoOperatorChannel {
 		this.operatorOffset = startingOperator - 1;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
+		this.detune = 0;	// 1:1 with non-detuned frequency
 	}
 
 	getOperator(operatorNum) {
@@ -2110,9 +2116,17 @@ class TwoOperatorChannel {
 		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
 	}
 
+	setDetune(cents) {
+		this.detune = 2 ** (cents / 1200);
+	}
+
+	getDetune() {
+		return Math.round(Math.log2(this.detune) * 12000) / 10;
+	}
+
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const parent = this.parentChannel;
-		const [block, freqNum] = parent.synth.noteFrequencies[noteNumber];
+		const frequency = this.parentChannel.synth.noteFrequencies[noteNumber] * this.detune;
+		const [block, freqNum] = fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
 	}
 
@@ -2120,12 +2134,17 @@ class TwoOperatorChannel {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
-		const [block, freqNum] = parent.synth.noteFrequencies[noteNumber];
+		const frequency = parent.synth.noteFrequencies[noteNumber] * this.detune;
+		const [block, freqNum] = fullFreqToComponents(frequency);
 		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, method);
 	}
 
 	getMIDINote(operatorNum = 2) {
-		return this.parentChannel.getMIDINote(this.operatorOffset + operatorNum);
+		const parent = this.parentChannel;
+		const effectiveOperatorNum = this.operatorOffset + operatorNum;
+		const block = parent.getFrequencyBlock(effectiveOperatorNum);
+		const freqNum = parent.getFrequencyNumber(effectiveOperatorNum);
+		return frequencyToNote(block, freqNum, parent.synth.noteFrequencies, this.detune);
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
@@ -2190,7 +2209,7 @@ class TwoOperatorChannel {
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
-		const linearAmount = (2 ** (cents / 1200)) - 1;
+		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200)) - 1;
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {

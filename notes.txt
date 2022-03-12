@@ -17,7 +17,6 @@ LFO per channel, free running or not, different shapes
 Bigger detune
 Level scaling (per operator)
 
-Detune whole channel
 Add panning to PSG (like Sega Game Gear?)
 White noise as a modulator
 
