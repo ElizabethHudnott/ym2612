@@ -14,17 +14,29 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 	param.setValueAtTime(holdValue, time);
 }
 
-/** Notional 48db converted to base 2.
+/** Approximately -48db converted to base 2.
  *  https://gendev.spritesmind.net/forum/viewtopic.php?f=24&t=386&p=6114&hilit=48db#p6114
  */
 const ATTENUATION_BITS = 10;
 
+/**
+ * @param {number} x A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest, inverted
+ * polarity).
+ * @return {number} A number in the range 1 (loudest) to 0 (silence) to -1 (loudest, inverted
+ * polarity).
+ */
 function logToLinear(x) {
-	return Math.sign(x) * 2 ** (ATTENUATION_BITS * (Math.abs(x) - 1));
+	return Math.sign(x) * 2 ** (-ATTENUATION_BITS * (1023 - Math.abs(x)) / 1024);
 }
 
+/**
+ * @param {number} y A number in the range 1 (loudest) to 0 (silence) to -1 (loudest, inverted
+ * polarity).
+ * @return {number} A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest, inverted
+ * polarity).
+ */
 function linearToLog(y) {
-	return y === 0 ? 0 : Math.sign(y) * (Math.log2(Math.abs(y)) / ATTENUATION_BITS + 1);
+	return y === 0 ? 0 : Math.sign(y) * (1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -1845,7 +1857,7 @@ class FMSynth {
 		const dbCurve = new Float32Array(2047);
 		dbCurve.fill(0, 0, 1024);
 		for (let i = 1024; i < 2047; i++) {
-			dbCurve[i] = logToLinear((i - 1023) / 1023);
+			dbCurve[i] = logToLinear(i - 1023);
 		}
 
 		// Table of frequencies in Hertz divided the synth's frequency step.
