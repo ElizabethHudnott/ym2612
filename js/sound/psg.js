@@ -16,7 +16,7 @@ const CLOCK_RATE = {
 
 const CLOCK_RATIO = OPN_CLOCK_RATE.NTSC / CLOCK_RATE.NTSC;
 
-const TREMOLO_PRESETS = [0, 2, 6, 12];
+const TREMOLO_PRESETS = [0, 1, 3, 6];
 
 let supportsCancelAndHold;
 
@@ -287,14 +287,14 @@ class ToneChannel {
 		return this.pwm.value;
 	}
 
-	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
-		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
-		this.tremoloAmp[method](-linearAmount, time);
+	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
+		const linearAmount = 1 - decibelReductionToAmplitude(2 * depth);
+		this.tremoloAmp[method](linearAmount, time);
 		this.tremolo[method](1 - linearAmount, time);
 	}
 
 	getTremoloDepth() {
-		return amplitudeToDecibels(-this.tremoloAmp.value);
+		return amplitudeToDecibels(this.tremoloAmp.value) / 2;
 	}
 
 	useTremoloPreset(presetNum, time = 0) {

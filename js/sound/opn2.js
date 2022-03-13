@@ -1,5 +1,4 @@
 import {
-	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
 	TIMER_IMPRECISION, NEVER, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
@@ -808,15 +807,12 @@ class Operator {
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
 	 * modulation from the synthesizer's LFO. This method is usually invoked by an instance
-	 * of {@link Channel}. Use its enableTremolo(), useTremoloPreset() and setTremoloDepth() methods to
-	 * configure amplitude modulation for the operators. However, if you wish then you can
-	 * instead manually initiate amplitude modulation by invoking this method directly. This
+	 * of {@link Channel}. Use its enableTremolo(), useTremoloPreset() and setTremoloDepth()
+	 * methods to configure amplitude modulation for the operators. However, if you wish then
+	 * you can manually initiate amplitude modulation by invoking this method directly. This
 	 * allows different operators to have differing levels of amplitude modulation.
 	 * @param {number} linearAmount The amount of amplitude modulation to apply between 0
-	 * and 1. Unlike the {@link Channel} methods this method uses a linear scale. You'll
-	 * probably first want to convert from an exponential (decibels) scale to a linear scale
-	 * using the decibelReductionToAmplitude() function in order to match human perception of
-	 * loudness.
+	 * and 1.
 	 * @param {number} [time] When to change the amplitude modulation depth. Defaults to immediately.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
@@ -1191,7 +1187,8 @@ const TWO_OP_ALGORITHMS = [
 	[[0], [1, 1]]	// Additive
 ];
 
-const TREMOLO_PRESETS = [0, -1.4, -5.9, -11.8];
+// 0db, 1.4db, 5.9db, 11.8db
+const TREMOLO_PRESETS = [0, -15, -63, -126].map(x => x / 1023);
 
 const ENVELOPE_TYPE = Object.freeze({
 	'DELAY_ATTACK': 0,
@@ -1302,7 +1299,7 @@ class Channel {
 		this.fixedFrequency = [false, false, false, false];
 		this.detune = 1;	// 1:1 with non-detuned frequency
 
-		this.tremoloDepth = 0;
+		this.tremoloDepth = 0;	// linear scale
 		this.tremoloEnabled = [false, false, false, false];
 		this.vibratoDepth = 0;
 		this.vibratoEnabled = [true, true, true, true];
@@ -1537,8 +1534,11 @@ class Channel {
 		return this.dcBlock[(operatorNum - 1) / 2].value;
 	}
 
-	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
-		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
+	/**
+	 * @param {number} depth The amount of tremolo effect to apply, range -512 to 512.
+	 */
+	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
+		const linearAmount = (1020 * depth / 512) / 1023;
 		for (let i = 0; i < 4; i++) {
 			if (this.tremoloEnabled[i]) {
 				this.operators[i].setTremoloDepth(linearAmount, time, method);
@@ -1548,15 +1548,21 @@ class Channel {
 	}
 
 	getTremoloDepth() {
-		return amplitudeToDecibels(this.tremoloDepth);
+		return Math.round(this.tremoloDepth * 1023 / 1020 * 512);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
-		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time, method);
+		const linearAmount = TREMOLO_PRESETS[presetNum];
+		for (let i = 0; i < 4; i++) {
+			if (this.tremoloEnabled[i]) {
+				this.operators[i].setTremoloDepth(linearAmount, time, method);
+			}
+		}
+		this.tremoloDepth = linearAmount;
 	}
 
 	getTremoloPreset() {
-		const depth = Math.round(this.getTremoloDepth() * 10) / 10;
+		const depth = Math.round(this.tremoloDepth * 1023);
 		return TREMOLO_PRESETS.indexOf(depth);
 	}
 
@@ -2208,8 +2214,8 @@ class TwoOperatorChannel {
 		return this.parentChannel.getFeedbackFilterFreq(this.operatorOffset + 1);
 	}
 
-	setTremoloDepth(decibels, time = 0, method = 'setValueAtTime') {
-		const linearAmount = 1 - decibelReductionToAmplitude(decibels);
+	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
+		const linearAmount = (1020 * depth / 512) / 1023;
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
@@ -2222,15 +2228,24 @@ class TwoOperatorChannel {
 	}
 
 	getTremoloDepth() {
-		return amplitudeToDecibels(this.tremoloDepth);
+		return Math.round(this.tremoloDepth * 1023 / 1020 * 512);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
-		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time, method);
+		const linearAmount = TREMOLO_PRESETS[presetNum];
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = offset + i;
+			if (parent.isTremoloEnabled(operatorNum)) {
+				parent.getOperator(operatorNum).setTremoloDepth(linearAmount, time, method);
+			}
+		}
+		this.tremoloDepth = linearAmount;
 	}
 
 	getTremoloPreset() {
-		const depth = Math.round(this.getTremoloDepth() * 10) / 10;
+		const depth = Math.round(this.tremoloDepth * 1023);
 		return TREMOLO_PRESETS.indexOf(depth);
 	}
 
@@ -2359,7 +2374,7 @@ class TwoOperatorChannel {
 
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
-	decibelReductionToAmplitude, amplitudeToDecibels, logToLinear, linearToLog,
+	logToLinear, linearToLog,
 	DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
 };
 

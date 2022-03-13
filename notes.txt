@@ -14,7 +14,6 @@ and change to a dynamic diagram
 Envelope trigger method (regardless of key currently on or off)
 Ability to sync LFO to song tempo or to note on
 
-Tremolo preset depth 0..128
 Allow special mode to act as fixed or +/- the current note
 Noise as LFO source
 Level scaling (per operator)
