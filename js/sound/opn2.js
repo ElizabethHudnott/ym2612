@@ -204,7 +204,7 @@ class Envelope {
 		// Values stored during key on.
 		this.beginLevel = 0;
 		this.hasAttack = true;
-		this.beginAttack = 0;
+		this.beginAttack = Infinity;
 		this.prevAttackRate = 0;
 		this.endAttack = 0;
 		this.endDecay = 0;
@@ -349,10 +349,7 @@ class Envelope {
 		const endRelease = this.endRelease;
 		if (endRelease > 0) {
 			//I.e. it's not the first time the envelope ran.
-			if (time >= endRelease) {
-				// Release phase ended.
-				beginLevel = 0;
-			} else {
+			if (time < endRelease) {
 				// Still in the release phase
 				const beginRelease = this.beginRelease;
 				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
@@ -363,6 +360,7 @@ class Envelope {
 			}
 		}
 
+		this.beginAttack = time;
 		this.beginLevel = beginLevel;
 		this.hasAttack = true;
 		let endAttack = time;
@@ -394,7 +392,6 @@ class Envelope {
 				const target = ATTACK_TARGET[attackRate - 2];
 				const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
 				gain.setTargetAtTime(target / 1023, time, timeConstant);
-				this.beginAttack = time;
 				this.prevAttackRate = attackRate;
 				const attackTime = -timeConstant * Math.log((1023 - target) / (beginLevel - target));
 				endAttack += attackTime;
@@ -512,7 +509,22 @@ class Envelope {
 		const endAttack = this.endAttack;
 		let linearValue;
 
-		if (!this.hasAttack) {
+		if (time <= this.beginAttack) {
+
+			linearValue = 0;
+			const endRelease = this.endRelease;
+			if (time < endRelease) {
+				// Still in the release phase
+				const beginRelease = this.beginRelease;
+				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
+				linearValue = this.releaseLevel * (1 - timeProportion);
+			}
+			if (this.inverted) {
+				linearValue = 1023 - linearValue;
+			}
+			return linearValue;
+
+		} else if (!this.hasAttack) {
 
 			// Attack rate was 0.
 			return this.beginLevel;
@@ -1304,6 +1316,7 @@ class Channel {
 		this.vibratoDepth = 0;
 		this.vibratoEnabled = [true, true, true, true];
 		this.keyVelocity = [1, 1, 1, 1];
+		this.operatorDelay = [0, 0, 0, 0];
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 		this.useAlgorithm(7);
@@ -1749,22 +1762,22 @@ class Channel {
 	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
 		const operators = this.operators;
 		if (op1) {
-			operators[0].keyOn(context, time);
+			operators[0].keyOn(context, time + this.operatorDelay[0]);
 		} else {
 			operators[0].keyOff(time);
 		}
 		if (op2) {
-			operators[1].keyOn(context, time);
+			operators[1].keyOn(context, time + this.operatorDelay[1]);
 		} else {
 			operators[1].keyOff(time);
 		}
 		if (op3) {
-			operators[2].keyOn(context, time);
+			operators[2].keyOn(context, time + this.operatorDelay[2]);
 		} else {
 			operators[2].keyOff(time);
 		}
 		if (op4) {
-			operators[3].keyOn(context, time);
+			operators[3].keyOn(context, time + this.operatorDelay[3]);
 		} else {
 			operators[3].keyOff(time);
 		}
@@ -1778,6 +1791,14 @@ class Channel {
 
 	keyOff(time) {
 		this.keyOnOff(undefined, time, false);
+	}
+
+	setOperatorDelay(operatorNum, delay) {
+		this.operatorDelay[operatorNum - 1] = delay / 1000;
+	}
+
+	getOperatorDelay(operatorNum) {
+		return this.operatorDelay[operatorNum - 1] * 1000;
 	}
 
 	/**Invoke directly to apply aftertouch.
