@@ -509,22 +509,7 @@ class Envelope {
 		const endAttack = this.endAttack;
 		let linearValue;
 
-		if (time <= this.beginAttack) {
-
-			linearValue = 0;
-			const endRelease = this.endRelease;
-			if (time < endRelease) {
-				// Still in the release phase
-				const beginRelease = this.beginRelease;
-				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
-				linearValue = this.releaseLevel * (1 - timeProportion);
-			}
-			if (this.inverted) {
-				linearValue = 1023 - linearValue;
-			}
-			return linearValue;
-
-		} else if (!this.hasAttack) {
+		if (!this.hasAttack) {
 
 			// Attack rate was 0.
 			return this.beginLevel;
@@ -590,7 +575,15 @@ class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(operator, time) {
-		const currentValue = this.linearValueAtTime(time);
+		let currentValue;
+		if (time < this.beginAttack) {
+			// Continue release
+			currentValue = this.beginLevel;
+			time = this.beginAttack;
+		} else {
+			currentValue = this.linearValueAtTime(time);
+		}
+
 		if (this.sampleNode) {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
@@ -696,7 +689,6 @@ class Operator {
 		this.detune2 = 1;		// Arbitrary detuning
 		this.keyIsOn = false;
 		this.disabled = false;
-		this.scheduledOff = false;
 
 		this.tremoloDepth = 0;
 		this.volume = 1;
@@ -852,7 +844,6 @@ class Operator {
 		this.stopOscillator(time);
 		this.disabled = true;
 		this.keyIsOn = false;
-		this.scheduledOff = true;
 	}
 
 	enable() {
@@ -864,7 +855,6 @@ class Operator {
 	}
 
 	keyOn(context, time) {
-		this.scheduledOff = false;
 		this.envelope.keyOn(context, this, time);
 		this.keyIsOn = true;
 	}
@@ -1733,23 +1723,27 @@ class Channel {
 	}
 
 	scheduleSoundOff(operator, time) {
-		operator.scheduledOff = true;
 		if (operator.getVolume() !== 0) {
 			this.stopTime = Math.max(this.stopTime, time);
 		}
 	}
 
 	scheduleOscillators() {
-		for (let operator of this.operators) {
-			if (!operator.scheduledOff && operator.getVolume() !== 0) {
-				return
+		let lastOpOff = 1;
+		for (let i = 4; i >= 1; i--) {
+			const operator = this.operators[i - 1];
+			if (operator.keyIsOn) {
+				// Any lower numbered operator may be modulating this one and the algorithm can
+				// change while the gate is open.
+				lastOpOff = i + 1;
+				break;
 			}
 		}
 		const stopTime = this.stopTime;
-		for (let operator of this.operators) {
-			operator.stopOscillator(stopTime);
+		for (let i = 4; i >= lastOpOff; i--) {
+			this.operators[i - 1].stopOscillator(stopTime);
 		}
-		if (this.lfo && this.lfoKeySync) {
+		if (lastOpOff === 1 && this.lfo && this.lfoKeySync) {
 			this.lfo.stop(stopTime);
 		}
 		this.oldStopTime = stopTime;

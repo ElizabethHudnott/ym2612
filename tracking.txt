@@ -1,5 +1,6 @@
 Note Track Fields
 	Pitch
+		normal or linear or exponential slide
 	Note length (in lines and ticks) or sustained
 	Velocity, slur, key off
 	Load Instrument (or stick with previous)
