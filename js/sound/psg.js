@@ -45,6 +45,10 @@ class NoiseChannel {
 		const toneInputGain = new GainNode(context, {gain: 0});
 		this.toneInputGain = toneInputGain;
 		this.countdownValue = 16;
+		/* "When its input changes from 0 to 1 (ie. only once for every two times the related
+		 *counter reaches zero..." Equivalent to using 32 here instead of 16.
+		 * https://www.smspower.org/Development/SN76489
+		 */
 		this.transitionsPerSample = clockRate / (32 * context.sampleRate);
 		const source = this.makeSource(context);
 		toneInputGain.connect(source.playbackRate);

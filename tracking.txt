@@ -1,24 +1,23 @@
 Note Track Fields
 	Pitch
-		No glide, linear or exponential
 	Note length (in lines and ticks) or sustained
 	Velocity, slur, key off
 	Load Instrument (or stick with previous)
-	Effects
+	Effects (can be delayed by a number of ticks)
 
 Master Control Track Fields
 	Effects
 
 Pitch Effects
 	Arpeggio offsets (two of them, each played once)
-	Portamento Up/Down
-	Portamento to Current Note
 	Pitch Bend
+	-----
 	Vibrato Depth
 
 Amplitude Effects
 	Volume Bend
 	Set Volume
+	-----
 	Tremolo Depth
 
 Modulation
@@ -26,11 +25,13 @@ Modulation
 	LFO Shape
 
 Other Standard Note Effects
+	Panning Bend
 	Set Panning
+	-----
 	Sample Offset
 	Sample Fine-Tune
 	Retrigger (with optional velocity change)
-	Note Cut (after x ticks)
+	Note Cut
 	Note Delay
 	Funk Loop
 
@@ -45,11 +46,5 @@ Master Control Effects
 	Set Tempo (absolute or relative)
 	Set ticks per line
 	Groove
-
-Portamento::
-
-Normal		N * x / 16 semitones for N lines
-Fine			T x / 16 semitones for T ticks
-Glissando	floor(T * x / 16) for T ticks
 
 Not an effect but the list of patterns to play includes starting offsets.

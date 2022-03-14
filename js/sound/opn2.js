@@ -1183,8 +1183,8 @@ const FOUR_OP_ALGORITHMS = [
 ];
 
 const TWO_OP_ALGORITHMS = [
-	[[1], [0, 1]],	// FM
-	[[0], [1, 1]]	// Additive
+	[1, [0, 1]], // FM
+	[0, [1, 1]], // Additive
 ];
 
 // 0db, 1.4db, 5.9db, 11.8db
@@ -1247,7 +1247,7 @@ class Channel {
 		this.operators = [op1, op2, op3, op4];
 
 		const minDelay = 128 / context.sampleRate;
-		const dcBlock = 49 * 48000 / context.sampleRate;
+		const dcBlock = 48.5;
 		const op1To1 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To1);
 		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
@@ -2061,16 +2061,16 @@ class TwoOperatorChannel {
 		const parent = this.parentChannel;
 		parent.setVolume(0.5, time);	// Reserve half the output level for the other 2 op channel.
 		// Disable features that don't apply to 2 op channels.
-		parent.setLFOShape(context, 'triangle', time);
+		parent.setLFOShape(context, 'triangle', time);	// Fixed LFO shape
 		parent.setLFOKeySync(context, false);
 		parent.applyLFO(time);	// No LFO envelope
 		parent.mute(false, time);
 	}
 
-	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
+	setAlgorithm(modulationDepth, outputLevels, time = 0, method = 'setValueAtTime') {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
-		parent.setModulationDepth(offset + 1, offset + 2, modulations[0], time, method);
+		parent.setModulationDepth(offset + 1, offset + 2, modulationDepth, time, method);
 		for (let i = 1; i <= 2; i++) {
 			const operator = parent.getOperator(offset + i);
 			const outputLevel = outputLevels[i - 1];
@@ -2090,14 +2090,14 @@ class TwoOperatorChannel {
 		return isFM ? 0 : 1;
 	}
 
-	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
+	setModulationDepth(amount, time = 0, method = 'setValueAtTime') {
 		const offset = this.operatorOffset;
-		this.parentChannel.setModulationDepth(offset + modulatorOpNum, offset + carrierOpNum, amount, time, method);
+		this.parentChannel.setModulationDepth(offset + 1, offset + 2, amount, time, method);
 	}
 
-	getModulationDepth(modulatorOpNum, carrierOpNum) {
+	getModulationDepth() {
 		const offset = this.operatorOffset;
-		return this.parentChannel.getModulationDepth(offset + modulatorOpNum, offset + carrierOpNum);
+		return this.parentChannel.getModulationDepth(offset + 1, offset + 2);
 	}
 
 	disableOperator(operatorNum, time = 0) {
