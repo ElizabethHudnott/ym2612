@@ -3,11 +3,13 @@ import {
 	LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
-const AMPLITUDES = new Array(16);
-for (let i = 0; i < 15; i++) {
-	AMPLITUDES[i] = decibelReductionToAmplitude(i * 2);
+const AMPLITUDES = new Array(31);
+for (let i = 0; i <= 28; i++) {
+	// Support 1/2 step volume levels, mimicked through rapidly alternating values on the real chip.
+	AMPLITUDES[i] = decibelReductionToAmplitude(i);
 }
-AMPLITUDES[15] = 0;
+AMPLITUDES[29] = 0.5 * AMPLITUDES[28];
+AMPLITUDES[30] = 0;
 
 const CLOCK_RATE = {
 	PAL: 	3546893,
@@ -35,10 +37,8 @@ class NoiseChannel {
 
 		const pulseBuffer = new AudioBuffer({length: 128, sampleRate: context.sampleRate});
 		sampleData = pulseBuffer.getChannelData(0);
-		sampleData.fill(1);
-		for (let i = 0; i < 128; i += 16) {
-			sampleData[i + 15] = -1;
-		}
+		sampleData.fill(-1, 0, 8);
+		sampleData.fill(1, 8);
 		this.pulseBuffer = pulseBuffer;
 		this.pulsing = true;
 
@@ -76,7 +76,14 @@ class NoiseChannel {
 			playbackRate = 0;
 		}
 
-		const buffer = this.pulsing ? this.pulseBuffer : this.noiseBuffer;
+		let buffer;
+
+		if (this.pulsing) {
+			buffer = this.pulseBuffer;
+			playbackRate *= 8;
+		} else {
+			buffer = this.noiseBuffer;
+		}
 
 		return new AudioBufferSourceNode(context, {
 			buffer: buffer,
@@ -99,11 +106,14 @@ class NoiseChannel {
 	}
 
 	loadRegister(context, time = 0) {
-		const newSource = this.makeSource(context);
+		const newSource = this.makeSource(context, time);
 		newSource.start(time);
-		this.toneInputGain.connect(newSource.playbackRate);
 		newSource.connect(this.tremolo);
 		this.source.stop(time);
+		if (this.countdownValue === undefined) {
+			this.toneInputGain.gain.setValueAtTime((this.pulsing ? 8 : 1) / context.sampleRate, time);
+		}
+		this.toneInputGain.connect(newSource.playbackRate);
 		this.source = newSource;
 	}
 
@@ -114,7 +124,7 @@ class NoiseChannel {
 
 	useToneFrequency(context, time = 0) {
 		this.source.playbackRate.setValueAtTime(0, time);
-		this.toneInputGain.gain.setValueAtTime(1 / context.sampleRate, time);
+		this.toneInputGain.gain.setValueAtTime((this.pulsing ? 8 : 1) / context.sampleRate, time);
 		this.countdownValue = undefined;
 	}
 

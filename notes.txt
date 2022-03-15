@@ -11,7 +11,6 @@ Bug: mixPCM doesn't support 2-op channels
 Add "Key On" and "Key Off" annotations to envelope diagram
 and change to a dynamic diagram
 
-Operator delay
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
 Ability to make parameters velocity sensitive
@@ -20,7 +19,6 @@ Ability to sync LFO to song tempo or to note on
 Noise/sample as LFO source
 Level scaling (per operator)
 
-PSG: make "periodic noise" squarer
 Add panning to PSG (like Sega Game Gear?)
 White noise as a modulator
 
