@@ -1052,9 +1052,11 @@ class FMOperator extends Operator {
 		let oscillator2;
 		if (config.oscillator2FrequencyMult !== 0) {
 			oscillator2 = new OscillatorNode(context, {frequency: 0, type: config.oscillator2Shape});
-			if (config.oscillator2FrequencyMult === 1) {
+			if (config.oscillator1FrequencyMult !== 1) {
+				// Oscillator 1 has customized pitch, Oscillator 2 is the fundamental.
 				this.frequencyNode.connect(oscillator2.frequency);
 			} else {
+				// Oscillator 2 can have pitch customized.
 				this.frequencyMultipler.connect(oscillator2.frequency);
 			}
 			oscillator2.connect(this.amModAmp);
@@ -1494,6 +1496,16 @@ class Channel {
 		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
 		const [block, freqNum] = fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
+	}
+
+	pitchBend(initialNote, bend, time, timePerStep) {
+		this.setMIDINote(initialNote, time);
+		for (let i = 0; i < 4; i++) {
+			if (!this.fixedFrequency[i]) {
+				const operator = this.operators[i];
+				bend.execute(operator.frequencyParam, time, timePerStep, operator.frequency);
+			}
+		}
 	}
 
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {

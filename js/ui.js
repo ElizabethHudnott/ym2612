@@ -2,6 +2,7 @@ import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {logToLinear, linearToLog, OscillatorConfig} from './sound/opn2.js';
+import {PitchBend} from './sound/bend.js';
 
 function initialize() {
 	if (window.audioContext !== undefined) {
@@ -16,6 +17,7 @@ function initialize() {
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm, context);
 	window.OscillatorConfig = OscillatorConfig;
+	window.PitchBend = PitchBend;
 
 	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);

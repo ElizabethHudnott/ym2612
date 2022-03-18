@@ -1,6 +1,6 @@
 Note Track Fields
 	Pitch
-		normal or linear or exponential slide
+		normal or linear or exponential slide in a specified amount of time
 	Note length (in lines and ticks) or sustained
 	Velocity, slur, key off
 	Load Instrument (or stick with previous)
@@ -10,7 +10,7 @@ Master Control Track Fields
 	Effects
 
 Pitch Effects
-	Arpeggio offsets (two of them, each played once)
+	Arpeggio offsets (one or more of them, repeating pattern, 1 note per tick)
 	Pitch Bend
 	-----
 	Vibrato Depth
@@ -37,7 +37,10 @@ Other Standard Note Effects
 	Funk Loop
 
 Other Note Effects
-	Operator Modulation Depth
+	Operator Modulation Depth Bend
+
+Macros
+	Operator ratio
 
 
 Master Control Effects
