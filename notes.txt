@@ -30,10 +30,6 @@ OPL2/3-like features
 
 CSM mode
 
-Pitch Bend
-	How to handle special mode?
-	Any sequence of straight lines (triggered by note on or as a tracker effect)
-	Scaled by velocity?
 Amplitude Bend
 	Plain
 	Repeating via SSG

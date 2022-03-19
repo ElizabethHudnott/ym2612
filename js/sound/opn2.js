@@ -1498,12 +1498,30 @@ class Channel {
 		this.setFrequency(block, freqNum, time, method);
 	}
 
-	pitchBend(initialNote, bend, startTime, timePerStep, maxSteps = bend.length, scaling = 1) {
-		this.setMIDINote(initialNote, startTime);
+	/**
+	 * @param {PitchBend} bend The pitch bend to apply, relative to the last note set using
+	 * setMIDINote() or setFrequency().
+	 * @param {boolean} release True to apply the note off portion of the bend, or false to
+	 * apply the note on portion.
+	 * @param {number} time The time to begin pitch bending from.
+	 * @param {number} timePerStep Either the duration of a tracker line (fine changes, i.e.
+	 * slower) or the duration of a tick, in seconds, or an absolute value if you don't want the
+	 * effect tempo synced.
+	 * @param {number} [maxSteps] The maximum number of bend steps to perform. Useful if you want
+	 * to cut the bend short to trigger a new note.
+	 * @param {number} [scaling=1] Scales the bend's values before applying them. Useful for
+	 * making the effect velocity sensitive. Negative values are also supported, in case you
+	 * need to force the bend to head in particular direction without knowing which direction
+	 * that's going to be when you create the bend.
+	 */
+	pitchBend(bend, release, startTime, timePerStep, maxSteps = bend.getLength(release), scaling = 1) {
 		for (let i = 0; i < 4; i++) {
 			if (!this.fixedFrequency[i]) {
 				const operator = this.operators[i];
-				bend.execute(operator.frequencyParam, startTime, timePerStep, maxSteps, operator.frequency, scaling);
+				bend.execute(
+					operator.frequencyParam, release, startTime, timePerStep, maxSteps,
+					operator.frequency, scaling
+				);
 			}
 		}
 	}
