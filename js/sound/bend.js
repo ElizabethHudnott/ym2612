@@ -28,14 +28,14 @@ class Bend {
 	 * @param {number} timePerStep Either the duration of a line (fine changes, i.e. slower) or
 	 * the duration of a tick, in seconds.
 	 */
-	execute(param, startTime, timePerStep, maxSteps, initialValue) {
+	execute(param, startTime, timePerStep, maxSteps, initialValue, scaling = 1) {
 		const points = this.points;
-		let from = points[0].value;
+		let from = points[0].value * scaling;
 		param.setValueAtTime(this.encodeValue(from, initialValue), startTime);
 		let startStep = 0;
 		const numPoints = points.length;
 		for (let i = 1; i < points.length; i++) {
-			let to = points[i].value;
+			let to = points[i].value * scaling;
 			let endStep = points[i].time;
 			let encodedValue;
 			switch (this.intervalTypes[i - 1]) {
@@ -52,17 +52,25 @@ class Bend {
 
 				// Smooth transition
 				encodedValue = this.encodeValue(to, initialValue);
-				if (this.isExponential) {
 
-					if (startStep >= maxSteps) {
-						return;
-					}
+				if (startStep >= maxSteps) {
 
+					return;
+
+				} else if (this.isExponential) {
+
+					const timeConstantInSteps = (endStep - startStep) / Bend.NUM_TIME_CONSTANTS;
 					param.setTargetAtTime(
 						encodedValue,
 						startTime + startStep * timePerStep,
-						(endStep - startStep) * timePerStep / Bend.NUM_TIME_CONSTANTS
+						timeConstantInSteps * timePerStep
 					);
+					if (endStep > maxSteps) {
+						const value = to + (from - to) * Math.exp((startStep - maxSteps) / timeConstantInSteps);
+						encodedValue = this.encodeValue(value, initialValue);
+						param.setValueAtTime(encodedValue, startTime + maxSteps * timePerStep);
+						return;
+					}
 
 				} else {
 
@@ -82,37 +90,27 @@ class Bend {
 			default:
 
 				// Glissando
-				let numIncrements = Math.abs(to - from);
-				if (numIncrements > 0) {
-					const stepsPerIncrement = (endStep - startStep) / numIncrements;
-					let intValue = to >= from ? Math.ceil(from) : Math.trunc(from);
-					const partIncrement = intValue - from;
-					const partIncrementSteps = startStep +
-						Math.abs(partIncrement) / numIncrements * stepsPerIncrement;
-					if (partIncrementSteps > maxSteps) {
-						return;
-					}
-
-					encodedValue = this.encodeValue(intValue, initialValue);
-					param.setValueAtTime(encodedValue, startTime + partIncrementSteps * timePerStep);
-					numIncrements -= Math.abs(partIncrement);
-					const intIncrements = Math.trunc(numIncrements);
-
-					for (let j = 1; j <= intIncrements; j++) {
-						const incrementSteps = partIncrementSteps + j * stepsPerIncrement;
-						if (incrementSteps > maxSteps) {
-							return;
-						}
-						intValue = intValue + (to >= from ? 1 : -1);
-						encodedValue = this.encodeValue(intValue, initialValue);
-						param.setValueAtTime(encodedValue, startTime +  incrementSteps * timePerStep);
-					}
-				}
-				if (endStep > maxSteps) {
+				if (startStep >= maxSteps) {
 					return;
 				}
-				encodedValue = this.encodeValue(to, initialValue)
+
+				const gradient = (to - from) / (endStep - startStep);
+				endStep = Math.min(endStep, maxSteps);
+				encodedValue = this.encodeValue(from, initialValue);
+				const round = to >= from ? Math.trunc : Math.ceil;
+				let prevIntValue = round(from);
+				to = from;
+				for (let j = startStep + 1; j <= endStep; j++) {
+					const intValue = round(from + (j - startStep) * gradient);
+					if (prevIntValue !== intValue) {
+						encodedValue = this.encodeValue(intValue, initialValue);
+						param.setValueAtTime(encodedValue, startTime + j * timePerStep);
+						to = intValue;
+						prevIntValue = intValue;
+					}
+				}
 				param.setValueAtTime(encodedValue, startTime + endStep * timePerStep);
+
 			}
 
 			from = to;
