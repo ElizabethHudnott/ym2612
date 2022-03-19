@@ -7,13 +7,20 @@ class Point {
 	}
 }
 
+const IntervalType = Object.freeze({
+	SMOOTH: 0,		// A smooth transition
+	GLISSANDO: 1,	// A sequence of steps
+	JUMP: 2,			// A single step
+});
+
 class Bend {
 
 	static NUM_TIME_CONSTANTS = 4;
 
 	constructor(initialValue, stepResolutionOption = 0) {
 		this.points = [ new Point(0, initialValue) ];
-		this.smooth = [];
+		this.intervalTypes = [];
+		// For the GUI only.
 		this.stepsPerInteger = this.stepOptions[stepResolutionOption];
 	}
 
@@ -21,7 +28,7 @@ class Bend {
 	 * @param {number} timePerStep Either the duration of a line (fine changes, i.e. slower) or
 	 * the duration of a tick, in seconds.
 	 */
-	execute(param, startTime, timePerStep, initialValue) {
+	execute(param, startTime, timePerStep, maxSteps, initialValue) {
 		const points = this.points;
 		let from = points[0].value;
 		param.setValueAtTime(this.encodeValue(from, initialValue), startTime);
@@ -29,35 +36,83 @@ class Bend {
 		const numPoints = points.length;
 		for (let i = 1; i < points.length; i++) {
 			let to = points[i].value;
-			const endStep = points[i].time;
-			if (this.smooth[i - 1]) {
+			let endStep = points[i].time;
+			let encodedValue;
+			switch (this.intervalTypes[i - 1]) {
+
+			case IntervalType.JUMP:
+				endStep--;
+				if (endStep > maxSteps) {
+					return;
+				}
+				param.setValueAtTime(this.encodeValue(to, initialValue), startTime + endStep * timePerStep);
+				break;
+
+			case IntervalType.SMOOTH:
 
 				// Smooth transition
-				const encodedValue = this.encodeValue(to, initialValue);
+				encodedValue = this.encodeValue(to, initialValue);
 				if (this.isExponential) {
+
+					if (startStep >= maxSteps) {
+						return;
+					}
+
 					param.setTargetAtTime(
 						encodedValue,
 						startTime + startStep * timePerStep,
 						(endStep - startStep) * timePerStep / Bend.NUM_TIME_CONSTANTS
 					);
+
 				} else {
-					param.linearRampToValueAtTime(encodedValue, startTime + endStep * timePerStep);
+
+					// Linear
+					if (endStep > maxSteps) {
+						to = from + (to - from) * (maxSteps - startStep) / (endStep - startStep);
+						encodedValue = this.encodeValue(to, initialValue);
+						param.linearRampToValueAtTime(encodedValue, startTime + maxSteps * timePerStep);
+						return;
+					} else {
+						param.linearRampToValueAtTime(encodedValue, startTime + endStep * timePerStep);
+					}
+
 				}
+				break;
 
-			} else {
+			default:
 
-				// Stepped transition
-				const stepSize = this.stepsPerInteger;
-				const gradient = (to - from) * stepSize / (endStep - startStep);
-				for (let j = startStep + 1; j <= endStep; j++) {
-					const numSteps = j - startStep;
-					const value = from + Math.trunc(numSteps * gradient) / stepSize;
-					param.setValueAtTime(
-						this.encodeValue(value, initialValue),
-						startTime + j * timePerStep
-					);
+				// Glissando
+				let numIncrements = Math.abs(to - from);
+				if (numIncrements > 0) {
+					const stepsPerIncrement = (endStep - startStep) / numIncrements;
+					let intValue = to >= from ? Math.ceil(from) : Math.trunc(from);
+					const partIncrement = intValue - from;
+					const partIncrementSteps = startStep +
+						Math.abs(partIncrement) / numIncrements * stepsPerIncrement;
+					if (partIncrementSteps > maxSteps) {
+						return;
+					}
+
+					encodedValue = this.encodeValue(intValue, initialValue);
+					param.setValueAtTime(encodedValue, startTime + partIncrementSteps * timePerStep);
+					numIncrements -= Math.abs(partIncrement);
+					const intIncrements = Math.trunc(numIncrements);
+
+					for (let j = 1; j <= intIncrements; j++) {
+						const incrementSteps = partIncrementSteps + j * stepsPerIncrement;
+						if (incrementSteps > maxSteps) {
+							return;
+						}
+						intValue = intValue + (to >= from ? 1 : -1);
+						encodedValue = this.encodeValue(intValue, initialValue);
+						param.setValueAtTime(encodedValue, startTime +  incrementSteps * timePerStep);
+					}
 				}
-
+				if (endStep > maxSteps) {
+					return;
+				}
+				encodedValue = this.encodeValue(to, initialValue)
+				param.setValueAtTime(encodedValue, startTime + endStep * timePerStep);
 			}
 
 			from = to;
@@ -65,14 +120,23 @@ class Bend {
 		}
 	}
 
+	get length() {
+		return this.points[this.points.length - 1].time;
+	}
+
 	get isExponential() {
 		return true;
 	}
+
+	get allowStepped() {
+		return false;
+	}
+
 }
 
 class PitchBend extends Bend {
 
-	static STEP_OPTIONS = [1, 4, 16, 64]
+	static STEP_OPTIONS = [1, 4, 16, 100];
 
 	constructor() {
 		super(0, 2);	// Default to 1/16 semitone increments
@@ -92,12 +156,12 @@ class PitchBend extends Bend {
 		return PitchBend.STEP_OPTIONS;
 	}
 
-	encodeValue(semitones, startFrequency) {
-		return startFrequency * 2 ** (semitones / 12);
+	get allowStepped() {
+		return true;
 	}
 
-	decodeValue(frequency, startFrequency) {
-		return 12 * Math.log2(frequency / startFrequency) ;
+	encodeValue(semitones, startFrequency) {
+		return startFrequency * 2 ** (semitones / 12);
 	}
 
 }
@@ -124,10 +188,6 @@ class VolumeBend extends Bend {
 
 	encodeValue(volume) {
 		return logToLinear(Math.round(volume * 1023 / 63));
-	}
-
-	decodeValue(gain) {
-		return linearToLog(gain) * 63 / 1023;
 	}
 
 }

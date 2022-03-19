@@ -26,9 +26,7 @@ Modulation
 	LFO Shape
 
 Other Standard Note Effects
-	Panning Bend
 	Set Panning
-	-----
 	Sample Offset
 	Sample Fine-Tune
 	Retrigger (with optional velocity change)

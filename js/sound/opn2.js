@@ -1498,12 +1498,12 @@ class Channel {
 		this.setFrequency(block, freqNum, time, method);
 	}
 
-	pitchBend(initialNote, bend, time, timePerStep) {
-		this.setMIDINote(initialNote, time);
+	pitchBend(initialNote, bend, startTime, timePerStep, maxSteps = bend.length) {
+		this.setMIDINote(initialNote, startTime);
 		for (let i = 0; i < 4; i++) {
 			if (!this.fixedFrequency[i]) {
 				const operator = this.operators[i];
-				bend.execute(operator.frequencyParam, time, timePerStep, operator.frequency);
+				bend.execute(operator.frequencyParam, startTime, timePerStep, maxSteps, operator.frequency);
 			}
 		}
 	}
