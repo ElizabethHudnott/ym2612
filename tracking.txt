@@ -4,20 +4,21 @@ Note Track Fields
 	Note length (in lines and ticks) or sustained
 	Velocity, slur, key off
 	Load Instrument (or stick with previous)
+		resets volume
 	Effects (can be delayed by a number of ticks)
 
 Master Control Track Fields
 	Effects
 
 Pitch Effects
-	Arpeggio offsets (one or more of them, repeating pattern, 1 note per tick)
+	Arpeggio offsets (one or more of them, repeating pattern, 1 note every x ticks)
 	Pitch Bend
 	-----
 	Vibrato Depth
 
 Amplitude Effects
 	Volume Bend
-	Set Volume
+	Set Volume (after x ticks)
 	-----
 	Tremolo Depth
 
@@ -26,11 +27,12 @@ Modulation
 	LFO Shape
 
 Other Standard Note Effects
+	Panning Bend
 	Set Panning
+	-----
 	Sample Offset
 	Sample Fine-Tune
 	Retrigger (with optional velocity change)
-	Note Cut
 	Note Delay
 	Funk Loop
 
@@ -50,3 +52,7 @@ Master Control Effects
 	Groove
 
 Not an effect but the list of patterns to play includes starting offsets.
+
+ProTracker notes
+	Nested loops using different columns
+	Note cut using effect can be revived using volume commands

@@ -109,23 +109,28 @@ input[type=range]::-moz-range-thumb {
 	background-color: hsl(305deg 65% 37%);
 }
 
-.led-display, .led-display:disabled, .led-display:focus {
+.btn-led, .led-display, .led-display:disabled, .led-display:focus {
 	background-color: black;
 	border-radius: 0;
 	color: #fbb;
 	text-shadow:
 		0 0 7px #ff9999,
-		0 0 10px #804c4c
+		0 0 10px #804c4c;
+	font-family: 'Digital 7', monospace;
 }
 
 .led-display {
 	border-color: #777 #3c3c3c #777 #3c3c3c;
 	border-style: inset;
 	border-width: 2px;
-	font-family: 'Digital 7', monospace;
 	font-size:  110%;
 	text-align: right;
 	min-width:  74px;
+}
+
+.btn-led {
+	font-size: 120%;
+	letter-spacing: 1.5px;
 }
 
 input[type="number"].led-display::-webkit-outer-spin-button,
@@ -198,7 +203,7 @@ td.odd-col:nth-child(2n) {
 	border-style: inset;
 }
 
-.btn:not(.btn-group .btn) {
+.btn:not(.btn-group .btn, .btn-led) {
 	border-radius:  0.15rem;
 	font-family: Arial, sans-serif;
 	font-variant: small-caps;

@@ -1926,11 +1926,43 @@ class FMSynth {
 		const square = OscillatorConfig.mono('square');
 		const sawtooth = OscillatorConfig.mono('sawtooth');
 		const triangle = OscillatorConfig.mono('triangle');
+		const saw12 = OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3);
+		const square12 = OscillatorConfig.additive('square', false, 0, 'square', 2);
+		const triangle12 = OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3);
+		const sine1234 = new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, 2/3, true);
+
+		const root = x => 2 * Math.atan(Math.sqrt(x));
+		const organGain = (harmonic, x) => 2 / (Math.sin(x) + Math.sin(harmonic * x));
+
+		const sine12 = OscillatorConfig.additive('sine', false, 0, 'sine', 2, 1,
+			organGain(2, root(6 - Math.sqrt(33)))
+		);
+		const sine13 = OscillatorConfig.additive('sine', false, 0, 'sine', 3, 1,
+			organGain(3, root(5 - 2 * Math.sqrt(6)))
+		);
+		const sine14 = OscillatorConfig.additive('sine', false, 0, 'sine', 4, 1,
+			organGain(4, 2 * 0.97043)
+		);
+		const sine15 = OscillatorConfig.additive('sine', false, 0, 'sine', 5, 1,
+			organGain(5, Math.PI / 2)
+		);
+		const sine16 = OscillatorConfig.additive('sine', false, 0, 'sine', 6, 1,
+			organGain(6, root(0.597383))
+		);
+		const sine17 = OscillatorConfig.additive('sine', false, 0, 'sine', 7, 1,
+			organGain(7, root(0.402496))
+		);
+		const sine18 = OscillatorConfig.additive('sine', false, 0, 'sine', 8, 1,
+			organGain(8, root(1.47569))
+		);
+
 
 		this.oscillatorConfigs = [
 			sine, halfSine, absSine, quarterSine,
 			oddSine, absOddSine, square, sawtooth,
-			triangle
+			triangle,
+			saw12, square12, triangle12, sine1234,
+			sine12, sine13, sine14, sine15, sine16, sine17, sine18,
 		];
 
 		const channels = new Array(numChannels);

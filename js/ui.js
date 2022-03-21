@@ -427,9 +427,20 @@ function getOperator(element) {
 function waveformNumber(event) {
 	initialize();
 	const opNum = getOperator(this);
+	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
+	const dropDownImage = dropDown.children[0];
+	const dropDownText = dropDown.children[1];
 	const value = parseInt(this.value);
-	const src = this.parentElement.children[1].src;
-	document.getElementById('btn-op' + opNum + '-waveform').children[0].src = src;
+	const option = this.parentElement;
+	const imageLabel = option.children[1];
+	if (imageLabel) {
+		dropDownText.innerHTML = '';
+		dropDownImage.src = imageLabel.src;
+		dropDownImage.classList.remove('d-none');
+	} else {
+		dropDownImage.classList.add('d-none');
+		dropDownText.innerHTML = option.textContent.trim();
+	}
 	channel.getOperator(opNum).setWaveformNumber(audioContext, value);
 }
 

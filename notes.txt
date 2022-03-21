@@ -11,13 +11,14 @@ Bug: mixPCM doesn't support 2-op channels
 Add "Key On" and "Key Off" annotations to envelope diagram
 and change to a dynamic diagram
 
+Add ring modulation
+Make bends work with groove and tempo changes
 Normalization needs to take panning into account
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
 Ability to make parameters velocity sensitive
-Ability to sync LFO to song tempo or to note on
 
-Noise/sample as LFO source
+Noise/sample as LFO source?
 Level scaling (per operator)
 
 Add panning to PSG (like Sega Game Gear?)
