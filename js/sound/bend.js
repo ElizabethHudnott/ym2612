@@ -31,9 +31,10 @@ class Bend {
 	 * execute the key on portion.
 	 * @param {number} startTime The time relative to the AudioContext to begin making changes
 	 * from.
-	 * @param {number} timePerStep Either the duration of a line (fine changes, i.e. slower) or
+	 * @param {number} timesPerStep Either the duration of a line (fine changes, i.e. slower) or
 	 * the duration of a tick, in seconds, or an absolute value if you don't want the effect
-	 * tempo synced.
+	 * tempo synced. Use multiple values to account for a groove or a tempo change and
+	 * this method will rotate through them.
 	 * @param {number} maxSteps The maximum number of bend steps to perform. If the bend is
 	 * longer than the number of steps provided then only the beginning of the bend will be
 	 * performed.
@@ -42,7 +43,7 @@ class Bend {
 	 * @param {number} [scaling=1] Scales the bend's values (y-axis) before applying them, for
 	 * applying a greater or less extreme bend. Negative values inverts a pitch bend.
 	 */
-	execute(param, release, startTime, timePerStep, maxSteps, initialValue, scaling = 1, invert = false) {
+	execute(param, release, startTime, timesPerStep, maxSteps, initialValue, scaling = 1, invert = false) {
 		const points = this.points;
 		let startStep, firstPointIndex;
 		if (release) {
@@ -60,8 +61,17 @@ class Bend {
 			firstPointIndex = 0;
 			startStep = 0;
 			if (this.releasePoint < points.length) {
+				// Don't go further than the release point.
 				maxSteps = Math.min(maxSteps, points[this.releasePoint].time);
 			}
+		}
+		// Don't go further than the last point.
+		maxSteps = Math.min(maxSteps, points[points.length - 1].time);
+
+		const time = new Array(maxSteps + 1);
+		time[0] = 0;
+		for (let i = 1; i <= maxSteps; i++) {
+			time[i] = time[i - 1] + timesPerStep[(i - 1) % timesPerStep.length];
 		}
 
 		let from = points[firstPointIndex].value * scaling;
@@ -79,7 +89,7 @@ class Bend {
 				if (endStep > maxSteps) {
 					return;
 				}
-				param.setValueAtTime(this.encodeValue(to, initialValue), startTime + endStep * timePerStep);
+				param.setValueAtTime(this.encodeValue(to, initialValue), startTime + time[endStep]);
 				break;
 
 			case IntervalType.SMOOTH:
@@ -93,16 +103,17 @@ class Bend {
 
 				} else if (this.isExponential) {
 
-					const timeConstantInSteps = (endStep - startStep) / Bend.NUM_TIME_CONSTANTS;
+					const timeConstant = (time[endStep] - time[startStep]) / Bend.NUM_TIME_CONSTANTS;
 					param.setTargetAtTime(
 						encodedValue,
-						startTime + startStep * timePerStep,
-						timeConstantInSteps * timePerStep
+						startTime + time[startStep],
+						timeConstant
 					);
 					if (endStep > maxSteps) {
-						const value = to + (from - to) * Math.exp((startStep - maxSteps) / timeConstantInSteps);
+						const value = to + (from - to) *
+							Math.exp((time[startStep] - time[maxSteps]) / timeConstant);
 						encodedValue = this.encodeValue(value, initialValue);
-						param.setValueAtTime(encodedValue, startTime + maxSteps * timePerStep);
+						param.setValueAtTime(encodedValue, startTime + time[maxSteps]);
 						return;
 					}
 
@@ -112,10 +123,10 @@ class Bend {
 					if (endStep > maxSteps) {
 						to = from + (to - from) * (maxSteps - startStep) / (endStep - startStep);
 						encodedValue = this.encodeValue(to, initialValue);
-						param.linearRampToValueAtTime(encodedValue, startTime + maxSteps * timePerStep);
+						param.linearRampToValueAtTime(encodedValue, startTime + time[maxSteps]);
 						return;
 					} else {
-						param.linearRampToValueAtTime(encodedValue, startTime + endStep * timePerStep);
+						param.linearRampToValueAtTime(encodedValue, startTime + time[endStep]);
 					}
 
 				}
@@ -138,12 +149,12 @@ class Bend {
 					const intValue = round(from + (j - startStep) * gradient);
 					if (prevIntValue !== intValue) {
 						encodedValue = this.encodeValue(intValue, initialValue);
-						param.setValueAtTime(encodedValue, startTime + j * timePerStep);
+						param.setValueAtTime(encodedValue, startTime + time[j]);
 						to = intValue;
 						prevIntValue = intValue;
 					}
 				}
-				param.setValueAtTime(encodedValue, startTime + endStep * timePerStep);
+				param.setValueAtTime(encodedValue, startTime + time[endStep]);
 
 			}
 
