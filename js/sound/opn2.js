@@ -948,19 +948,22 @@ class OscillatorConfig {
 	 * @param {number} oscillator1FrequencyMult The frequency of the carrier relative to the base
 	 * frequency, which is usually 1x but a few waveforms use 2x. If this parameter has a value
 	 * other than 1 then the value of oscillator2FrequencyMult must be 1 (or 0).
-	 * @param {number} amDepth How much amplitude modulation to apply [0..1].
+	 * @param {number} modDepth How much amplitude modulation to apply [0..1].
+	 * @param {boolean} ringMod Performs ring modulation if true, or amplitude modulation if false.
+	 * @param {number} gain Scales the resulting wave by a constant.
+	 * @param {boolean} additive Adds the modulator signal to the carrier before performing modulating.
 	 */
 	constructor(
 		oscillator1Shape, waveShaping = false, bias = 0,
 		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
-		amDepth = 1, gain = 1, additive = false
+		modDepth = 1, ringMod = false, gain = 1, additive = false
 	) {
 		this.oscillator1Shape = oscillator1Shape;
 		this.waveShaping = waveShaping;
 		this.bias = bias;
 		this.oscillator2Shape = oscillator2Shape;
 		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
-		this.amDepth = amDepth;
+		this.modDepth = (ringMod ? 1 : 0.5) * modDepth;
 		this.oscillator1FrequencyMult = oscillator1FrequencyMult;
 		this.frequencyMultiplier = oscillator1FrequencyMult !== 1 ? oscillator1FrequencyMult : oscillator2FrequencyMult;
 		this.gain = gain;
@@ -981,16 +984,23 @@ class OscillatorConfig {
 
 	static am(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, amDepth = 1, gain = 1
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, amDepth, gain);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, false, gain);
+	}
+
+	static ringMod(
+		oscillator1Shape, waveShaping, bias, oscillator2Shape,
+		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
+	) {
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, true, gain);
 	}
 
 	static additive(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
 		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, 0.5 * gain, true);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, false, 0.5 * gain, true);
 	}
 
 }
@@ -1065,7 +1075,7 @@ class FMOperator extends Operator {
 			}
 
 			// Amplitude of the modulator, before gain
-			const amplitude = 0.5 * config.amDepth;
+			const amplitude = config.modDepth;
 			this.amModAmp.gain.setValueAtTime(gain * amplitude, time);
 			this.amMod.gain.setValueAtTime(gain * (1 - Math.abs(amplitude)), time);
 			oscillator2.start(time);
@@ -1929,7 +1939,7 @@ class FMSynth {
 		const saw12 = OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3);
 		const square12 = OscillatorConfig.additive('square', false, 0, 'square', 2);
 		const triangle12 = OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3);
-		const sine1234 = new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, 2/3, true);
+		const sine1234 = new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, false, 2/3, true);
 
 		const root = x => 2 * Math.atan(Math.sqrt(x));
 		const organGain = (harmonic, x) => 2 / (Math.sin(x) + Math.sin(harmonic * x));
