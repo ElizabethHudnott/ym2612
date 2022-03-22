@@ -1537,6 +1537,10 @@ class Channel {
 		}
 	}
 
+	volumeAutomation(automation, startTime, timesPerStep, maxSteps = bend.getLength(false)) {
+		automation.execute(this.volumeControl, false, startTime, timesPerStep, maxSteps);
+	}
+
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		this.fixedFrequency[operatorNum - 1] = true;
 		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
@@ -2259,6 +2263,21 @@ class TwoOperatorChannel {
 		const frequency = this.parentChannel.synth.noteFrequencies[noteNumber] * this.detune;
 		const [block, freqNum] = fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
+	}
+
+	pitchBend(bend, release, startTime, timesPerStep, maxSteps = bend.getLength(release), scaling = 1) {
+		const parent = this.parentChannel;
+		const offset = this.operatorOffset;
+		for (let i = 0; i < 2; i++) {
+			const effectiveOperatorNum = offset + i;
+			if (!parent.isOperatorFixed(effectiveOperatorNum)) {
+				const operator = parent.getOperator(effectiveOperatorNum);
+				bend.execute(
+					operator.frequencyParam, release, startTime, timesPerStep, maxSteps,
+					operator.frequency, scaling
+				);
+			}
+		}
 	}
 
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {

@@ -1,7 +1,8 @@
 Note Track Fields
 	Pitch
 		normal or linear or exponential slide in a specified amount of time
-	Note length (in lines and ticks) or sustained
+	Note length
+		in lines and ticks or sustained or retriggered (every x ticks with optional velocity change)
 	Velocity, slur, key off
 	Load Instrument (or stick with previous)
 		resets volume
@@ -11,7 +12,7 @@ Master Control Track Fields
 	Effects
 
 Pitch Effects
-	Arpeggio offsets (one or more of them, repeating pattern, 1 note every x ticks)
+	Arpeggio offsets (one or more of them, repeating pattern, 1 note every tick)
 	Pitch Bend
 	-----
 	Vibrato Depth
@@ -30,9 +31,10 @@ Other Standard Note Effects
 	Panning Bend
 	Set Panning
 	-----
+	Loop Start (per track)
+	Loop End
 	Sample Offset
 	Sample Fine-Tune
-	Retrigger (with optional velocity change)
 	Note Delay
 	Funk Loop
 
@@ -44,8 +46,6 @@ Macros
 
 
 Master Control Effects
-	Loop Start
-	Loop End
 	Pattern Delay
 	Set Tempo (absolute or relative)
 	Set ticks per line

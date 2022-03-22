@@ -224,7 +224,7 @@ class PitchBend extends Bend {
 
 }
 
-class VolumeBend extends Bend {
+class VolumeAutomation extends Bend {
 
 	static STEP_OPTIONS = [1];
 
@@ -250,4 +250,4 @@ class VolumeBend extends Bend {
 
 }
 
-export {PitchBend, VolumeBend};
+export {PitchBend, VolumeAutomation};

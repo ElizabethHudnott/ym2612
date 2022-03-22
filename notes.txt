@@ -27,10 +27,10 @@ OPL2/3-like features
 	Compatibility
 		Separate LFOs for pitch and volume?
 
-CSM mode
+CSM mode?
 
 Amplitude Bend
-	Plain
+	Plain (how will this work with 2-op channels?)
 	Repeating via SSG
 
 Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
