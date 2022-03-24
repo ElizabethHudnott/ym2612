@@ -441,7 +441,7 @@ function waveformNumber(event) {
 		dropDownImage.classList.add('d-none');
 		dropDownText.innerHTML = option.textContent.trim();
 	}
-	channel.getOperator(opNum).setWaveformNumber(audioContext, value);
+	channel.getOperator(opNum).setWaveformNumber(audioContext, value, audioContext.currentTime + 0.02);
 }
 
 function frequencyMultipleSlider(event) {

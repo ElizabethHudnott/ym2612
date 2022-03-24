@@ -379,7 +379,7 @@ class Envelope {
 					this.endSustain = time;
 					channel.scheduleSoundOff(operator, time);
 				} else {
-					cancelAndHoldAtTime(gain, beginLevel, time);
+					cancelAndHoldAtTime(gain, beginLevel / 1023, time);
 					this.hasAttack = false;
 					this.endAttack = time;
 					this.endDecay = Infinity;
@@ -974,7 +974,7 @@ class OscillatorConfig {
 		let bias;
 		if (!waveShaping) {
 			bias = 0;
-		} else if (shape === 'sine') {
+		} else if (shape === 'sine' || shape === 'cosine') {
 			bias = -2 / Math.PI;
 		} else {
 			bias = -0.5;	// Triangle or sawtooth
@@ -1150,13 +1150,13 @@ class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, oscillatorConfig, time = 0) {
+	setWaveform(context, oscillatorConfig, time) {
 		if (oscillatorConfig == undefined) throw new Error('Parameters: setWaveform(context, oscillatorConfig, time = 0)');
 		this.oscillatorConfig = oscillatorConfig;
-		this.newOscillator(context, time);
+		this.channel.newOscillators(context, time);
 	}
 
-	setWaveformNumber(context, waveformNumber, time = 0) {
+	setWaveformNumber(context, waveformNumber, time) {
 		this.setWaveform(context, this.channel.synth.oscillatorConfigs[waveformNumber], time);
 	}
 
@@ -1810,6 +1810,15 @@ class Channel {
 			this.lfo.stop(stopTime);
 		}
 		this.oldStopTime = stopTime;
+	}
+
+	newOscillators(context, time) {
+		for (let i = 0; i < 4; i++) {
+			const operator = this.operators[i];
+			if (!operator.disabled) {
+				operator.newOscillator(context, time);
+			}
+		}
 	}
 
 	/**
