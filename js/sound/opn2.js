@@ -1643,7 +1643,7 @@ class Channel {
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
-		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200)) - 1;
+		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200) - 1);
 		for (let i = 0; i < 4; i++) {
 			if (this.vibratoEnabled[i]) {
 				this.operators[i].setVibratoDepth(linearAmount, time, method);
@@ -2397,7 +2397,7 @@ class TwoOperatorChannel {
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
-		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200)) - 1;
+		const linearAmount = Math.sign(cents) * (2 ** (Math.abs(cents) / 1200) - 1);
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
