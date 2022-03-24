@@ -1046,10 +1046,18 @@ class FMOperator extends Operator {
 	newOscillator(context, time = 0) {
 		const config = this.oscillatorConfig;
 
-		const oscillator1 = new OscillatorNode(
-			context,
-			{frequency: 0, type: config.oscillator1Shape}
-		);
+		let oscillator1;
+		if (config.oscillator1Shape === 'cosine') {
+			oscillator1 = new OscillatorNode(
+				context,
+				{frequency: 0, periodicWave: this.channel.synth.cosineWave}
+			);
+		} else {
+			oscillator1 = new OscillatorNode(
+				context,
+				{frequency: 0, type: config.oscillator1Shape}
+			);
+		}
 
 		if (config.oscillator1FrequencyMult === 1) {
 			this.frequencyNode.connect(oscillator1.frequency);
@@ -1061,7 +1069,17 @@ class FMOperator extends Operator {
 		const gain = config.gain;	// Overall gain
 		let oscillator2;
 		if (config.oscillator2FrequencyMult !== 0) {
-			oscillator2 = new OscillatorNode(context, {frequency: 0, type: config.oscillator2Shape});
+			if (config.oscillator2Shape === 'cosine') {
+				oscillator2 = new OscillatorNode(
+					context,
+					{frequency: 0, periodicWave: this.channel.synth.cosineWave}
+				);
+			} else {
+				oscillator2 = new OscillatorNode(
+					context,
+					{frequency: 0, type: config.oscillator2Shape}
+				);
+			}
 			if (config.oscillator1FrequencyMult !== 1) {
 				// Oscillator 1 has customized pitch, Oscillator 2 is the fundamental.
 				this.frequencyNode.connect(oscillator2.frequency);
@@ -1931,6 +1949,8 @@ class FMSynth {
 
 		// Used by the operators to remove the DC offset inherent in certain wave shapes.
 		this.dcOffset = new ConstantSourceNode(context);
+
+		this.cosineWave = context.createPeriodicWave([0, 1], [0, 0]);
 
 		const sine = OscillatorConfig.mono('sine');
 		const halfSine = OscillatorConfig.am('sine', false, -0.85 / Math.PI, 'square', 1);
