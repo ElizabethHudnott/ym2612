@@ -45,6 +45,10 @@ function makeBasicWaveform(sampleRate, options = {}) {
 	// for example, a half sine (0) wave or a camel sine (-1) wave.
 	const negative = 'negative' in options ? options.negative : 1;
 
+	// For example,  0.25 turns a sine wave into a cosine wave. Phase shifts are inserted
+	// *after* negative samples interpretation.
+	const phaseShift = options.phaseShift || 0;
+
 	// By default the waveform takes up 100% of the available samples, with no zero samples
 	// added as padding. Values between 0 and 1 are permissible.
 	const width = options.width || 1;
@@ -86,19 +90,20 @@ function makeBasicWaveform(sampleRate, options = {}) {
 	for (let harmonic of harmonics) {
 		for (let i = 0; i < period; i++) {
 			const x = ((i + 0.5) * harmonic / period) % 1;
-			let value;
+			let value, phaseShifted;
 			if (x > cutoffTwoLB || (x > cutoffOneLB && x <= zeroPoint)) {
 				value = 0;
 			} else {
 				value = wave(x);
+				phaseShifted = wave(x + phaseShift);
 				if (value < 0) {
-					value *= negative;
+					phaseShifted *= negative;
 				}
 				if (cubed) {
-					value = value * value * value;
+					phaseShifted = phaseShifted * phaseShifted * phaseShifted;
 				}
 			}
-			data[i] += value;
+			data[i] += phaseShifted;
 		}
 	}
 
