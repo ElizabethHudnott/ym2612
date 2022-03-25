@@ -29,6 +29,7 @@ document.body.addEventListener('keydown', function (event) {
 		return;
 	}
 	channel.keyOn(audioContext);
+	soundSystem.applyFilter();
 });
 
 document.body.addEventListener('keyup', function (event) {
