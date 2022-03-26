@@ -1092,8 +1092,7 @@ class FMOperator extends Operator {
 				oscillator2.connect(this.amMod);
 			}
 
-			// Amplitude of the modulator, before gain
-			const amplitude = config.modDepth;
+			const amplitude = config.modDepth; // Amplitude of the modulator, before gain
 			this.amModAmp.gain.setValueAtTime(gain * amplitude, time);
 			this.amMod.gain.setValueAtTime(gain * (1 - Math.abs(amplitude)), time);
 			oscillator2.start(time);
@@ -1255,6 +1254,7 @@ class Channel {
 		this.volumeControl = volume.gain;
 
 		const panner = new StereoPannerNode(context);
+		this.pan = 0;
 		volume.connect(panner);
 		this.panner = panner;
 		const mute = new GainNode(context);
@@ -1555,8 +1555,8 @@ class Channel {
 		}
 	}
 
-	volumeAutomation(automation, startTime, timesPerStep, maxSteps = bend.getLength(false)) {
-		automation.execute(this.volumeControl, false, startTime, timesPerStep, maxSteps);
+	volumeAutomation(automation, release, startTime, timesPerStep, maxSteps = bend.getLength(release)) {
+		automation.execute(this.volumeControl, release, startTime, timesPerStep, maxSteps);
 	}
 
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
@@ -1601,10 +1601,11 @@ class Channel {
 	}
 
 	/**
-	 * @param {number} depth The amount of tremolo effect to apply, range -512 to 512.
+	 * @param {number} depth The amount of tremolo effect to apply, range -384 to 384. Modelled
+	 * on OPM's 128 modulation depths * 3 amplitude modulation sensitivities.
 	 */
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
-		const linearAmount = (1020 * depth / 512) / 1023;
+		const linearAmount = (1020 * depth / 384) / 1023;
 		for (let i = 0; i < 4; i++) {
 			if (this.tremoloEnabled[i]) {
 				this.operators[i].setTremoloDepth(linearAmount, time, method);
@@ -1614,7 +1615,7 @@ class Channel {
 	}
 
 	getTremoloDepth() {
-		return Math.round(this.tremoloDepth * 1023 / 1020 * 512);
+		return Math.round(this.tremoloDepth * 1023 / 1020 * 384);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
@@ -1909,10 +1910,11 @@ class Channel {
 	 */
 	setPan(panning, time = 0, method = 'setValueAtTime') {
 		this.panner.pan[method](panning, time);
+		this.pan = panning;
 	}
 
 	getPan() {
-		return this.panner.pan.value;
+		return this.pan;
 	}
 
 	setVolume(volume, time = 0, method = 'setValueAtTime') {
@@ -1971,6 +1973,7 @@ class FMSynth {
 		const sawtooth = OscillatorConfig.mono('sawtooth');
 		const triangle = OscillatorConfig.mono('triangle');
 		const saw12 = OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3);
+		const pulse = new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, false, 2/3, true);
 		const square12 = OscillatorConfig.additive('square', false, 0, 'square', 2);
 		const triangle12 = OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3);
 		const sine1234 = new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, false, 2/3, true);
@@ -2005,7 +2008,7 @@ class FMSynth {
 			sine, halfSine, absSine, quarterSine,
 			oddSine, absOddSine, square, sawtooth,
 			triangle,
-			saw12, square12, triangle12, sine1234,
+			saw12, pulse, square12, triangle12, sine1234,
 			sine12, sine13, sine14, sine15, sine16, sine17, sine18,
 		];
 
@@ -2114,27 +2117,53 @@ class FMSynth {
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
 	}
 
-	syncLFOs(context, frequency = undefined, time = context.currentTime + TIMER_IMPRECISION, ...channels) {
-		if (channels.length === 0) {
-			channels = new Array(this.channels.length);
+	setLFORate(context, frequency, time = context.currentTime + TIMER_IMPRECISION, method = 'setValueAtTime') {
+		for (let i = 0; i < this.channels.length; i++) {
+			const channel = this.channels[i];
+			if (!channel.getLFOKeySync()) {
+				channel.setLFORate(context, frequency, time, method);
+			}
+		}
+	}
+
+	/**
+	 * @param {boolean} all If true then all channels will have their LFOs synchronized to each
+	 * other. If false then only the channels that currently have their LFO Key Sync setting set
+	 * to off will be synchronized.
+	 */
+	syncLFOs(context, all = false, frequency = undefined, time = context.currentTime + TIMER_IMPRECISION) {
+		const numChannels = this.channels.length;
+		const channels = new Array(numChannels);
+		if (all) {
 			channels.fill(true);
+		} else {
+			for (let i = 0; i < numChannels; i++) {
+				channels[i] = !this.channels[i].getLFOKeySync();
+			}
 		}
 		const index = channels.indexOf(true);
 		if (index === -1) {
 			return;
 		}
+		if (channels.indexOf(true, index + 1) === -1) {
+			// Nothing to sync to
+			if (frequency !== undefined) {
+				this.channels[index].setLFORate(context, frequency, time);
+			}
+			return;
+		}
 		if (frequency === undefined) {
 			frequency = this.channels[index].getLFORate();
 		}
-		for (let i = index; i < channels.length; i++) {
+		for (let i = index; i < numChannels; i++) {
 			if (channels[i]) {
 				const channel = this.channels[i];
-				channel.setLFORate(context, 0, time);
+				channel.setLFORate(context, 0, time);	// Destroy current LFO
 				channel.setLFOKeySync(context, false, time);
 			}
 		}
 		if (frequency !== 0) {
-			for (let i = index; i < channels.length; i++) {
+			for (let i = index; i < numChannels; i++) {
 				if (channels[i]) {
 					this.channels[i].setLFORate(context, frequency, time);
 				}

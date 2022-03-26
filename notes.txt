@@ -9,21 +9,20 @@ Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
-and change to a dynamic diagram
 
-Normalization needs to take panning into account
+Ability to copy settings from one operator to another
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
-Ability to make parameters velocity sensitive
+Ability to make parameters velocity sensitive (E.g. vibrato depth?)
 
-Noise/sample as LFO source?
+Noise/S&H/sample as LFO source?
 Level scaling (per operator)
+glide
 
 Add panning to PSG (like Sega Game Gear?)
 White noise as a modulator
 
 OPL2/3-like features
-	"Detune" two halves to have different frequencies
 	Compatibility
 		Separate LFOs for pitch and volume?
 
@@ -49,7 +48,7 @@ Microtuning?
 UI
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI
-	Separate coarse and fine (fractional) frequency ratio sliders
+	Separate coarse (restricted to odd or even) and fine (fractional) frequency ratio sliders
 	Pad LED display with trailing zeros
 	More intense red LEDs
 	Custom waveform editor (max 64 time steps, 4-6 bit levels, like Famicom Disk System)
