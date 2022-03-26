@@ -1,9 +1,10 @@
 Wanted Feature List / Change List
 ---------------------------------
 New algorithms
-	1 -> 2 & 3 -> 4
-	1 -> 2 -> 3 & 4
-	1 & 2 & 3 -> 4
+	1 -> 2 & 3 -> 4	(Bleass) Diamond
+	1 -> 2 -> 3 & 4	(Bleass)
+	1 & 2 & 3 -> 4		(Bleass, DX7)
+	1 -> 2 & 3, 4		(DX7)
 
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
@@ -48,7 +49,7 @@ Microtuning?
 UI
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI
-	Separate coarse (restricted to odd or even) and fine (fractional) frequency ratio sliders
+	Separate coarse (restricted to odd or even?) and fine (fractional) frequency ratio sliders
 	Pad LED display with trailing zeros
 	More intense red LEDs
 	Custom waveform editor (max 64 time steps, 4-6 bit levels, like Famicom Disk System)

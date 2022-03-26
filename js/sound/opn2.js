@@ -1335,7 +1335,8 @@ class Channel {
 		this.tremoloEnabled = [false, false, false, false];
 		this.vibratoDepth = 0;
 		this.vibratoEnabled = [true, true, true, true];
-		this.keyVelocity = [1, 1, 1, 1];
+		this.minKeyVelocity = [127, 127, 127, 127];
+		this.maxKeyVelocity = [127, 127, 127, 127];
 		this.operatorDelay = [0, 0, 0, 0];
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
@@ -1382,7 +1383,6 @@ class Channel {
 			const outputLevel = outputLevels[i];
 			operator.enable();
 			operator.setVolume(outputLevel, time, method);
-			this.keyVelocity[i] = outputLevel === 0 ? 0 : 1;
 		}
 	}
 
@@ -1872,9 +1872,12 @@ class Channel {
 	 */
 	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 4; i++) {
-			const sensitivity = this.keyVelocity[i];
-			if (sensitivity > 0) {
-				const totalLevel = 127 - velocity * sensitivity;
+			const minLevel = this.minKeyVelocity[i];
+			const maxLevel = this.maxKeyVelocity[i];
+			if (minLevel !== maxLevel) {
+				let totalLevel = minLevel +
+					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
+				totalLevel = 127 - totalLevel;
 				this.operators[i].setTotalLevel(totalLevel, time);
 			}
 		}
@@ -1888,12 +1891,16 @@ class Channel {
 		this.keyOn(context, time);
 	}
 
-	setKeyVelocity(operatorNum, sensitivity) {
-		this.keyVelocity[operatorNum - 1] = sensitivity;
+	setKeyVelocitySensitivity(operatorNum, minLevel, maxLevel) {
+		this.minKeyVelocity[operatorNum - 1] = minLevel;
+		this.maxKeyVelocity[operatorNum - 1] = maxLevel;
 	}
 
-	getKeyVelocity(operatorNum) {
-		return this.keyVelocity[operatorNum - 1];
+	getKeyVelocitySensitivity(operatorNum) {
+		return {
+			min: this.minKeyVelocity[operatorNum - 1],
+			max: this.maxKeyVelocity[operatorNum - 1],
+		}
 	}
 
 	soundOff(time = 0) {
@@ -2226,7 +2233,6 @@ class TwoOperatorChannel {
 			const outputLevel = outputLevels[i - 1];
 			operator.enable();
 			operator.setVolume(outputLevel, time, method);
-			parent.setKeyVelocity(offset + i, outputLevel === 0 ? 0 : 1);
 		}
 	}
 
@@ -2380,7 +2386,7 @@ class TwoOperatorChannel {
 	}
 
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
-		const linearAmount = (1020 * depth / 512) / 1023;
+		const linearAmount = (1020 * depth / 384) / 1023;
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
@@ -2393,7 +2399,7 @@ class TwoOperatorChannel {
 	}
 
 	getTremoloDepth() {
-		return Math.round(this.tremoloDepth * 1023 / 1020 * 512);
+		return Math.round(this.tremoloDepth * 1023 / 1020 * 384);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
@@ -2458,7 +2464,7 @@ class TwoOperatorChannel {
 		parentChannel.vibratoEnabled[effectiveOperatorNum - 1] = enabled;
 	}
 
-	isTremoloEnabled(operatorNum) {
+	isVibratoEnabled(operatorNum) {
 		return this.parentChannel.isVibratoEnabled(this.operatorOffset + operatorNum);
 	}
 
@@ -2504,25 +2510,44 @@ class TwoOperatorChannel {
 		this.keyOnOff(context, time, false);
 	}
 
-	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+	setOperatorDelay(operatorNum, delay) {
+		this.parentChannel.setOperatorDelay(this.operatorOffset + operatorNum, delay);
+	}
+
+	getOperatorDelay(operatorNum) {
+		return this.parentChannel.getOperatorDelay(this.operatorOffset + operatorNum);
+	}
+
+	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
 		const parent = this.parentChannel;
 		for (let i = 1; i <= 2; i++) {
 			const operatorNum = this.operatorOffset + i;
-			const sensitivity = parent.getKeyVelocity(operatorNum);
-			if (sensitivity > 0) {
-				const totalLevel = 127 - velocity * sensitivity;
+			const minLevel = parent.minKeyVelocity[operatorNum - 1];
+			const maxLevel = parent.maxKeyVelocity[operatorNum - 1];
+			if (minLevel !== maxLevel) {
+				let totalLevel = minLevel +
+					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
+				totalLevel = 127 - totalLevel;
 				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time);
 			}
 		}
+	}
+
+	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+		this.setVelocity(velocity, time);
 		this.keyOn(context, time);
 	}
 
-	setKeyVelocity(operatorNum, sensitivity) {
-		this.parentChannel.setKeyVelocity(this.operatorOffset + operatorNum, sensitivity);
+	setKeyVelocitySensitivity(operatorNum, minLevel, maxLevel) {
+		this.parentChannel.setKeyVelocitySensitivity(
+			this.operatorOffset + operatorNum,
+			minLevel,
+			maxLevel
+		);
 	}
 
-	getKeyVelocity(operatorNum) {
-		return this.parentChannel.getKeyVelocity(this.operatorOffset + operatorNum);
+	getKeyVelocitySensitivity(operatorNum) {
+		return this.parentChannel.getKeyVelocitySensitivity(this.operatorOffset + operatorNum);
 	}
 
 	soundOff(time = 0) {
