@@ -342,7 +342,7 @@ class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL, callback = undefined) {
 		this.setClockRate(context, clockRate);
-		this.noteFrequencies = this.tunedMIDINotes(440);
+		this.tuneMIDINotes(440);
 
 		let frequencyLimit = context.sampleRate / 2;
 		if (frequencyLimit > 24000) {
@@ -447,13 +447,14 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tunedMIDINotes(a4Pitch) {
-		const SEMITONE = 2 ** (1 / 12);
+	tuneMIDINotes(a4Pitch = 440, octaveStretch = 1) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
+		const notesInScale = 12 * octaveStretch;
+		const step = 2 ** (1 / notesInScale);
 		let prevFreqNum, prevIdealFrequency;
 		for (let i = 0; i < 128; i++) {
-			const idealFrequency = a4Pitch * 2 ** ((i - 69) / 12);
+			const idealFrequency = a4Pitch * 2 ** ((i - 69) / notesInScale);
 			let freqNum = Math.round(this.frequencyToFreqNumber(idealFrequency));
 			const approxFrequency = this.frequencyNumberToHz(freqNum);
 
@@ -462,18 +463,18 @@ class PSG {
 				const prevError = Math.abs((approxFrequency - prevIdealFrequency) / prevIdealFrequency);
 				if (error > prevError && idealFrequency > approxFrequency) {
 					// This note is further from nearest note on the chip's frequency scale.
-					frequencies[i] = approxFrequency * SEMITONE;
+					frequencies[i] = approxFrequency * step;
 					freqNum = undefined;
 				} else {
 					// This note is closest.
 					frequencies[i] = approxFrequency;
-					frequencies[i - 1] = approxFrequency / SEMITONE;
+					frequencies[i - 1] = approxFrequency / step;
 				}
 			} else if (prevFreqNum === undefined && i > 0) {
 				if (approxFrequency > frequencies[i - 1]) {
 					frequencies[i] = approxFrequency;
 				} else {
-					frequencies[i] = frequencies[i - 1] * SEMITONE;
+					frequencies[i] = frequencies[i - 1] * step;
 					freqNum = undefined;
 				}
 			} else {
@@ -483,7 +484,7 @@ class PSG {
 			prevFreqNum = freqNum;
 			prevIdealFrequency = idealFrequency;
 		}
-		return frequencies;
+		this.noteFrequencies = frequencies;
 	}
 
 	getLFO(n) {

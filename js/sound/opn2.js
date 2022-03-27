@@ -229,6 +229,20 @@ class Envelope {
 		this.ssgPlaybackRate = 0;
 	}
 
+	copyTo(envelope) {
+		envelope.setTotalLevel(this.totalLevel);
+		envelope.rateScaling = this.rateScaling;
+		envelope.attackRate = this.attackRate;
+		envelope.decayRate = this.decayRate;
+		envelope.sustain = this.sustain;
+		envelope.sustainRate = this.sustainRate;
+		envelope.releaseRate = this.releaseRate;
+		envelope.ssgEnabled = this.ssgEnabled;
+		envelope.inverted = this.inverted;
+		envelope.jump = this.jump;
+		envelope.looping = this.looping;
+	}
+
 	start(time = 0) {
 		this.gainNode.start(time);
 		this.totalLevelNode.start(time);
@@ -694,6 +708,17 @@ class Operator {
 		this.volume = 1;
 	}
 
+	copyTo(operator) {
+		operator.detune = this.detune;
+		operator.detune2 = this.detune2;
+		operator.setTremoloDepth(this.tremoloDepth);
+		operator.envelope.copyTo(this.envelope);
+	}
+
+	copyEnvelopeTo(operator) {
+		operator.envelope.copyTo(this.envelope);
+	}
+
 	/**Starts the operator's oscillator.
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
@@ -1043,6 +1068,12 @@ class FMOperator extends Operator {
 		this.vibratoDepth = 0;
 	}
 
+	copyTo(operator) {
+		super.copyTo(operator);
+		operator.setVibratoDepth(this.vibratoDepth);
+		operator.oscillatorConfig = this.oscillatorConfig;
+	}
+
 	newOscillator(context, time = 0) {
 		const config = this.oscillatorConfig;
 
@@ -1343,6 +1374,45 @@ class Channel {
 		this.useAlgorithm(7);
 	}
 
+	copyOperator(from, to) {
+		const fromOperator = this.operators[from - 1];
+		const toOperator = this.operators[to - 1];
+		fromOperator.copyTo(toOperator);
+
+		let block = this.freqBlockNumbers[from - 1];
+		let freqNum = this.frequencyNumbers[from - 1];
+		const multiple = this.frequencyMultiples[from - 1];
+		const fixedFrequency = this.fixedFrequency[from - 1];
+
+		if (to !== 4 || fixedFrequency) {
+			this.freqBlockNumbers[to - 1] = block;
+			this.frequencyNumbers[to - 1] = freqNum;
+		}
+		this.frequencyMultiples[to - 1] = multiple;
+		this.fixedFrequency[to - 1] = fixedFrequency;
+
+		if (fixedFrequency) {
+			toOperator.setFrequency(block, freqNum, 1);
+			if (to === 4) {
+				this.setFrequency(block, freqNum);
+			}
+		} else {
+			block = this.freqBlockNumbers[3];
+			freqNum = this.frequencyNumbers[3];
+			toOperator.setFrequency(block, freqNum, multiple);
+		}
+
+		this.minKeyVelocity[to - 1] = this.minKeyVelocity[from - 1];
+		this.maxKeyVelocity[to - 1] = this.maxKeyVelocity[from - 1];
+		this.operatorDelay[to - 1] = this.operatorDelay[from - 1];
+	}
+
+	copyEnvelope(from, to) {
+		const fromOperator = this.operators[from - 1];
+		const toOperator = this.operators[to - 1];
+		fromOperator.copyEnvelopeTo(toOperator);
+	}
+
 	start(time) {
 		for (let operator of this.operators) {
 			operator.start(time);
@@ -1435,7 +1505,7 @@ class Channel {
 	}
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
-		const fixedFrequencyArr = this.fixedFrequency;
+		const fixedFrequency = this.fixedFrequency;
 		const operator = this.operators[operatorNum - 1];
 		const multiple = this.frequencyMultiples[operatorNum - 1];
 		let block = this.freqBlockNumbers[3];
@@ -1443,9 +1513,9 @@ class Channel {
 
 		if (fixed) {
 			if (preserve) {
-				if (!fixedFrequencyArr[operatorNum - 1] &&
+				if (!fixedFrequency[operatorNum - 1] &&
 					(operatorNum !== 4 ||
-						(fixedFrequencyArr[0] && fixedFrequencyArr[1] && fixedFrequencyArr[2])
+						(fixedFrequency[0] && fixedFrequency[1] && fixedFrequency[2])
 					)
 				) {
 					// Turn a frequency multiple into a fixed frequency.
@@ -1464,7 +1534,7 @@ class Channel {
 			// Restore a multiple of Operator 4's frequency.
 			operator.setFrequency(block, freqNum, multiple, time, method);
 		}
-		fixedFrequencyArr[operatorNum - 1] = fixed;
+		fixedFrequency[operatorNum - 1] = fixed;
 	}
 
 	isOperatorFixed(operatorNum) {
@@ -1950,6 +2020,8 @@ class FMSynth {
 
 	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
 		this.setClockRate(clockRate);
+		// Generate the table of frequencies in Hertz divided the synth's frequency step.
+		this.tuneMIDINotes(440);
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
 		channelGain.connect(output);
@@ -1961,9 +2033,6 @@ class FMSynth {
 		for (let i = 1024; i < 2047; i++) {
 			dbCurve[i] = logToLinear(i - 1023);
 		}
-
-		// Table of frequencies in Hertz divided the synth's frequency step.
-		this.noteFrequencies = this.tunedMIDINotes(440);
 
 		// Used by the operators to remove the DC offset inherent in certain wave shapes.
 		this.dcOffset = new ConstantSourceNode(context);
@@ -2046,6 +2115,9 @@ class FMSynth {
 		this.dacRegister = dacRegister;
 	}
 
+	/**Configures internal timings, etc. to match the real chip's behaviour in different
+	 * settings such as PAL versus NTSC game consoles.
+	 */
 	setClockRate(clockRate) {
 		this.envelopeTick = 72 * 6 / clockRate;
 		this.lfoRateMultiplier = clockRate / 8000000;
@@ -2182,17 +2254,21 @@ class FMSynth {
 		this.channelGain[method](level / this.channels.length, time);
 	}
 
-	/**Calculates frequency data for a scale of 128 MIDI notes. The results are expressed in
-	 * terms of the YM2612's block and frequency number notation.
+	/**Calculates frequency data for a scale of 128 MIDI notes.
 	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
+	 * @param {number} octaveStretch For example, 2 would generate a quarter note scale.
+	 * @param {number} offsets A pattern of offsets from the normal scale, in cents. The
+	 * pattern will be repeated up and down the keyboard from C.
 	 */
-	tunedMIDINotes(a4Pitch = 440) {
+	tuneMIDINotes(a4Pitch = 440, octaveStretch = 1, offsets = [0]) {
 		const frequencyData = new Array(128);
+		const notesInScale = 12 * octaveStretch;
 		for (let i = 0; i < 128; i++) {
-			const frequency = a4Pitch * (2 ** ((i - 69) / 12));
+			const offset = offsets[i % offsets.length] / 100;
+			const frequency = a4Pitch * (2 ** ((i - 69 + offset) / notesInScale));
 			frequencyData[i] = frequency / this.frequencyStep;
 		}
-		return frequencyData;
+		this.noteFrequencies = frequencyData;
 	}
 
 }
@@ -2205,6 +2281,42 @@ class TwoOperatorChannel {
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
 		this.detune = 0;	// 1:1 with non-detuned frequency
+	}
+
+	copyOperator(from, to) {
+		const parent = this.parentChannel;
+		const effectiveFrom = this.operatorOffset + from;
+		const effectiveTo = this.operatorOffset + to;
+		const fromOperator = parent.getOperator(effectiveFrom);
+		const toOperator = parent.getOperator(effectiveTo);
+		fromOperator.copyTo(toOperator);
+
+		let block = parent.getFrequencyBlock(effectiveFrom);
+		let freqNum = parent.getFrequencyNumber(effectiveFrom);
+		const multiple = parent.getFrequencyMultiple(effectiveFrom);
+		const fixedFrequency = parent.isOperatorFixed(effectiveFrom);
+
+		if (to !== 2 || fixedFrequency) {
+			parent.freqBlockNumbers[effectiveTo - 1] = block;
+			parent.frequencyNumbers[effectiveTo - 1] = freqNum;
+		}
+		parent.setFrequencyMultiple(effectiveTo, multiple);
+		parent.fixedFrequency[effectiveTo - 1] = fixedFrequency;
+
+		if (fixedFrequency) {
+			toOperator.setFrequency(block, freqNum, 1);
+			if (to === 2) {
+				this.setFrequency(block, freqNum);
+			}
+		} else {
+			block = parent.getFrequencyBlock(this.operatorOffset + 2);
+			freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
+			toOperator.setFrequency(block, freqNum, multiple);
+		}
+
+		const velocitySensitivity = parent.getKeyVelocitySensitivity(effectiveFrom);
+		parent.setKeyVelocitySensitivity(effectiveTo, velocitySensitivity.min, velocitySensitivity.max);
+		parent.setOperatorDelay(effectiveTo, parent.getOperatorDelay(effectiveFrom));
 	}
 
 	getOperator(operatorNum) {
@@ -2264,8 +2376,29 @@ class TwoOperatorChannel {
 		this.parentChannel.enableOperator(this.operatorOffset + operatorNum);
 	}
 
-	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
-		this.parentChannel.fixFrequency(this.operatorOffset + operatorNum, fixed, time, preserve, method);
+	fixFrequency(operatorNum, fixed, time = undefined, method = 'setValueAtTime') {
+		const parent = this.parentChannel;
+		const effectiveOperatorNum = this.operatorOffset + operatorNum;
+		const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
+		const block = parent.getFrequencyBlock(this.operatorOffset + 2);
+		const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
+
+		if (fixed) {
+			if (!parent.isOperatorFixed(effectiveOperatorNum) &&
+				(operatorNum !== 1 || parent.isOperatorFixed(this.operatorOffset))
+			) {
+				// Turn a frequency multiple into a fixed frequency.
+				const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
+				[block, freqNum] = fullFreqToComponents(fullFreqNumber);
+				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
+				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
+			}
+		} else if (time !== undefined) {
+			// Restore a multiple of Operator 2's frequency.
+			const operator = parent.getOperator(effectiveOperatorNum);
+			operator.setFrequency(block, freqNum, multiple, time, method);
+		}
+		parent.fixedFrequency[effectiveOperatorNum - 1] = fixed;
 	}
 
 	isOperatorFixed(operatorNum) {
@@ -2282,8 +2415,8 @@ class TwoOperatorChannel {
 				parent.getOperator(operatorNum).setFrequency(blockNumber, frequencyNumber, multiple, time, method);
 			}
 		}
-		parent.freqBlockNumbers[offset] = blockNumber;
-		parent.frequencyNumbers[offset] = frequencyNumber;
+		parent.freqBlockNumbers[offset + 1] = blockNumber;
+		parent.frequencyNumbers[offset + 1] = frequencyNumber;
 	}
 
 	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {

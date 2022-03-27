@@ -11,17 +11,23 @@ Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
+Bug: feedback path shouldn't go through the envelope
+Bug: re-enabling a modulator doesn't work until the waveform is changed
 Ability to copy settings from one operator to another
+Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
-Ability to make parameters velocity sensitive (E.g. vibrato depth?)
+OPL style sustain on/off switch
+Ability to make parameters velocity sensitive (e.g. envelope speed, filter envelope amount, LFO effects?)
+choice of oscillator free running or not? Affected by pitch envelope on/off
+envelopes synced to tempo?
 
 Noise/S&H/sample as LFO source?
 Level scaling (per operator)
 glide
 
 Add panning to PSG (like Sega Game Gear?)
-White noise as a modulator
+White noise as a modulator (through filter + resonance?)
 
 OPL2/3-like features
 	Compatibility
@@ -44,7 +50,7 @@ Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 		No vibrato applied
 
-Microtuning?
+Microtuning (offsets for PSG, randomization/analog?)
 
 UI
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
