@@ -1948,7 +1948,7 @@ class Channel {
 				let totalLevel = minLevel +
 					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
 				totalLevel = 127 - totalLevel;
-				this.operators[i].setTotalLevel(totalLevel, time);
+				this.operators[i].setTotalLevel(totalLevel, time, method);
 			}
 		}
 	}
@@ -2661,7 +2661,7 @@ class TwoOperatorChannel {
 				let totalLevel = minLevel +
 					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
 				totalLevel = 127 - totalLevel;
-				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time);
+				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time, method);
 			}
 		}
 	}

@@ -39,7 +39,7 @@ Other Standard Note Effects
 	Funk Loop
 
 Other Note Effects
-	Operator Modulation Depth Bend
+	Operator Modulation Depth Bend?
 
 Macros
 	Operator ratio

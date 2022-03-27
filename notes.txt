@@ -11,15 +11,17 @@ Bug: mixPCM doesn't support 2-op channels
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
+Bug: feedback needs to be scaled by pitch
 Bug: feedback path shouldn't go through the envelope
+Bug: pitch bend needs to account for feedback
+
 Bug: re-enabling a modulator doesn't work until the waveform is changed
-Ability to copy settings from one operator to another
+
 Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
-OPL style sustain on/off switch
 Ability to make parameters velocity sensitive (e.g. envelope speed, filter envelope amount, LFO effects?)
-choice of oscillator free running or not? Affected by pitch envelope on/off
+Individual oscillator affected by pitch envelope on/off?
 envelopes synced to tempo?
 
 Noise/S&H/sample as LFO source?
@@ -42,7 +44,8 @@ Amplitude Bend
 Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
 	Auto Wah
 
-Feedback amount envelope
+Feedback amount envelope (or bend?)
+	Looping bends?
 
 Delay/Chorus unit
 
