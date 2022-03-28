@@ -1,9 +1,10 @@
-import {FMSynth, CLOCK_RATE} from './opn2.js';
+import {ClockRate} from './common.js';
+import {FMSynth} from './opn2.js';
 import {PSG, CLOCK_RATIO} from './psg.js';
 
 export default class GenesisSound {
 
-	constructor(context, output = context.destination, ymClockRate = CLOCK_RATE.PAL, psgClockRate = ymClockRate / CLOCK_RATIO) {
+	constructor(context, output = context.destination, ymClockRate = ClockRate.PAL, psgClockRate = ymClockRate / CLOCK_RATIO) {
 		this.cutoff = 4000;
 		this.resonance = 0;
 		const filter = new BiquadFilterNode(context, {frequency: this.cutoff, Q: this.resonance});

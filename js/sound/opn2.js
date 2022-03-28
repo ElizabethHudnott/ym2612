@@ -1,5 +1,5 @@
 import {
-	TIMER_IMPRECISION, NEVER, CLOCK_RATE, LFO_FREQUENCIES, VIBRATO_PRESETS
+	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
 let supportsCancelAndHold;
@@ -2007,7 +2007,7 @@ class Channel {
 
 class FMSynth {
 
-	constructor(context, output = context.destination, numChannels = 6, clockRate = CLOCK_RATE.PAL) {
+	constructor(context, output = context.destination, numChannels = 6, clockRate = ClockRate.PAL) {
 		this.setClockRate(clockRate);
 		// Generate the table of frequencies in Hertz divided the synth's frequency step.
 		this.tuneMIDINotes(440);
@@ -2686,8 +2686,8 @@ class TwoOperatorChannel {
 
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
-	logToLinear, linearToLog,
-	DETUNE_AMOUNTS, TREMOLO_PRESETS, CLOCK_RATE
+	logToLinear, linearToLog, cancelAndHoldAtTime,
+	DETUNE_AMOUNTS, TREMOLO_PRESETS
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,

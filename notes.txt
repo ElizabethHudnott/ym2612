@@ -17,6 +17,7 @@ Bug: pitch bend needs to account for feedback
 
 Bug: re-enabling a modulator doesn't work until the waveform is changed
 
+Bug: glitchy tremolo and slow fade in of vibrato
 Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)

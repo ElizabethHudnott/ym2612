@@ -1,4 +1,5 @@
-import {logToLinear, linearToLog} from './opn2.js';
+import {logToLinear, cancelAndHoldAtTime} from './opn2.js';
+import {ClockRate} from './common.js';
 
 class Point {
 	constructor(time, value) {
@@ -103,18 +104,46 @@ class Bend {
 
 				} else if (this.isExponential) {
 
-					const timeConstant = (time[endStep] - time[startStep]) / Bend.NUM_TIME_CONSTANTS;
-					param.setTargetAtTime(
-						encodedValue,
-						startTime + time[startStep],
-						timeConstant
-					);
-					if (endStep > maxSteps) {
-						const value = to + (from - to) *
-							Math.exp((time[startStep] - time[maxSteps]) / timeConstant);
-						encodedValue = this.encodeValue(value, initialValue);
-						param.setValueAtTime(encodedValue, startTime + time[maxSteps]);
-						return;
+					const duration = time[endStep] - time[startStep];
+
+					if (to > from) {
+
+						let encodedFrom = this.encodeValue(from, initialValue);
+						if (encodedFrom === 0) {
+							encodedFrom = this.minNonZero;
+						}
+						param.setValueAtTime(encodedFrom, startTime + time[startStep]);
+
+						if (encodedValue === 0) {
+							encodedValue = -this.minNonZero;
+							param.setValueAtTime(encodedValue, startTime + time[endStep]);
+						}
+
+						param. exponentialRampToValueAtTime(encodedValue, startTime + time[endStep]);
+
+						if (endStep > maxSteps) {
+							const value = encodedFrom * (encodedValue / encodedFrom) **
+								((time[maxSteps] - time[startStep]) / duration);
+							cancelAndHoldAtTime(param, value, startTime + time[maxSteps]);
+							return;
+						}
+
+					} else {
+
+						const timeConstant = duration / Bend.NUM_TIME_CONSTANTS;
+						param.setTargetAtTime(
+							encodedValue,
+							startTime + time[startStep],
+							timeConstant
+						);
+						if (endStep > maxSteps) {
+							const value = to + (from - to) *
+								Math.exp((time[startStep] - time[maxSteps]) / timeConstant);
+							encodedValue = this.encodeValue(value, initialValue);
+							param.setValueAtTime(encodedValue, startTime + time[maxSteps]);
+							return;
+						}
+
 					}
 
 				} else {
@@ -222,6 +251,11 @@ class PitchBend extends Bend {
 		return startFrequency * 2 ** (semitones / 12);
 	}
 
+	get minNonZero() {
+		// Assume PAL
+		return ClockRate.PAL / (144 * 2 * 20);
+	}
+
 }
 
 class VolumeAutomation extends Bend {
@@ -246,6 +280,10 @@ class VolumeAutomation extends Bend {
 
 	encodeValue(volume) {
 		return logToLinear(Math.round(volume * 1023 / 63));
+	}
+
+	get minNonZero() {
+		return 2 ** (-10 * 1023 / 1024);
 	}
 
 }

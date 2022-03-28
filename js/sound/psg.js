@@ -1,5 +1,5 @@
 import {
-	decibelReductionToAmplitude, amplitudeToDecibels, CLOCK_RATE as OPN_CLOCK_RATE,
+	decibelReductionToAmplitude, amplitudeToDecibels, ClockRate as OPNClockRate,
 	LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
 
@@ -11,12 +11,12 @@ for (let i = 0; i <= 28; i++) {
 AMPLITUDES[29] = 0.5 * AMPLITUDES[28];
 AMPLITUDES[30] = 0;
 
-const CLOCK_RATE = {
+const ClockRate = {
 	PAL: 	3546893,
 	NTSC: 	3579545
 }
 
-const CLOCK_RATIO = OPN_CLOCK_RATE.NTSC / CLOCK_RATE.NTSC;
+const CLOCK_RATIO = OPNClockRate.NTSC / ClockRate.NTSC;
 
 const TREMOLO_PRESETS = [0, 1, 3, 6];
 
@@ -340,7 +340,7 @@ class ToneChannel {
 
 class PSG {
 
-	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = CLOCK_RATE.PAL, callback = undefined) {
+	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = ClockRate.PAL, callback = undefined) {
 		this.setClockRate(context, clockRate);
 		this.tuneMIDINotes(440);
 
@@ -508,5 +508,5 @@ class PSG {
 
 export {
 	PSG, NoiseChannel, ToneChannel,
-	TREMOLO_PRESETS, CLOCK_RATE, CLOCK_RATIO
+	TREMOLO_PRESETS, ClockRate, CLOCK_RATIO
 }
