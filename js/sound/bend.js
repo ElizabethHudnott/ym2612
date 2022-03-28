@@ -1,5 +1,4 @@
 import {logToLinear, cancelAndHoldAtTime} from './opn2.js';
-import {ClockRate} from './common.js';
 
 class Point {
 	constructor(time, value) {
@@ -215,6 +214,10 @@ class Bend {
 		return true;
 	}
 
+	get allowSmmoth() {
+		return true;
+	}
+
 	get allowStepped() {
 		return false;
 	}
@@ -252,8 +255,7 @@ class PitchBend extends Bend {
 	}
 
 	get minNonZero() {
-		// Assume PAL
-		return ClockRate.PAL / (144 * 2 * 20);
+		return 2;	// in Hertz
 	}
 
 }

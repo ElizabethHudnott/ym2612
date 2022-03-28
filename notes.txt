@@ -14,10 +14,10 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 Bug: feedback needs to be scaled by pitch
 Bug: feedback path shouldn't go through the envelope
 Bug: pitch bend needs to account for feedback
+Bug?: slow fade in of vibrato
 
 Bug: re-enabling a modulator doesn't work until the waveform is changed
 
-Bug: glitchy tremolo and slow fade in of vibrato
 Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
