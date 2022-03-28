@@ -1252,6 +1252,11 @@ const TWO_OP_ALGORITHMS = [
 // 0db, 1.4db, 5.9db, 11.8db
 const TREMOLO_PRESETS = [0, -15, -63, -126].map(x => x / 1023);
 
+const ENVELOPE_TYPE = Object.freeze({
+	'DELAY_ATTACK': 0,
+	'HOLD_DECAY': 1,
+});
+
 function indexOfGain(modulatorOpNum, carrierOpNum) {
 	if (modulatorOpNum === carrierOpNum) {
 		switch (modulatorOpNum) {
@@ -1295,7 +1300,8 @@ class Channel {
 		const lfoEnvelope = new GainNode(context);
 		this.lfoEnvelope = lfoEnvelope;
 		this.lfoDelay = 0;
-		this.lfoAttack = 0;
+		this.lfoFadeTime = 0;
+		this.lfoEnvelopeType = ENVELOPE_TYPE.DELAY_ATTACK;
 
 		const op1 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
 		const op2 = new FMOperator(this, context, lfoEnvelope, shaper, dbCurve);
@@ -1740,20 +1746,28 @@ class Channel {
 		return this.vibratoEnabled[operatorNum - 1];
 	}
 
-	setLFODelay(seconds) {
+	setLFODelayOrHold(seconds) {
 		this.lfoDelay = seconds;
 	}
 
-	getLFODelay() {
+	getLFODelayOrHold() {
 		return this.lfoDelay;
 	}
 
-	setLFOAttack(seconds) {
-		this.lfoAttack = seconds;
+	setLFOFadeTime(seconds) {
+		this.lfoFadeTime = seconds;
 	}
 
-	getLFOAttack() {
-		return this.lfoAttack;
+	getLFOFadeTime() {
+		return this.lfoFadeTime;
+	}
+
+	setLFOEnvelopeType(type) {
+		this.lfoEnvelopeType = type;
+	}
+
+	getLFOEnvelopeType() {
+		return this.lfoEnvelopeType;
 	}
 
 	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
@@ -1831,10 +1845,11 @@ class Channel {
 		}
 
 		const envelope = this.lfoEnvelope.gain;
-		cancelAndHoldAtTime(envelope, 0, time);
+		const initialAmplitude = this.lfoEnvelopeType;	// 0 or 1
+		cancelAndHoldAtTime(envelope, initialAmplitude, time);
 		const endDelay = time + this.lfoDelay;
-		envelope.setValueAtTime(0, endDelay)
-		envelope.linearRampToValueAtTime(1, endDelay + this.lfoAttack);
+		envelope.setValueAtTime(initialAmplitude, endDelay)
+		envelope.linearRampToValueAtTime(1 - initialAmplitude, endDelay + this.lfoFadeTime);
 	}
 
 	applyLFO(time) {
@@ -2683,7 +2698,7 @@ class TwoOperatorChannel {
 export {
 	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
 	logToLinear, linearToLog,
-	DETUNE_AMOUNTS, TREMOLO_PRESETS, CLOCK_RATE
+	DETUNE_AMOUNTS, TREMOLO_PRESETS, ENVELOPE_TYPE, CLOCK_RATE
 };
 
 const ATTACK_TARGET = [1032.48838867428, 1032.48838867428, 1032.48838867428,
