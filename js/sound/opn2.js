@@ -1834,7 +1834,7 @@ class Channel {
 		}
 
 		const envelope = this.lfoEnvelope.gain;
-		const initialAmplitude = this.lfoFade > 0 ? 0 : 1;
+		const initialAmplitude = this.lfoFade >= 0 ? 0 : 1;
 		cancelAndHoldAtTime(envelope, initialAmplitude, time);
 		const endDelay = time + this.lfoDelay;
 		envelope.setValueAtTime(initialAmplitude, endDelay)

@@ -24,6 +24,7 @@ Ability to make parameters velocity sensitive (e.g. envelope speed, filter envel
 Individual oscillator(?): envelope reset on/off, free running on/off, affected by pitch envelope on/off?
 envelopes synced to tempo?
 
+Algorithm matrix: when an operator is routed two different ways, should it use the same envelope?
 Noise/S&H/sample as LFO source?
 Level scaling (per operator)
 glide
