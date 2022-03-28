@@ -309,7 +309,7 @@ document.getElementById('lfo-delay-slider').addEventListener('input', function (
 	initialize();
 	const value = parseFloat(this.value);
 	document.getElementById('lfo-delay').value = value;
-	channel.setLFODelayOrHold(value);
+	channel.setLFODelay(value);
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
@@ -317,7 +317,7 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		document.getElementById('lfo-delay-slider').value = value;
-		channel.setLFODelayOrHold(value);
+		channel.setLFODelay(value);
 	}
 });
 
@@ -325,7 +325,7 @@ document.getElementById('lfo-fade-slider').addEventListener('input', function (e
 	initialize();
 	const value = parseFloat(this.value);
 	document.getElementById('lfo-fade').value = value;
-	channel.setLFOFadeTime(value);
+	channel.setLFOFade(value);
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
@@ -333,7 +333,7 @@ document.getElementById('lfo-fade').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		document.getElementById('lfo-fade-slider').value = value;
-		channel.setLFOFadeTime(value);
+		channel.setLFOFade(value);
 	}
 });
 

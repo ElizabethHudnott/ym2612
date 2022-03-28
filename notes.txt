@@ -21,7 +21,7 @@ Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
 Ability to make parameters velocity sensitive (e.g. envelope speed, filter envelope amount, LFO effects?)
-Individual oscillator affected by pitch envelope on/off?
+Individual oscillator(?): envelope reset on/off, free running on/off, affected by pitch envelope on/off?
 envelopes synced to tempo?
 
 Noise/S&H/sample as LFO source?
