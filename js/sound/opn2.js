@@ -674,10 +674,13 @@ class Operator {
 		this.frequency =
 			channel.synth.frequencyStep *
 			componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
-		const frequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
+		const centreFrequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
+		const frequencyNode = new ConstantSourceNode(context, {offset: 0});
+		centreFrequencyNode.connect(frequencyNode.offset);
 
+		this.centreFrequencyNode = centreFrequencyNode;
 		this.frequencyNode = frequencyNode;
-		this.frequencyParam = frequencyNode.offset;
+		this.frequencyParam = centreFrequencyNode.offset;
 
 		const tremolo = new GainNode(context);
 		this.tremoloNode = tremolo;
@@ -723,6 +726,7 @@ class Operator {
 	 * Operators are normally started by calling start() on an instance of {@link FMSynth}.
 	 */
 	start(time) {
+		this.centreFrequencyNode.start(time);
 		this.frequencyNode.start(time);
 		this.envelope.start(time);
 	}
@@ -732,8 +736,10 @@ class Operator {
 	 */
 	stop(time = 0) {
 		this.stopOscillator(time);
+		this.centreFrequencyNode.stop(time);
 		this.frequencyNode.stop(time);
 		this.envelope.stop(time);
+		this.centreFrequencyNode = undefined;
 		this.frequencyNode = undefined;
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
@@ -1057,8 +1063,9 @@ class FMOperator extends Operator {
 		this.oscillator2 = undefined;
 		this.oscillatorConfig = channel.synth.oscillatorConfigs[0];
 
-		const fmModAmp = new GainNode(context, {gain: 440});
-		fmModAmp.connect(this.frequencyParam);
+		const fmModAmp = new GainNode(context, {gain: 0});
+		this.centreFrequencyNode.connect(fmModAmp.gain);
+		fmModAmp.connect(this.frequencyNode.offset);
 		this.fmModAmp = fmModAmp;
 
 		const vibratoGain = new GainNode(context, {gain: 0});
@@ -1153,11 +1160,6 @@ class FMOperator extends Operator {
 
 	connectIn(source) {
 		source.connect(this.fmModAmp);
-	}
-
-	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
-		super.setFrequency(blockNumber, frequencyNumber, frequencyMultiple, time, method);
-		this.fmModAmp.gain[method](this.frequency, time);
 	}
 
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {

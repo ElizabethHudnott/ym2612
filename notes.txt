@@ -18,6 +18,9 @@ Bug?: slow fade in of vibrato
 
 Bug: re-enabling a modulator doesn't work until the waveform is changed
 
+Ability to add/subtract from modulation depth (for 0Hz carriers)
+Operator ratio bend
+	Separate ratio node
 Operator frequency offset in Hz
 General envelope speed parameter
 Envelope trigger method (regardless of key currently on or off)
