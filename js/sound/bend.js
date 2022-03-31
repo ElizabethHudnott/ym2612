@@ -16,6 +16,7 @@ const IntervalType = Object.freeze({
 class Bend {
 
 	static NUM_TIME_CONSTANTS = 4;
+	static STEP_OPTIONS = [1];
 
 	constructor(initialValue, stepResolutionOption = 0) {
 		this.points = [ new Point(0, initialValue) ];
@@ -222,6 +223,10 @@ class Bend {
 		return false;
 	}
 
+	get stepOptions() {
+		return Bend.STEP_OPTIONS;
+	}
+
 }
 
 class PitchBend extends Bend {
@@ -262,8 +267,6 @@ class PitchBend extends Bend {
 
 class VolumeAutomation extends Bend {
 
-	static STEP_OPTIONS = [1];
-
 	constructor() {
 		super(1);
 	}
@@ -276,10 +279,6 @@ class VolumeAutomation extends Bend {
 		return 63;	// Amiga style volume measurement
 	}
 
-	get stepOptions() {
-		return VolumeBend.STEP_OPTIONS;
-	}
-
 	encodeValue(volume) {
 		return logToLinear(Math.round(volume * 1023 / 63));
 	}
@@ -290,4 +289,28 @@ class VolumeAutomation extends Bend {
 
 }
 
-export {PitchBend, VolumeAutomation};
+class AttenuationAutomation extends Bend {
+
+	constructor() {
+		super(127);
+	}
+
+	get isExponential() {
+		return false;
+	}
+
+	get min() {
+		return 0;
+	}
+
+	get max() {
+		return 127;
+	}
+
+	encodeValue(totalLevel) {
+		return -totalLevel / 128;
+	}
+
+}
+
+export {PitchBend, VolumeAutomation, AttenuationAutomation};

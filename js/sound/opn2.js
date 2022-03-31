@@ -19,8 +19,8 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 const ATTENUATION_BITS = 10;
 
 /**
- * @param {number} x A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest, inverted
- * polarity).
+ * @param {number} x A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest,
+ * inverted polarity).
  * @return {number} A number in the range 1 (loudest) to 0 (silence) to -1 (loudest, inverted
  * polarity).
  */
@@ -187,6 +187,7 @@ class Envelope {
 
 		const totalLevelNode = new ConstantSourceNode(context, {offset: 0});
 		this.totalLevelNode = totalLevelNode;
+		this.totalLevelParam = totalLevelNode.offset;
 		const shaper = new WaveShaperNode(context, {curve: dbCurve});
 		this.shaper = shaper;
 		gainNode.connect(shaper);
@@ -963,6 +964,13 @@ class Operator {
 		this.envelope.setSSG(mode);
 	}
 
+	attentuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
+		const envelope = this.envelope;
+		envelope.setAttack(31);
+		envelope.setDecay(0);
+		automation.execute(envelope.totalLevelParam, release, startTime, timesPerStep, maxSteps);
+	}
+
 }
 
 class OscillatorConfig {
@@ -1621,10 +1629,6 @@ class Channel {
 		}
 	}
 
-	volumeAutomation(automation, release, startTime, timesPerStep, maxSteps = bend.getLength(release)) {
-		automation.execute(this.volumeControl, release, startTime, timesPerStep, maxSteps);
-	}
-
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		this.fixedFrequency[operatorNum - 1] = true;
 		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
@@ -1999,6 +2003,10 @@ class Channel {
 
 	isMuted() {
 		return this.muteControl.value === 0;
+	}
+
+	volumeAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
+		automation.execute(this.volumeControl, release, startTime, timesPerStep, maxSteps);
 	}
 
 	get numberOfOperators() {
