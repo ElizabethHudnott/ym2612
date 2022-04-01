@@ -86,7 +86,7 @@ function frequencyToNote(block, frequencyNum, notes, detune) {
 	return lb;
 }
 
-const ENV_INCREMENT_MOD = [0, 0, 4, 4, 4, 4, 6, 6];
+const ENV_INCREMENT_MOD = [0, 3, 4, 4, 4, 4, 6, 6];
 for (let i = 8; i < 60; i++) {
 	ENV_INCREMENT_MOD[i] = (i % 4) + 4;
 }
@@ -99,6 +99,17 @@ const ENV_INCREMENT = new Array(64);
 for (let i = 0; i <= 63; i++) {
 	const power = Math.trunc(i / 4) - 14;
 	ENV_INCREMENT[i] =  ENV_INCREMENT_MOD[i] * (2 ** power);
+}
+
+function rateAdjustment(keyCode, scaling) {
+	if (scaling === 0) {
+		return 0;
+	}
+	if (scaling < 0) {
+		keyCode = 31 - keyCode;
+		scaling = -scaling;
+	}
+	return Math.trunc(keyCode / 2 ** (4 - scaling));
 }
 
 async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
@@ -195,12 +206,13 @@ class Envelope {
 		shaper.connect(output.gain);
 
 		this.totalLevel = 0;
-		this.rateScaling = 0;
+		this.rateScaling = 1;
 		this.attackRate = 16;
 		this.decayRate = 0;
 		this.sustainRate = 0;
 		this.releaseRate = 17;
 		this.sustain = 1023;	// Already converted into an attenuation value.
+		this.envelopeRate = 1;
 
 		// Values stored during key on.
 		this.beginLevel = 0;
@@ -265,6 +277,12 @@ class Envelope {
 		return this.totalLevel;
 	}
 
+	/**
+	 * @param {number} amount 1..4 correspond to 0..3 on 4 operator Yamaha chips.
+	 * For positive values the envelope runs faster for higher pitches and slower for lower ones.
+	 * For negative values the envelope runs faster for lower pitches and slower for higher ones.
+	 * Setting to 0 applies no rate scaling at all.
+	 */
 	setRateScaling(amount) {
 		this.rateScaling = amount;
 	}
@@ -333,13 +351,23 @@ class Envelope {
 			this.inverted = false;
 			this.jump = false;
 			this.looping = false;
+			this.envelopeRate = 1;
 		} else {
 			mode -= 8;
 			this.ssgEnabled = true;
 			this.inverted = mode >= 4;
 			this.jump = [0, 3, 4, 7].includes(mode);
 			this.looping = mode % 2 === 0;
+			this.envelopeRate = 6;
 		}
+	}
+
+	setEnvelopeRate(rate) {
+		this.envelopeRate = rate;
+	}
+
+	getEnvelopeRate() {
+		return this.envelopeRate;
 	}
 
 	/**
@@ -354,11 +382,11 @@ class Envelope {
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(context, operator, time) {
-		const rateAdjust = Math.trunc(operator.keyCode / 2 ** (3 - this.rateScaling));
+		const rateAdjust = rateAdjustment(operator.keyCode, this.rateScaling);
 		const tickRate = this.channel.synth.envelopeTick;
 		const gain = this.gain;
 		const invert = this.inverted;
-		const ssgScale = this.ssgEnabled ? 6 : 1;
+		const envelopeRate = this.envelopeRate;
 
 		let beginLevel = 0;
 		const endRelease = this.endRelease;
@@ -386,7 +414,7 @@ class Envelope {
 			if (this.attackRate === 0) {
 				attackRate = 0;
 			} else {
-				attackRate = Math.min(Math.round(2 * this.attackRate) + rateAdjust, 63);
+				attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
 			}
 			if (attackRate <= 1) {
 				// Level never rises
@@ -483,7 +511,7 @@ class Envelope {
 			return;
 		}
 
-		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / ssgScale;
+		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / envelopeRate;
 		const endDecay = endAttack + decay;
 		const sustain = invert ? 1023 - this.sustain : this.sustain;
 		let finalValue = invert ? 1 : 0
@@ -503,7 +531,7 @@ class Envelope {
 		} else {
 
 			// Sustain phase
-			const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / ssgScale;
+			const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / envelopeRate;
 			endSustain += sustainTime;
 			gain.linearRampToValueAtTime(finalValue, endSustain);
 
@@ -603,9 +631,9 @@ class Envelope {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
 		}
-		const rateAdjust = Math.trunc(operator.keyCode / 2 ** (3 - this.rateScaling));
-		const ssgScale = this.ssgEnabled ? 6 : 1;
-		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / ssgScale;
+		const rateAdjust = rateAdjustment(operator.keyCode, this.rateScaling);
+		const envelopeRate = this.envelopeRate;
+		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / envelopeRate;
 		const gain = this.gain;
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
@@ -962,6 +990,14 @@ class Operator {
 
 	setSSG(mode) {
 		this.envelope.setSSG(mode);
+	}
+
+	setEnvelopeRate(rate) {
+		this.envelope.setEnvelopeRate(rate);
+	}
+
+	getEnvelopeRate() {
+		return this.envelope.getEnvelopeRate();
 	}
 
 	attentuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
