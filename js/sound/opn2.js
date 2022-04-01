@@ -2260,15 +2260,44 @@ class FMSynth {
 	 * @param {number} interval The default value 2, separates consecutive copies of the root
 	 * note by a 2:1 frequency ratio (an octave).
 	 * @param {number} divisions How many notes the (chromatic) scale should have.
-	 * @param {number} offsets A pattern of offsets from the normal scale, in cents. The
-	 * pattern will be repeated up and down the keyboard from C.
+	 * @param {number} step A pattern of scale division increments used to move from one
+	 * keyboard key to the next. The pattern will be repeated up and down the keyboard from
+	 * Middle C.
+	 * Examples:
+	 * [1] A normal equal tempered scale.
+	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
+	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
+	 * scale.
+	 * [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0] Equal tempered notes on the black keys only. White
+	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
+	 * scale.
+	 *
 	 */
-	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12, offsets = [0]) {
+	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12, steps = [1]) {
 		const frequencyData = new Array(128);
-		for (let i = 0; i < 128; i++) {
-			const offset = offsets[i % offsets.length] / 100;
-			const frequency = a4Pitch * (interval ** ((i - 69 + offset) / divisions));
+		const numIntervals = steps.length;
+		let a4NoteNumber = 60;
+		for (let i = 0; i < 9; i++) {
+			a4NoteNumber += steps[i % numIntervals];
+		}
+		let noteNumber = 60;
+		let stepIndex = 0;
+		for (let i = 60; i < 128; i++) {
+			const frequency = a4Pitch * (interval ** ((noteNumber - a4NoteNumber) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
+			noteNumber  += steps[stepIndex];
+			stepIndex = (stepIndex + 1) % numIntervals;
+		}
+		noteNumber = 60;
+		stepIndex = numIntervals - 1;
+		for (let i = 59; i >= 0; i--) {
+			noteNumber -= steps[stepIndex];
+			const frequency = a4Pitch * (interval ** ((noteNumber - a4NoteNumber) / divisions));
+			frequencyData[i] = frequency / this.frequencyStep;
+			stepIndex--;
+			if (stepIndex < 0) {
+				stepIndex = numIntervals - 1;
+			}
 		}
 		this.noteFrequencies = frequencyData;
 	}

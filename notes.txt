@@ -59,7 +59,7 @@ Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 		No vibrato applied
 
-Microtuning (offsets for PSG, randomization/analog?)
+Microtuning (step offsets for PSG, randomization/analog?)
 
 UI
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
