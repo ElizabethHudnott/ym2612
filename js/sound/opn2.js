@@ -1089,7 +1089,7 @@ class FMOperator extends Operator {
 		operator.oscillatorConfig = this.oscillatorConfig;
 	}
 
-	newOscillator(context, time = 0) {
+	newOscillator(context, time) {
 		const config = this.oscillatorConfig;
 
 		let oscillator1;
@@ -1190,8 +1190,10 @@ class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, oscillatorConfig, time) {
-		if (oscillatorConfig == undefined) throw new Error('Parameters: setWaveform(context, oscillatorConfig, time = 0)');
+	setWaveform(context, oscillatorConfig, time = context.currentTime + TIMER_IMPRECISION) {
+		if (oscillatorConfig == undefined) {
+			throw new Error('Parameters: setWaveform(context, oscillatorConfig, ?time');
+		}
 		this.oscillatorConfig = oscillatorConfig;
 		this.channel.newOscillators(context, time);
 	}
@@ -2255,16 +2257,17 @@ class FMSynth {
 
 	/**Calculates frequency data for a scale of 128 MIDI notes.
 	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
-	 * @param {number} octaveStretch For example, 2 would generate a quarter note scale.
+	 * @param {number} interval The default value 2, separates consecutive copies of the root
+	 * note by a 2:1 frequency ratio (an octave).
+	 * @param {number} divisions How many notes the (chromatic) scale should have.
 	 * @param {number} offsets A pattern of offsets from the normal scale, in cents. The
 	 * pattern will be repeated up and down the keyboard from C.
 	 */
-	tuneMIDINotes(a4Pitch = 440, octaveStretch = 1, offsets = [0]) {
+	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12, offsets = [0]) {
 		const frequencyData = new Array(128);
-		const notesInScale = 12 * octaveStretch;
 		for (let i = 0; i < 128; i++) {
 			const offset = offsets[i % offsets.length] / 100;
-			const frequency = a4Pitch * (2 ** ((i - 69 + offset) / notesInScale));
+			const frequency = a4Pitch * (interval ** ((i - 69 + offset) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 		}
 		this.noteFrequencies = frequencyData;

@@ -447,14 +447,13 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tuneMIDINotes(a4Pitch = 440, octaveStretch = 1) {
+	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
-		const notesInScale = 12 * octaveStretch;
-		const step = 2 ** (1 / notesInScale);
+		const step = interval ** (1 / divisions);
 		let prevFreqNum, prevIdealFrequency;
 		for (let i = 0; i < 128; i++) {
-			const idealFrequency = a4Pitch * 2 ** ((i - 69) / notesInScale);
+			const idealFrequency = a4Pitch * interval ** ((i - 69) / divisions);
 			let freqNum = Math.round(this.frequencyToFreqNumber(idealFrequency));
 			const approxFrequency = this.frequencyNumberToHz(freqNum);
 

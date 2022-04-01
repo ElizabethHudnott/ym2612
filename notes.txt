@@ -18,6 +18,7 @@ Bug?: slow fade in of vibrato
 
 Bug: re-enabling a modulator doesn't work until the waveform is changed
 
+Split into separate files: envelope, operator, channel, synth
 Ability to add/subtract from modulation depth (for 0Hz carriers)
 Operator ratio bend
 	Separate ratio node
@@ -30,7 +31,7 @@ envelopes synced to tempo?
 
 Algorithm matrix: when an operator is routed two different ways, should it use the same envelope?
 Noise/S&H/sample as LFO source?
-Level scaling (per operator)
+Level scaling (per operator) (DX7 style? Or SY77?)
 glide
 
 Add panning to PSG (like Sega Game Gear?)
