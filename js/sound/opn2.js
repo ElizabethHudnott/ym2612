@@ -363,11 +363,12 @@ class Envelope {
 	}
 
 	setEnvelopeRate(rate) {
-		this.envelopeRate = rate;
+		this.envelopeRate = rate < 0 ? -1 / rate : rate;
 	}
 
 	getEnvelopeRate() {
-		return this.envelopeRate;
+		const rate = this.envelopeRate;
+		return rate < 1 ? Math.round(-10 / rate) / 10 : rate;
 	}
 
 	/**
@@ -1000,7 +1001,7 @@ class Operator {
 		return this.envelope.getEnvelopeRate();
 	}
 
-	attentuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
+	attenuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
 		const envelope = this.envelope;
 		envelope.setAttack(31);
 		envelope.setDecay(0);
@@ -1410,9 +1411,13 @@ class Channel {
 		this.vibratoEnabled = [true, true, true, true];
 		this.minKeyVelocity = [127, 127, 127, 127];
 		this.maxKeyVelocity = [127, 127, 127, 127];
+		this.minAttack = new Array(4);
+		this.maxAttack = new Array(4);
 		this.operatorDelay = [0, 0, 0, 0];
+
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
+
 		this.useAlgorithm(7);
 	}
 
@@ -1446,6 +1451,8 @@ class Channel {
 
 		this.minKeyVelocity[to - 1] = this.minKeyVelocity[from - 1];
 		this.maxKeyVelocity[to - 1] = this.maxKeyVelocity[from - 1];
+		this.minAttack[to - 1] = this.minAttack[from - 1];
+		this.maxAttack[to - 1] = this.maxAttack[from - 1];
 		this.operatorDelay[to - 1] = this.operatorDelay[from - 1];
 	}
 
@@ -1974,12 +1981,13 @@ class Channel {
 	/**Invoke directly to apply aftertouch.
 	 */
 	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
+		const velocityFraction = (velocity - 1) / 126;
 		for (let i = 0; i < 4; i++) {
 			const minLevel = this.minKeyVelocity[i];
 			const maxLevel = this.maxKeyVelocity[i];
 			if (minLevel !== maxLevel) {
 				let totalLevel = minLevel +
-					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
+					Math.round(velocityFraction * (maxLevel - minLevel));
 				totalLevel = 127 - totalLevel;
 				this.operators[i].setTotalLevel(totalLevel, time, method);
 			}
@@ -1990,19 +1998,44 @@ class Channel {
 	 * the channel's setModulationDepth() method rather than setTotalLevel().
 	 */
 	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
+		const velocityFraction = (velocity - 1) / 126;
+		for (let i = 0; i < 4; i++) {
+			const minAttack = this.minAttack[i];
+			if (minAttack !== undefined) {
+				const maxAttack = this.maxAttack[i];
+				const attack = minAttack + Math.round(velocityFraction * (maxAttack - minAttack));
+				this.operators[i].setAttack(attack);
+			}
+		}
 		this.setVelocity(velocity, time);
 		this.keyOn(context, time);
 	}
 
-	setKeyVelocitySensitivity(operatorNum, minLevel, maxLevel) {
+	/**Controls velocity sensitivity.
+	 */
+	setDynamics(
+		operatorNum, minLevel, maxLevel = 127, time = 0, minAttack = undefined, maxAttack = this.maxAttack[operatorNum - 1]
+	) {
+		const operator = this.operators[operatorNum - 1];
+		if (minLevel === maxLevel) {
+			operator.setTotalLevel(127 - maxLevel, time);
+		}
 		this.minKeyVelocity[operatorNum - 1] = minLevel;
 		this.maxKeyVelocity[operatorNum - 1] = maxLevel;
+
+		if (maxAttack === undefined) {
+			maxAttack = operator.getAttack();
+		}
+		this.minAttack[operatorNum - 1] = minAttack;
+		this.maxAttack[operatorNum - 1] = maxAttack;
 	}
 
-	getKeyVelocitySensitivity(operatorNum) {
+	getDynamics(operatorNum) {
 		return {
-			min: this.minKeyVelocity[operatorNum - 1],
-			max: this.maxKeyVelocity[operatorNum - 1],
+			minLevel: this.minKeyVelocity[operatorNum - 1],
+			maxLevel: this.maxKeyVelocity[operatorNum - 1],
+			minAttack: this.minAttack[operatorNum - 1],
+			maxAttack: this.maxAttack[operatorNum - 1]
 		}
 	}
 
@@ -2381,8 +2414,11 @@ class TwoOperatorChannel {
 			toOperator.setFrequency(block, freqNum, multiple);
 		}
 
-		const velocitySensitivity = parent.getKeyVelocitySensitivity(effectiveFrom);
-		parent.setKeyVelocitySensitivity(effectiveTo, velocitySensitivity.min, velocitySensitivity.max);
+		const sensitivity = parent.getDynamics(effectiveFrom);
+		parent.setDynamics(
+			effectiveTo, sensitivity.minLevel, sensitivity.maxLevel, 0,
+			sensitivity.minAttack, sensitivity.maxAttack
+		);
 		parent.setOperatorDelay(effectiveTo, parent.getOperatorDelay(effectiveFrom));
 	}
 
@@ -2738,16 +2774,14 @@ class TwoOperatorChannel {
 		this.keyOn(context, time);
 	}
 
-	setKeyVelocitySensitivity(operatorNum, minLevel, maxLevel) {
-		this.parentChannel.setKeyVelocitySensitivity(
-			this.operatorOffset + operatorNum,
-			minLevel,
-			maxLevel
+	setDynamics(operatorNum, minLevel, maxLevel = 127, time = 0, minAttack = undefined, maxAttack = undefined) {
+		this.parentChannel.setDynamics(
+			this.operatorOffset + operatorNum, minLevel, maxLevel, time, minAttack, maxAttack
 		);
 	}
 
-	getKeyVelocitySensitivity(operatorNum) {
-		return this.parentChannel.getKeyVelocitySensitivity(this.operatorOffset + operatorNum);
+	getDynamics(operatorNum) {
+		return this.parentChannel.getDynamics(this.operatorOffset + operatorNum);
 	}
 
 	soundOff(time = 0) {

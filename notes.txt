@@ -15,7 +15,6 @@ Bug: feedback needs to be scaled by pitch
 Bug: feedback path shouldn't go through the envelope
 Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
-
 Bug: re-enabling a modulator doesn't work until the waveform is changed
 
 Split into separate files: envelope, operator, channel, synth
@@ -29,7 +28,6 @@ Ability to make parameters velocity sensitive (e.g. envelope speed, filter envel
 Individual oscillator(?): envelope reset on/off, free running on/off, affected by pitch envelope on/off?
 envelopes synced to tempo?
 
-Algorithm matrix: when an operator is routed two different ways, should it use the same envelope?
 Noise/S&H/sample as LFO source?
 Level scaling (per operator) (DX7 style? Or SY77?)
 glide

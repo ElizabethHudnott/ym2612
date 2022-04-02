@@ -300,11 +300,11 @@ class AttenuationAutomation extends Bend {
 	}
 
 	get min() {
-		return 0;
+		return 127;
 	}
 
 	get max() {
-		return 127;
+		return 0;
 	}
 
 	encodeValue(totalLevel) {
