@@ -44,7 +44,10 @@ class Bend {
 	 * @param {number} [scaling=1] Scales the bend's values (y-axis) before applying them, for
 	 * applying a greater or less extreme bend. Negative values inverts a pitch bend.
 	 */
-	execute(param, release, startTime, timesPerStep, maxSteps, initialValue, scaling = 1, invert = false) {
+	execute(
+		param, release, startTime, timesPerStep, scaling = 1, initialValue = undefined,
+		maxSteps = this.getLength(release),
+	) {
 		const points = this.points;
 		let startStep, firstPointIndex;
 		if (release) {

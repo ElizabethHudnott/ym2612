@@ -1005,7 +1005,9 @@ class Operator {
 		const envelope = this.envelope;
 		envelope.setAttack(31);
 		envelope.setDecay(0);
-		automation.execute(envelope.totalLevelParam, release, startTime, timesPerStep, maxSteps);
+		automation.execute(
+			envelope.totalLevelParam, release, startTime, timesPerStep, 1, undefined, maxSteps
+		);
 	}
 
 }
@@ -1655,20 +1657,31 @@ class Channel {
 	 * slower) or the duration of a tick, in seconds, or an absolute value if you don't want the
 	 * effect tempo synced. Use multiple values to account for a groove or a tempo change and
 	 * the system will rotate through them.
-	 * @param {number} [maxSteps] The maximum number of bend steps to perform. Useful if you
-	 * want to cut the bend short to trigger a new note.
 	 * @param {number} [scaling=1] Scales the bend's values before applying them. Useful for
 	 * making the effect velocity sensitive. Negative values are also supported, in case you
 	 * need to force the bend to head in particular direction without knowing which direction
 	 * that's going to be when you create the bend.
+	 * @param {number} [operatorMask] A number between 1 and 15. Each bit decides whether the
+	 * corresponding operator will have its pitch bent or not.
+	 * @param {number} [maxSteps] The maximum number of bend steps to perform. Useful if you
+	 * want to cut the bend short to trigger a new note.
 	 */
-	pitchBend(bend, release, startTime, timesPerStep, maxSteps = bend.getLength(release), scaling = 1) {
+	pitchBend(
+		bend, release, startTime, timesPerStep, scaling = 1, operatorMask = undefined,
+		maxSteps = bend.getLength(release)
+	) {
+		if (operatorMask === undefined) {
+			operatorMask = 0;
+			for (let i = 0; i < 4; i++) {
+				operatorMask |= (!this.fixedFrequency[i]) << i;
+			}
+		}
 		for (let i = 0; i < 4; i++) {
-			if (!this.fixedFrequency[i]) {
+			if (operatorMask & (1 << i)) {
 				const operator = this.operators[i];
 				bend.execute(
-					operator.frequencyParam, release, startTime, timesPerStep, maxSteps,
-					operator.frequency, scaling
+					operator.frequencyParam, release, startTime, timesPerStep, scaling,
+					operator.frequency, maxSteps
 				);
 			}
 		}
@@ -2076,8 +2089,12 @@ class Channel {
 		return this.muteControl.value === 0;
 	}
 
-	volumeAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
-		automation.execute(this.volumeControl, release, startTime, timesPerStep, maxSteps);
+	volumeAutomation(
+		automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)
+	) {
+		automation.execute(
+			this.volumeControl, release, startTime, timesPerStep, 1, undefined, maxSteps
+		);
 	}
 
 	get numberOfOperators() {
@@ -2565,16 +2582,22 @@ class TwoOperatorChannel {
 		this.setFrequency(block, freqNum, time, method);
 	}
 
-	pitchBend(bend, release, startTime, timesPerStep, maxSteps = bend.getLength(release), scaling = 1) {
+	pitchBend(
+		bend, release, startTime, timesPerStep, scaling = 1, operatorMask = undefined,
+		maxSteps = bend.getLength(release)
+	) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
+		if (operatorMask === undefined) {
+			operatorMask = !parent.isOperatorFixed(offset);
+			operatorMask |= (!parent.isOperatorFixed(offset + 1)) << 1;
+		}
 		for (let i = 0; i < 2; i++) {
-			const effectiveOperatorNum = offset + i;
-			if (!parent.isOperatorFixed(effectiveOperatorNum)) {
-				const operator = parent.getOperator(effectiveOperatorNum);
+			if (operatorMask & (1 << i)) {
+				const operator = parent.getOperator(offset + i);
 				bend.execute(
-					operator.frequencyParam, release, startTime, timesPerStep, maxSteps,
-					operator.frequency, scaling
+					operator.frequencyParam, release, startTime, timesPerStep, scaling,
+					operator.frequency, maxSteps
 				);
 			}
 		}

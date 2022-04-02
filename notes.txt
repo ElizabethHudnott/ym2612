@@ -24,9 +24,10 @@ Operator ratio bend
 Operator frequency offset in Hz
 
 Envelope trigger method (regardless of key currently on or off)
-Ability to make parameters velocity sensitive (e.g. envelope speed, filter envelope amount, LFO effects?)
-Individual oscillator(?): envelope reset on/off, free running on/off, affected by pitch envelope on/off?
+Ability to make parameters velocity sensitive (e.g. filter envelope amount, LFO effects?)
+Individual oscillator(?): envelope reset on/off, free running on/off?
 envelopes synced to tempo?
+attenuation bend and velocity?
 
 Noise/S&H/sample as LFO source?
 Level scaling (per operator) (DX7 style? Or SY77?)
