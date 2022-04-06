@@ -1030,9 +1030,9 @@ class FMOperator extends Operator {
 	constructor(channel, context, lfo, output, dbCurve) {
 		super(channel, context, lfo, output, dbCurve);
 
-		const frequencyMultipler = new GainNode(context);
-		this.frequencyNode.connect(frequencyMultipler);
-		this.frequencyMultipler = frequencyMultipler;
+		const frequencyMultiplier = new GainNode(context);
+		this.frequencyNode.connect(frequencyMultiplier);
+		this.frequencyMultiplier = frequencyMultiplier;
 		const shaper = new WaveShaperNode(context, {curve: [1, 0, 1]});
 		this.shaper = shaper;
 
@@ -1089,9 +1089,9 @@ class FMOperator extends Operator {
 		if (config.oscillator1FrequencyMult === 1) {
 			this.frequencyNode.connect(oscillator1.frequency);
 		} else {
-			this.frequencyMultipler.connect(oscillator1.frequency);
+			this.frequencyMultiplier.connect(oscillator1.frequency);
 		}
-		this.frequencyMultipler.gain.setValueAtTime(config.frequencyMultiplier, time);
+		this.frequencyMultiplier.gain.setValueAtTime(config.frequencyMultiplier, time);
 
 		const gain = config.gain;	// Overall gain
 		let oscillator2;
@@ -1112,7 +1112,7 @@ class FMOperator extends Operator {
 				this.frequencyNode.connect(oscillator2.frequency);
 			} else {
 				// Oscillator 2 can have pitch customized.
-				this.frequencyMultipler.connect(oscillator2.frequency);
+				this.frequencyMultiplier.connect(oscillator2.frequency);
 			}
 			oscillator2.connect(this.amModAmp);
 			if (config.additive) {
