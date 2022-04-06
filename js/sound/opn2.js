@@ -1,6 +1,7 @@
 import {
 	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS
 } from './common.js';
+import {Waveform} from './waveforms.js';
 
 let supportsCancelAndHold;
 
@@ -1024,77 +1025,6 @@ class Operator {
 
 }
 
-class OscillatorConfig {
-	/**
-	 * @param {string} oscillator1Shape The waveform used for the carrier oscillator:
-	 * 'sine', 'sawtooth', square' or 'triangle'.
-	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
-	 * waveform when true.
-	 * @param {number} bias The amount of DC offset to add.
-	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
-	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
-	 * @param {number} oscillator2FrequencyMult The frequency of the modulator relative to the base
-	 * frequency.
-	 * @param {number} oscillator1FrequencyMult The frequency of the carrier relative to the base
-	 * frequency, which is usually 1x but a few waveforms use 2x. If this parameter has a value
-	 * other than 1 then the value of oscillator2FrequencyMult must be 1 (or 0).
-	 * @param {number} modDepth How much amplitude modulation to apply [0..1].
-	 * @param {boolean} ringMod Performs ring modulation if true, or amplitude modulation if false.
-	 * @param {number} gain Scales the resulting wave by a constant.
-	 * @param {boolean} additive Adds the modulator signal to the carrier before performing modulating.
-	 */
-	constructor(
-		oscillator1Shape, waveShaping = false, bias = 0,
-		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
-		modDepth = 1, ringMod = false, gain = 1, additive = false
-	) {
-		this.oscillator1Shape = oscillator1Shape;
-		this.waveShaping = waveShaping;
-		this.bias = bias;
-		this.oscillator2Shape = oscillator2Shape;
-		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
-		this.modDepth = (ringMod ? 1 : 0.5) * modDepth;
-		this.oscillator1FrequencyMult = oscillator1FrequencyMult;
-		this.frequencyMultiplier = oscillator1FrequencyMult !== 1 ? oscillator1FrequencyMult : oscillator2FrequencyMult;
-		this.gain = gain;
-		this.additive = additive;
-	}
-
-	static mono(shape, waveShaping = false) {
-		let bias;
-		if (!waveShaping) {
-			bias = 0;
-		} else if (shape === 'sine' || shape === 'cosine') {
-			bias = -2 / Math.PI;
-		} else {
-			bias = -0.5;	// Triangle or sawtooth
-		}
-		return new OscillatorConfig(shape, waveShaping, bias);
-	}
-
-	static am(
-		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
-	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, false, gain);
-	}
-
-	static ringMod(
-		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
-	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, true, gain);
-	}
-
-	static additive(
-		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 1
-	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, false, 0.5 * gain, true);
-	}
-
-}
-
 class FMOperator extends Operator {
 
 	constructor(channel, context, lfo, output, dbCurve) {
@@ -1120,7 +1050,7 @@ class FMOperator extends Operator {
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
-		this.oscillatorConfig = channel.synth.oscillatorConfigs[0];
+		this.oscillatorConfig = Waveform.SINE;
 
 		const fmModAmp = new GainNode(context, {gain: 0});
 		this.centreFrequencyNode.connect(fmModAmp.gain);
@@ -1247,14 +1177,6 @@ class FMOperator extends Operator {
 		}
 		this.oscillatorConfig = oscillatorConfig;
 		this.channel.newOscillators(context, time);
-	}
-
-	setWaveformNumber(context, waveformNumber, time) {
-		this.setWaveform(context, this.channel.synth.oscillatorConfigs[waveformNumber], time);
-	}
-
-	getWaveformNumber() {
-		return this.channel.synth.oscillatorConfigs.indexOf(this.oscillatorConfig);
 	}
 
 }
@@ -2138,55 +2060,6 @@ class FMSynth {
 
 		this.cosineWave = context.createPeriodicWave([0, 1], [0, 0]);
 
-		const sine = OscillatorConfig.mono('sine');
-		const halfSine = OscillatorConfig.am('sine', false, -0.85 / Math.PI, 'square', 1);
-		const absSine = OscillatorConfig.mono('sine', true);
-		const quarterSine = OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 2);
-		const oddSine = OscillatorConfig.am('sine', false, 0, 'square', 1, 2);
-		const absOddSine = OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2);
-		const square = OscillatorConfig.mono('square');
-		const sawtooth = OscillatorConfig.mono('sawtooth');
-		const triangle = OscillatorConfig.mono('triangle');
-		const saw12 = OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3);
-		const pulse = new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, false, 2/3, true);
-		const square12 = OscillatorConfig.additive('square', false, 0, 'square', 2);
-		const triangle12 = OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3);
-		const sine1234 = new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, false, 2/3, true);
-
-		const root = x => 2 * Math.atan(Math.sqrt(x));
-		const organGain = (harmonic, x) => 2 / (Math.sin(x) + Math.sin(harmonic * x));
-
-		const sine12 = OscillatorConfig.additive('sine', false, 0, 'sine', 2, 1,
-			organGain(2, root(6 - Math.sqrt(33)))
-		);
-		const sine13 = OscillatorConfig.additive('sine', false, 0, 'sine', 3, 1,
-			organGain(3, root(5 - 2 * Math.sqrt(6)))
-		);
-		const sine14 = OscillatorConfig.additive('sine', false, 0, 'sine', 4, 1,
-			organGain(4, 2 * 0.97043)
-		);
-		const sine15 = OscillatorConfig.additive('sine', false, 0, 'sine', 5, 1,
-			organGain(5, Math.PI / 2)
-		);
-		const sine16 = OscillatorConfig.additive('sine', false, 0, 'sine', 6, 1,
-			organGain(6, root(0.597383))
-		);
-		const sine17 = OscillatorConfig.additive('sine', false, 0, 'sine', 7, 1,
-			organGain(7, root(0.402496))
-		);
-		const sine18 = OscillatorConfig.additive('sine', false, 0, 'sine', 8, 1,
-			organGain(8, root(1.47569))
-		);
-
-
-		this.oscillatorConfigs = [
-			sine, halfSine, absSine, quarterSine,
-			oddSine, absOddSine, square, sawtooth,
-			triangle,
-			saw12, pulse, square12, triangle12, sine1234,
-			sine12, sine13, sine14, sine15, sine16, sine17, sine18,
-		];
-
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {
 			channels[i] = new Channel(this, context, channelGain, dbCurve);
@@ -2832,7 +2705,7 @@ class TwoOperatorChannel {
 }
 
 export {
-	Envelope, OscillatorConfig, FMOperator, Channel, FMSynth,
+	Envelope, FMOperator, Channel, FMSynth,
 	logToLinear, linearToLog, cancelAndHoldAtTime,
 	DETUNE_AMOUNTS, TREMOLO_PRESETS
 };

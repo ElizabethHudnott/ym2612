@@ -1,8 +1,8 @@
 import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
-import {logToLinear, linearToLog, OscillatorConfig} from './sound/opn2.js';
-import {PitchBend, AttenuationAutomation} from './sound/bend.js';
+import {OscillatorConfig, Waveform} from './sound/waveforms.js';
+import {logToLinear, linearToLog} from './sound/opn2.js';
 
 function initialize() {
 	if (window.audioContext !== undefined) {
@@ -17,8 +17,6 @@ function initialize() {
 	window.psg = soundSystem.psg;
 	window.ym2612 = new YM2612(soundSystem.fm, context);
 	window.OscillatorConfig = OscillatorConfig;
-	window.PitchBend = PitchBend;
-	window.AttenuationAutomation = AttenuationAutomation;
 
 	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);
@@ -428,13 +426,12 @@ function getOperator(element) {
 	}
 }
 
-function waveformNumber(event) {
+function waveform(event) {
 	initialize();
 	const opNum = getOperator(this);
 	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
 	const dropDownImage = dropDown.children[0];
 	const dropDownText = dropDown.children[1];
-	const value = parseInt(this.value);
 	const option = this.parentElement;
 	const imageLabel = option.children[1];
 	if (imageLabel) {
@@ -445,7 +442,10 @@ function waveformNumber(event) {
 		dropDownImage.classList.add('d-none');
 		dropDownText.innerHTML = option.textContent.trim();
 	}
-	channel.getOperator(opNum).setWaveformNumber(audioContext, value, audioContext.currentTime + 0.02);
+	const value = this.value.toUpperCase();
+	const operator = channel.getOperator(opNum);
+	const waveform = Waveform[value];
+	operator.setWaveform(audioContext, waveform, audioContext.currentTime + 0.02);
 }
 
 function frequencyMultipleSlider(event) {
@@ -689,7 +689,7 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-release-free').addEventListener('input', releaseFree);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
-		element.addEventListener('input', waveformNumber);
+		element.addEventListener('input', waveform);
 	}
 
 	document.getElementById('instrument-tabs').append(doc.body.children[0]);
