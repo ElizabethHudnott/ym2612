@@ -226,7 +226,6 @@ class Envelope {
 		this.releaseLevel = 0;
 		this.endRelease = 0;
 
-		this.ssgEnabled = false;
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 		this.looping = false;
@@ -250,7 +249,6 @@ class Envelope {
 		envelope.sustain = this.sustain;
 		envelope.sustainRate = this.sustainRate;
 		envelope.releaseRate = this.releaseRate;
-		envelope.ssgEnabled = this.ssgEnabled;
 		envelope.inverted = this.inverted;
 		envelope.jump = this.jump;
 		envelope.looping = this.looping;
@@ -347,19 +345,26 @@ class Envelope {
 	setSSG(mode) {
 		if (mode < 8) {
 			// SSG disabled
-			this.ssgEnabled = false;
 			this.inverted = false;
 			this.jump = false;
 			this.looping = false;
 			this.envelopeRate = 1;
 		} else {
 			mode -= 8;
-			this.ssgEnabled = true;
 			this.inverted = mode >= 4;
 			this.jump = [0, 3, 4, 7].includes(mode);
 			this.looping = mode % 2 === 0;
 			this.envelopeRate = 6;
 		}
+	}
+
+	getSSG() {
+		const value =
+			8 * (this.inverted || this.jump || this.looping || this.envelopeRate === 6) +
+			4 * this.inverted +
+			!this.looping +
+			2 * (this.looping ^ this.jump);
+		return value;
 	}
 
 	setEnvelopeRate(rate) {
@@ -466,7 +471,7 @@ class Envelope {
 			function playSample(args) {
 				const buffer = args[0];
 				const baseRate = args[1];
-				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick;
+				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick * me.envelopeRate / 6;
 				const sampleNode = new AudioBufferSourceNode(context,
 					{buffer: buffer, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: playbackRate}
 				);
@@ -993,6 +998,10 @@ class Operator {
 		this.envelope.setSSG(mode);
 	}
 
+	getSSG() {
+		return this.envelope.getSSG();
+	}
+
 	setEnvelopeRate(rate) {
 		this.envelope.setEnvelopeRate(rate);
 	}
@@ -1003,8 +1012,11 @@ class Operator {
 
 	attenuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
 		const envelope = this.envelope;
-		envelope.setAttack(31);
-		envelope.setDecay(0);
+		if (!envelope.looping) {
+			envelope.setAttack(31);
+			envelope.setDecay(0);
+			envelope.inverted = false;
+		}
 		automation.execute(
 			envelope.totalLevelParam, release, startTime, timesPerStep, 1, undefined, maxSteps
 		);

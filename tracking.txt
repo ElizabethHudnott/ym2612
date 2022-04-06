@@ -56,3 +56,9 @@ Not an effect but the list of patterns to play includes starting offsets.
 ProTracker notes
 	Nested loops using different columns
 	Note cut using effect can be revived using volume commands
+
+Instrument Editor
+	Option to disable transposing (for percussion)
+
+Editing
+	Transpose needs to take the musical scale into account?
