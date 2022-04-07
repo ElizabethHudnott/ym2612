@@ -1,37 +1,38 @@
 class OscillatorConfig {
 	/**
 	 * @param {string} oscillator1Shape The waveform used for the carrier oscillator:
-	 * 'sine', 'sawtooth', square' or 'triangle'.
+	 * 'sine', 'cosine', sawtooth', square' or 'triangle'.
 	 * @param {boolean} waveShaping Inverts the negative portion of the carrier oscillator's
 	 * waveform when true.
 	 * @param {number} bias The amount of DC offset to add.
 	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
-	 * 'sine', 'sawtooth', square', 'triangle' or undefined (no modulation).
+	 * 'sine', 'cosine', sawtooth', square', 'triangle' or undefined (no modulation).
 	 * @param {number} oscillator2FrequencyMult The frequency of the modulator relative to the base
 	 * frequency.
 	 * @param {number} oscillator1FrequencyMult The frequency of the carrier relative to the base
-	 * frequency, which is usually 1x but a few waveforms use 2x. If this parameter has a value
-	 * other than 1 then the value of oscillator2FrequencyMult must be 1 (or 0).
-	 * @param {number} modDepth How much amplitude modulation to apply [0..1].
-	 * @param {boolean} ringMod Performs ring modulation if true, or amplitude modulation if false.
+	 * frequency, which is usually 1 but a few waveforms use 2. If this parameter has a value
+	 * other than 1 then the value of oscillator2FrequencyMult must be 1.
+	 * @param {number} modDepth How much amplitude modulation to apply [-2..2]. The values 2 and
+	 * -2 result in ring modulation rather than AM.
 	 * @param {number} gain Scales the resulting wave by a constant.
-	 * @param {boolean} additive Adds the modulator signal to the carrier before performing modulating.
+	 * @param {boolean} additive Adds the modulator signal to the carrier before performing
+	 * modulation.
 	 */
 	constructor(
 		oscillator1Shape, waveShaping = false, bias = 0,
-		oscillator2Shape = undefined, oscillator2FrequencyMult = 0, oscillator1FrequencyMult = 1,
-		modDepth = 1, ringMod = false, gain = 1, additive = false
+		oscillator2Shape = undefined, oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1,
+		modDepth = 1, gain = 1, additive = false
 	) {
 		this.oscillator1Shape = oscillator1Shape;
 		this.waveShaping = waveShaping;
 		this.bias = bias;
 		this.oscillator2Shape = oscillator2Shape;
-		this.oscillator2FrequencyMult = oscillator2FrequencyMult;
-		this.modDepth = (ringMod ? 1 : 0.5) * modDepth;
+		this.modDepth = 0.5 * modDepth;
 		this.oscillator1FrequencyMult = oscillator1FrequencyMult;
 		this.frequencyMultiplier = oscillator1FrequencyMult !== 1 ? oscillator1FrequencyMult : oscillator2FrequencyMult;
 		this.gain = gain;
 		this.additive = additive;
+		this.frequencyOffset = 0;	// Value in Hertz added to the modulator
 	}
 
 	static mono(shape, waveShaping = false) {
@@ -48,23 +49,23 @@ class OscillatorConfig {
 
 	static am(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
+		oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, false, gain);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, gain);
 	}
 
 	static ringMod(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, modDepth = 1, gain = 1
+		oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, modDepth, true, gain);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 2, gain);
 	}
 
 	static additive(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
-		oscillator2FrequencyMult, oscillator1FrequencyMult = 1, gain = 1
+		oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1, gain = 1
 	) {
-		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, false, 0.5 * gain, true);
+		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, 0.5 * gain, true);
 	}
 
 }
@@ -79,11 +80,11 @@ const Waveform = {
 	SINE: 			OscillatorConfig.mono('sine'),
 	COSINE:			OscillatorConfig.mono('cosine'),
 
-	HALF_SINE:		OscillatorConfig.am('sine', false, -0.85 / Math.PI, 'square', 1),
-	HALF_COSINE:	OscillatorConfig.am('cosine', false, 0, 'square', 1),
+	HALF_SINE:		OscillatorConfig.am('sine', false, -0.85 / Math.PI, 'square'),
+	HALF_COSINE:	OscillatorConfig.am('cosine', false, 0, 'square'),
 
 	ABS_SINE:		OscillatorConfig.mono('sine', true),
-	CO_ABS_SINE:	OscillatorConfig.ringMod('cosine', false, 0, 'square', 1),
+	CO_ABS_SINE:	OscillatorConfig.ringMod('cosine', false, 0, 'square'),
 
 	QUARTER_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 2),
 	QUARTER_COSINE: OscillatorConfig.am('cosine', true, -1 / Math.PI, 'square', 2),
@@ -92,23 +93,23 @@ const Waveform = {
 	ODD_COSINE:		OscillatorConfig.am('cosine', false, 0, 'square', 1, 2),
 
 	TRIANGLE:		OscillatorConfig.mono('triangle'),
-	SQUARE90:		OscillatorConfig.ringMod('square', false, 0, 'square', 1),
+	SQUARE90:		OscillatorConfig.ringMod('square', false, 0, 'square'),
 
 	ABS_ODD_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2),
 	SQUARE:			OscillatorConfig.mono('square'),
 	SAWTOOTH:		OscillatorConfig.mono('sawtooth'),
-	PULSE:			new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, false, 2/3, true),	// 25% duty cycle
+	PULSE:			new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, 2/3, true),	// 25% duty cycle
 
 	// From Yamaha chips used in early 2000s mobile phones
-	HALF_TRIANGLE:	OscillatorConfig.am('triangle', false, -0.25, 'square', 1),
+	HALF_TRIANGLE:	OscillatorConfig.am('triangle', false, -0.25, 'square'),
 	QUARTER_TRIANGLE:	OscillatorConfig.am('triangle', true, -0.25, 'square', 2),
 	ODD_TRIANGLE:	OscillatorConfig.am('triangle', false, 0, 'square', 1, 2),
 	ABS_ODD_TRI:	OscillatorConfig.am('triangle', true, -0.25, 'square', 1, 2),
-	HALF_SAWTOOTH:	OscillatorConfig.am('sawtooth', false, -0.25, 'square', 1),
+	HALF_SAWTOOTH:	OscillatorConfig.am('sawtooth', false, -0.25, 'square'),
 	ODD_SAWTOOTH:	OscillatorConfig.am('sawtooth', false, 0, 'square', 1, 2),
 
 	// From the Yamaha SY77, SY99 and TG77
-	SINE_SQUARED:	OscillatorConfig.ringMod('sine', true, 0, 'sine', 1),
+	SINE_SQUARED:	OscillatorConfig.ringMod('sine', true, 0, 'sine'),
 	ALTERNATING_SINE:	OscillatorConfig.ringMod('sine', true, 0, 'square', 1, 2),
 	/* Sort of the derivative of ALTERNATING_SINE. The initial phase is 90 degrees off. Use
 		COSINE instead of SINE as the carrier (or SQUARE90 instead of SQUARE) to compensate. */
@@ -118,9 +119,9 @@ const Waveform = {
 	TRIANGLE12:		OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3),
 	SQUARE12:		OscillatorConfig.additive('square', false, 0, 'square', 2),
 	SAW12:			OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3),
-	SINE1234:		new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, false, 2/3, true),
+	SINE1234:		new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, 2/3, true),
 	COSINE1234:		new OscillatorConfig(
-							'cosine', false, -0.25, 'cosine', 2, 1, 1, false, 2/3, true
+							'cosine', false, -0.25, 'cosine', 2, 1, 1, 2/3, true
 						),
 	SINE12:			OscillatorConfig.additive('sine', false, 0, 'sine', 2, 1,
 							organGain(2, root(6 - Math.sqrt(33)))

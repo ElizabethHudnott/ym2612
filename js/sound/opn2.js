@@ -1095,17 +1095,15 @@ class FMOperator extends Operator {
 
 		const gain = config.gain;	// Overall gain
 		let oscillator2;
-		if (config.oscillator2FrequencyMult !== 0) {
+		if (config.oscillator2Shape !== undefined) {
 			if (config.oscillator2Shape === 'cosine') {
-				oscillator2 = new OscillatorNode(
-					context,
-					{frequency: 0, periodicWave: this.channel.synth.cosineWave}
-				);
+				oscillator2 = new OscillatorNode(context, {
+					frequency: config.frequencyOffset, periodicWave: this.channel.synth.cosineWave
+				});
 			} else {
-				oscillator2 = new OscillatorNode(
-					context,
-					{frequency: 0, type: config.oscillator2Shape}
-				);
+				oscillator2 = new OscillatorNode(context, {
+					frequency: config.frequencyOffset, type: config.oscillator2Shape
+				});
 			}
 			if (config.oscillator1FrequencyMult !== 1) {
 				// Oscillator 1 has customized pitch, Oscillator 2 is the fundamental.
