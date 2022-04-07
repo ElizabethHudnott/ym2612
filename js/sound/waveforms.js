@@ -93,7 +93,7 @@ const Waveform = {
 	ODD_COSINE:		OscillatorConfig.am('cosine', false, 0, 'square', 1, 2),
 
 	TRIANGLE:		OscillatorConfig.mono('triangle'),
-	SQUARE90:		OscillatorConfig.ringMod('square', false, 0, 'square'),
+	SQUARE90:		OscillatorConfig.ringMod('square', false, 0, 'square', 1, 2),
 
 	ABS_ODD_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2),
 	SQUARE:			OscillatorConfig.mono('square'),
