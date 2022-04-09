@@ -385,8 +385,9 @@ class PSG {
 		const opnClock = clockRate * CLOCK_RATIO;
 		this.lfoRateMultiplier = opnClock / 8000000;
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
-		// Incorporate the upper 4 bits of an OPN style frequency number into the key code
-		// 2048 / 128 = 16 But there's a multiply/divide by 2 aspect as well.
+		/* Incorporate the upper 4 bits of an OPN style frequency number into the key code
+		 * 2048 / 128 = 16 (= 4 bits) But additionally there's the multiply by 0.5 aspect when
+		 * converting from a frequency number into Hertz.*/
 		this.hertzToFBits = 64 * opnFrequencyStep;
 
 		if (this.noiseChannel) {
@@ -447,13 +448,13 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12) {
+	tuneMIDINotes(a4Pitch = 440, transpose = 0, interval = 2, divisions = 12) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
 		const step = interval ** (1 / divisions);
 		let prevFreqNum, prevIdealFrequency;
 		for (let i = 0; i < 128; i++) {
-			const idealFrequency = a4Pitch * interval ** ((i - 69) / divisions);
+			const idealFrequency = a4Pitch * interval ** ((i + transpose - 69) / divisions);
 			let freqNum = Math.round(this.frequencyToFreqNumber(idealFrequency));
 			const approxFrequency = this.frequencyNumberToHz(freqNum);
 
@@ -494,7 +495,6 @@ class PSG {
 	 * Hertz rather than an OPN style frequency number.
 	 */
 	calcKeyCode(frequency) {
-		// Multiply by 2 here because we multiply by 0.5 when going from a frequency number to Hertz.
 		const multiple = frequency / this.hertzToFBits;
 		const block = Math.max(Math.ceil(Math.log2(multiple / 16)), 0);
 		const remainder = Math.trunc(multiple / (2 ** block));

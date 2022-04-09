@@ -51,16 +51,13 @@ function componentsToFullFreq(blockNumber, frequencyNumber) {
 
 function fullFreqToComponents(fullFrequencyNumber) {
 	let freqNum = fullFrequencyNumber;
-	let block;
-	if (freqNum < 1023.75) {
-		block = 0;
-		freqNum *= 2;
-	} else {
-		block = 1;
-		while (freqNum >= 2047.5) {
-			freqNum /= 2;
-			block++;
-		}
+	if (freqNum < 1023.5) {
+		return [0, Math.round(freqNum) * 2];
+	}
+	let block = 1;
+	while (freqNum >= 2047.5) {
+		freqNum /= 2;
+		block++;
 	}
 	return [block, Math.round(freqNum)];
 }
@@ -2226,10 +2223,11 @@ class FMSynth {
 
 	/**Calculates frequency data for a scale of 128 MIDI notes.
 	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
+	 * @param {number} transpose The number of semitones to transpose the scale by.
 	 * @param {number} interval The default value 2, separates consecutive copies of the root
 	 * note by a 2:1 frequency ratio (an octave).
 	 * @param {number} divisions How many notes the (chromatic) scale should have.
-	 * @param {number} step A pattern of scale division increments used to move from one
+	 * @param {number} steps A pattern of scale division increments used to move from one
 	 * keyboard key to the next. The pattern will be repeated up and down the keyboard from
 	 * Middle C.
 	 * Examples:
@@ -2242,10 +2240,10 @@ class FMSynth {
 	 * scale.
 	 *
 	 */
-	tuneMIDINotes(a4Pitch = 440, interval = 2, divisions = 12, steps = [1]) {
+	tuneMIDINotes(a4Pitch = 440, transpose = 0, interval = 2, divisions = 12, steps = [1]) {
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
-		let a4NoteNumber = 60;
+		let a4NoteNumber = 60 - transpose;
 		for (let i = 0; i < 9; i++) {
 			a4NoteNumber += steps[i % numIntervals];
 		}

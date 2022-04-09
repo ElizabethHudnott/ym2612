@@ -32,9 +32,16 @@ export default class YM2612 {
 
 }
 
-write[0x22] = (chip, n, t) => {
-	for (let i = 1; i <= 6; i++) {
-		chip.synth.getChannel(i).setLFORate(chip.context, n, t);
+write[0x22] = (chip, preset, t) => {
+	if (preset & 8) {
+		preset &= 7;
+		for (let i = 1; i <= 6; i++) {
+			chip.synth.getChannel(i).useLFOPreset(chip.context, preset, t);
+		}
+	} else {
+		for (let i = 1; i <= 6; i++) {
+			chip.synth.getChannel(i).setLFORate(chip.context, 0, t);
+		}
 	}
 }
 
