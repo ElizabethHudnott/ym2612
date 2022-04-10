@@ -49,41 +49,6 @@ function componentsToFullFreq(blockNumber, frequencyNumber) {
 	return Math.trunc(0.5 * (frequencyNumber << blockNumber));
 }
 
-function fullFreqToComponents(fullFrequencyNumber) {
-	let freqNum = fullFrequencyNumber;
-	if (freqNum < 1023.5) {
-		return [0, Math.round(freqNum) * 2];
-	}
-	let block = 1;
-	while (freqNum >= 2047.5) {
-		freqNum /= 2;
-		block++;
-	}
-	return [block, Math.round(freqNum)];
-}
-
-function frequencyToNote(block, frequencyNum, notes, detune = 0) {
-	let lb = 0;
-	let ub = 127;
-	while (lb < ub) {
-		let mid = Math.trunc((lb + ub) / 2);
-		const frequency = notes[mid] / detune;
-		const [noteBlock, noteFreqNum] = fullFreqToComponents(frequency);
-		if (block < noteBlock) {
-			ub = mid - 1;
-		} else if (block > noteBlock) {
-			lb = mid + 1;
-		} else if (frequencyNum < noteFreqNum) {
-			ub = mid - 1;
-		} else if (frequencyNum > noteFreqNum) {
-			lb = mid + 1;
-		} else {
-			return mid;
-		}
-	}
-	return lb;
-}
-
 const ENV_INCREMENT_MOD = [0, 3, 4, 4, 4, 4, 6, 6];
 for (let i = 8; i < 60; i++) {
 	ENV_INCREMENT_MOD[i] = (i % 4) + 4;
@@ -1500,7 +1465,7 @@ class Channel {
 				) {
 					// Turn a frequency multiple into a fixed frequency.
 					const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
-					[block, freqNum] = fullFreqToComponents(fullFreqNumber);
+					[block, freqNum] = this.synth.fullFreqToComponents(fullFreqNumber);
 					this.freqBlockNumbers[operatorNum - 1] = block;
 					this.frequencyNumbers[operatorNum - 1] = freqNum;
 				}
@@ -1572,7 +1537,7 @@ class Channel {
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = fullFreqToComponents(frequency);
+		const [block, freqNum] = this.synth.fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
 	}
 
@@ -1619,14 +1584,14 @@ class Channel {
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		this.fixedFrequency[operatorNum - 1] = true;
 		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = fullFreqToComponents(frequency);
+		const [block, freqNum] = this.synth.fullFreqToComponents(frequency);
 		this.setOperatorFrequency(operatorNum, block, freqNum, time, method);
 	}
 
 	getMIDINote(operatorNum = 4) {
 		const block = this.freqBlockNumbers[operatorNum - 1];
 		const freqNum = this.frequencyNumbers[operatorNum - 1];
-		return frequencyToNote(block, freqNum, this.synth.noteFrequencies, this.detune);
+		return this.synth.frequencyToNote(block, freqNum, this.detune);
 	}
 
 	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
@@ -2267,6 +2232,127 @@ class FMSynth {
 			}
 		}
 		this.noteFrequencies = frequencyData;
+
+		// Adjustment to spread the key codes evenly
+		let blocks = [], freqNums = [], keyCodes = [];
+		const numInstances = new Array(32);
+		numInstances.fill(0);
+		for (let i = 0; i < 128; i++) {
+			let block;
+			let freqNum = frequencyData[i];
+			if (freqNum < 1023.5) {
+				block = 0;
+				freqNum = Math.round(freqNum) * 2;
+			} else {
+				block = 1;
+				while (freqNum >= 2047.5) {
+					freqNum /= 2;
+					block++;
+				}
+				if (block > 7) {
+					break;
+				}
+				freqNum = Math.round(freqNum);
+			}
+			blocks[i] = block;
+			freqNums[i] = freqNum;
+			const keyCode = calcKeyCode(block, freqNums[i]);
+			keyCodes[i] = keyCode;
+			numInstances[keyCode]++;
+		}
+		let minIndex = 0;
+		while (keyCodes[minIndex] === 0) {
+			minIndex++;
+		}
+		let maxIndex = blocks.length - 1;
+		const standardC8 = 440 * (2 ** (39 / 12)) / this.frequencyStep;
+		while (frequencyData[maxIndex - 1] >= standardC8) {
+			numInstances[31]--;
+			maxIndex--;
+		}
+		blocks = blocks.slice(minIndex, maxIndex + 1);
+		freqNums = freqNums.slice(minIndex, maxIndex + 1);
+		keyCodes = keyCodes.slice(minIndex, maxIndex + 1);
+
+		let freqNumThreshold = 2048;
+		let variance, newVariance = Infinity;
+		let lastFreqNumThreshold, changes;
+		do {
+			variance = newVariance;
+			let minKeyCode = keyCodes[0];
+			let maxKeyCode = keyCodes[keyCodes.length - 1];
+			let sum = 0;
+			let sumSquares = 0;
+			for (let i = minKeyCode; i <= maxKeyCode; i++) {
+				const count = numInstances[i];
+				sum += count;
+				sumSquares += count * count;
+			}
+			const keyCodeRange = maxKeyCode - minKeyCode + 1;
+			const mean = sum / keyCodeRange;
+			newVariance = sumSquares / keyCodeRange - mean * mean;
+
+			let newFreqNumThreshold = 0;
+			for (let freqNum of freqNums) {
+				if (freqNum < freqNumThreshold) {
+					newFreqNumThreshold = Math.max(newFreqNumThreshold, freqNum);
+				}
+			}
+			lastFreqNumThreshold = freqNumThreshold;
+			freqNumThreshold = newFreqNumThreshold;
+
+			changes = false;
+			for (let i = 0; i < freqNums.length; i++) {
+				if (freqNums[i] === freqNumThreshold && blocks[i] !== 7) {
+					blocks[i]++;
+					freqNums[i] = Math.round(freqNums[i] / 2);
+					const oldKeyCode = keyCodes[i];
+					const keyCode = calcKeyCode(blocks[i], freqNums[i]);
+					keyCodes[i] = keyCode;
+					numInstances[oldKeyCode]--;
+					numInstances[keyCode]++;
+					changes = true;
+				}
+			}
+
+		} while (newVariance < variance || !changes);
+		this.octaveThreshold = lastFreqNumThreshold - 0.5;
+	}
+
+
+	fullFreqToComponents(fullFrequencyNumber) {
+		let block = 1, freqNum = fullFrequencyNumber;
+		if (freqNum < 1023.5) {
+			block = 0;
+			freqNum = Math.round(freqNum) * 2;
+		}
+		while (freqNum >= 2047.5 || (block < 7 && freqNum >= this.octaveThreshold)) {
+			freqNum /= 2;
+			block++;
+		}
+		return [block, Math.round(freqNum)];
+	}
+
+	frequencyToNote(block, frequencyNum, detune = 0) {
+		let lb = 0;
+		let ub = 127;
+		while (lb < ub) {
+			let mid = Math.trunc((lb + ub) / 2);
+			const frequency = this.noteFrequencies[mid] / detune;
+			const [noteBlock, noteFreqNum] = this.fullFreqToComponents(frequency);
+			if (block < noteBlock) {
+				ub = mid - 1;
+			} else if (block > noteBlock) {
+				lb = mid + 1;
+			} else if (frequencyNum < noteFreqNum) {
+				ub = mid - 1;
+			} else if (frequencyNum > noteFreqNum) {
+				lb = mid + 1;
+			} else {
+				return mid;
+			}
+		}
+		return lb;
 	}
 
 }
@@ -2390,7 +2476,7 @@ class TwoOperatorChannel {
 			) {
 				// Turn a frequency multiple into a fixed frequency.
 				const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
-				[block, freqNum] = fullFreqToComponents(fullFreqNumber);
+				[block, freqNum] = parent.synth.fullFreqToComponents(fullFreqNumber);
 				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
 				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
 			}
@@ -2459,7 +2545,7 @@ class TwoOperatorChannel {
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
 		const frequency = this.parentChannel.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = fullFreqToComponents(frequency);
+		const [block, freqNum] = parent.synth.fullFreqToComponents(frequency);
 		this.setFrequency(block, freqNum, time, method);
 	}
 
@@ -2489,7 +2575,7 @@ class TwoOperatorChannel {
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
 		const frequency = parent.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = fullFreqToComponents(frequency);
+		const [block, freqNum] = parent.synth.fullFreqToComponents(frequency);
 		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, method);
 	}
 
@@ -2498,7 +2584,7 @@ class TwoOperatorChannel {
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		const block = parent.getFrequencyBlock(effectiveOperatorNum);
 		const freqNum = parent.getFrequencyNumber(effectiveOperatorNum);
-		return frequencyToNote(block, freqNum, parent.synth.noteFrequencies, this.detune);
+		return parent.synth.frequencyToNote(block, freqNum, this.detune);
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
