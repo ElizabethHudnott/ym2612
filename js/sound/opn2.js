@@ -62,7 +62,7 @@ function fullFreqToComponents(fullFrequencyNumber) {
 	return [block, Math.round(freqNum)];
 }
 
-function frequencyToNote(block, frequencyNum, notes, detune) {
+function frequencyToNote(block, frequencyNum, notes, detune = 0) {
 	let lb = 0;
 	let ub = 127;
 	while (lb < ub) {
@@ -1815,10 +1815,12 @@ class Channel {
 	}
 
 	triggerLFO(context, time) {
+		const initialAmplitude = this.lfoFade >= 0 ? 0 : 1;
+		const endDelay = time + this.lfoDelay;
 		if (this.lfoKeySync && this.lfoRate !== 0) {
 			// Reset LFO phase
 			const lfo = new OscillatorNode(context, {frequency: this.lfoRate, type: this.lfoShape});
-			lfo.start(time);
+			lfo.start(initialAmplitude === 0 ? endDelay : time);
 			lfo.connect(this.lfoEnvelope);
 			if (this.lfo) {
 				this.lfo.stop(time);
@@ -1827,9 +1829,7 @@ class Channel {
 		}
 
 		const envelope = this.lfoEnvelope.gain;
-		const initialAmplitude = this.lfoFade >= 0 ? 0 : 1;
 		cancelAndHoldAtTime(envelope, initialAmplitude, time);
-		const endDelay = time + this.lfoDelay;
 		envelope.setValueAtTime(initialAmplitude, endDelay)
 		envelope.linearRampToValueAtTime(1 - initialAmplitude, endDelay + Math.abs(this.lfoFade));
 	}

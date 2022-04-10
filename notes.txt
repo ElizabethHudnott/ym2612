@@ -27,7 +27,7 @@ Operator ratio bend
 Operator frequency offset in Hz
 
 Envelope trigger method (regardless of key currently on or off)
-Ability to make parameters velocity sensitive (e.g. filter envelope amount, LFO effects?)
+Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance, vibrato depth?)
 Individual oscillator(?): envelope reset on/off, free running on/off?
 envelopes synced to tempo?
 attenuation bend and velocity?
@@ -56,6 +56,8 @@ Amplitude Bend
 Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
 	Can be inverted
 	Cutoff can keytrack oscillator pitch
+	Velocity can affect attack rate
+	Input gain (can be -ve to avoid overloading due to resonance)?
 
 Feedback amount envelope (or bend?)
 	Looping bends?
