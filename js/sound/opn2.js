@@ -2276,7 +2276,8 @@ class FMSynth {
 
 		let freqNumThreshold = 2048;
 		let variance, newVariance = Infinity;
-		let lastFreqNumThreshold, changes;
+		let thresholdHistory = [2048, 2048];
+		let changes;
 		do {
 			variance = newVariance;
 			let minKeyCode = keyCodes[0];
@@ -2298,7 +2299,8 @@ class FMSynth {
 					newFreqNumThreshold = Math.max(newFreqNumThreshold, freqNum);
 				}
 			}
-			lastFreqNumThreshold = freqNumThreshold;
+			thresholdHistory[0] = thresholdHistory[1];
+			thresholdHistory[1] = freqNumThreshold;
 			freqNumThreshold = newFreqNumThreshold;
 
 			changes = false;
@@ -2316,7 +2318,7 @@ class FMSynth {
 			}
 
 		} while (newVariance < variance || !changes);
-		this.octaveThreshold = lastFreqNumThreshold - 0.5;
+		this.octaveThreshold = thresholdHistory[0] - 0.5;
 	}
 
 
