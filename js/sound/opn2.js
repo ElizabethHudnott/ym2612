@@ -39,6 +39,10 @@ function linearToLog(y) {
 	return y === 0 ? 0 : Math.sign(y) * (1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS);
 }
 
+function modulationIndex(outputLevel) {
+	return Math.sign(outputLevel) * 4 * Math.PI * 2 ** (-11 * (1 - Math.abs(outputLevel)));
+}
+
 function calcKeyCode(blockNumber, frequencyNumber) {
 	const f11 = frequencyNumber >= 1024;
 	const lsb = frequencyNumber >= 1152 || (!f11 && frequencyNumber >= 896);
@@ -650,7 +654,7 @@ const DETUNE_AMOUNTS = [
 	8, 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
 ];
 
-const DETUNE2_PRESETS = [0, 600, 781, 950].map( x => 2 ** (x / 1200) );
+const DETUNE2_PRESETS = [1, 1.413, 1.5697, 1.73];
 
 /**Represents a single operator in the FM synthesizer. The synthesizer alters frequency
  * using phase modulation (PM). There are 4 operators per sound channel and 6 independent
@@ -667,7 +671,7 @@ class Operator {
 	 */
 	constructor(channel, context, lfo, output, dbCurve) {
 		this.channel = channel;
-		this.freqBlockNumber = 4;
+		this.freqBlockNumber = 3;
 		this.frequencyNumber = 1093;
 		this.frequency =
 			channel.synth.frequencyStep *
@@ -698,7 +702,7 @@ class Operator {
 		mixer.connect(output);
 		this.mixer = mixer.gain;
 
-		this.keyCode = calcKeyCode(4, 1093);
+		this.keyCode = calcKeyCode(this.freqBlockNumber, this.frequencyNumber);
 		this.frequencyMultiple = 1;
 		this.detune = 0;		// Fine detune, YM2612 specific
 		this.detune2 = 1;		// Arbitrary detuning
@@ -1390,7 +1394,7 @@ class Channel {
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
 			const depth = modulations[i];
-			this.gains[i + 2][method](depth, time);
+			this.gains[i + 2][method](modulationIndex(depth), time);
 			this.modulationDepths[i + 2] = depth;
 		}
 		for (let i = 0; i < 4; i++) {
@@ -1432,7 +1436,7 @@ class Channel {
 
 	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
 		const index = indexOfGain(modulatorOpNum, carrierOpNum);
-		this.gains[index][method](amount, time);
+		this.gains[index][method](modulationIndex(amount), time);
 		this.modulationDepths[index] = amount;
 	}
 
@@ -2206,6 +2210,7 @@ class FMSynth {
 	 *
 	 */
 	tuneMIDINotes(a4Pitch = 440, transpose = 0, interval = 2, divisions = 12, steps = [1]) {
+		a4Pitch /= 2;	// Account for high modulation index.
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
 		let a4NoteNumber = 60 - transpose;
@@ -2261,12 +2266,13 @@ class FMSynth {
 			numInstances[keyCode]++;
 		}
 		let minIndex = 0;
-		while (keyCodes[minIndex] === 0) {
+		while (frequencyData[minIndex + 1] <= 13.75 && keyCodes[minIndex] === 0) {
+			numInstances[0]--;
 			minIndex++;
 		}
 		let maxIndex = blocks.length - 1;
-		const standardC8 = 440 * (2 ** (39 / 12)) / this.frequencyStep;
-		while (frequencyData[maxIndex - 1] >= standardC8) {
+		const standardC7 = 440 * (2 ** (27 / 12)) / this.frequencyStep; // effectively C8
+		while (frequencyData[maxIndex - 1] >= standardC7 && keyCodes[maxIndex] === 31) {
 			numInstances[31]--;
 			maxIndex--;
 		}
