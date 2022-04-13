@@ -634,9 +634,7 @@ class Envelope {
  * parameter is set to 0 (should be 32 zeros!). The second block represents the increases
  * in frequency when the detuning parameter is set to 1 and the decreases in frequency
  * when the detuning parameter is set to 5, and so on. Each block of 32 values contains a
- * single entry for each of the YM2612's "key codes". To find a note's key code you
- * multiply its block number by 4 and place the two most significant bits of its frequency
- * number into the two least significant bits of the key code.
+ * single entry for each of the YM2612's "key codes".
  * @type {Array<number}
  */
 const DETUNE_AMOUNTS = [
@@ -654,7 +652,10 @@ const DETUNE_AMOUNTS = [
 	8, 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22
 ];
 
-const DETUNE2_PRESETS = [1, 1.413, 1.5697, 1.73];
+/* Expressed in terms of a 16 bit phase offset.
+ * Approximately equal to frequency ratios: 1, 1.41, 1.57, 1.73
+ */
+ const DETUNE2_PRESETS = [0, 27080, 37355, 47842];
 
 /**Represents a single operator in the FM synthesizer. The synthesizer alters frequency
  * using phase modulation (PM). There are 4 operators per sound channel and 6 independent
@@ -705,7 +706,7 @@ class Operator {
 		this.keyCode = calcKeyCode(this.freqBlockNumber, this.frequencyNumber);
 		this.frequencyMultiple = 1;
 		this.detune = 0;		// Fine detune, YM2612 specific
-		this.detune2 = 1;		// Arbitrary detuning
+		this.detune2 = 0;		// Arbitrary detuning
 		this.keyIsOn = false;
 		this.disabled = false;
 
@@ -775,12 +776,16 @@ class Operator {
 		const detuneSign = (-1) ** (detuneSetting >> 2);
 		const detuneSteps = detuneSign * DETUNE_AMOUNTS[detuneTableOffset + Math.min(keyCode, 31)];
 
-		let fullFreqNumber = componentsToFullFreq(blockNumber, frequencyNumber) + detuneSteps;
+		let fullFreqNumber =
+			componentsToFullFreq(blockNumber, frequencyNumber) +
+			detuneSteps +
+			Math.trunc(this.detune2 * 2 ** (blockNumber - 7));
+
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
 		}
 		const frequencyStep = this.channel.synth.frequencyStep;
-		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep * this.detune2;
+		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 		this.frequencyParam[method](frequency, time);
 		this.frequency = frequency;
 		this.freqBlockNumber = blockNumber;
@@ -821,14 +826,18 @@ class Operator {
 	}
 
 	setDetune2(cents, time = undefined, method = 'setValueAtTime') {
-		this.detune2 = 2 ** (cents / 1200);
+		this.detune2 = Math.sign(cents) * Math.round((2 ** (Math.abs(cents) / 1200) - 1) * 2 ** 17);
 		if (time !== undefined) {
 			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
 		}
 	}
 
 	getDetune2() {
-		return Math.round(Math.log2(this.detune2) * 1200);
+		if (this.detune2 === 0) {
+			return 0;
+		}
+		const multiplier = 1 + Math.abs(this.detune2) / 2 ** 17;
+		return Math.sign(this.detune2) * Math.round(Math.log2(multiplier) * 1200);
 	}
 
 	useDetune2Preset(presetNum, time = undefined, method = 'setValueAtTime') {
