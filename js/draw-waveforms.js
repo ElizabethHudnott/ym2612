@@ -1,3 +1,48 @@
+window.drawWaveform = function (waveform, canvasContext, numCycles = 1) {
+	const width = canvasContext.canvas.width;
+	const height = canvasContext.canvas.height;
+	const imageData = canvasContext.getImageData(0, 0, width, height);
+	const pixels = imageData.data;
+	const sampleLength = waveform.length;
+	const length = sampleLength * numCycles;
+	const halfHeight = (height - 1) / 2 - 1;
+	let x = 0, total = 0, numSamples = 0, prevY;
+
+	const brightness = 64;
+	const shadowBrightness = 0;
+
+	function fillPixel(x, y) {
+		let offset = 4 * (y * width + x);
+		pixels[offset] = 255;
+		pixels[offset + 1] = brightness;
+		pixels[offset + 2] = brightness;
+		pixels[offset + 3] = 255;
+	}
+
+	for (let i = 0; i < length; i++) {
+		const newX = Math.trunc(i / length * width);
+		if (newX >= x + 1) {
+			const average = total / numSamples;
+			const pixelY = height - Math.round(average * halfHeight + halfHeight + 1.5);
+			if (x > 0) {
+				const dir = Math.sign(pixelY - prevY);
+				for (let y = prevY; y != pixelY; y += dir) {
+					fillPixel(x - 1, y);
+				}
+			}
+			fillPixel(x, pixelY);
+
+			total = 0;
+			numSamples = 0;
+			x = newX;
+			prevY = pixelY;
+		}
+		total += waveform[i % sampleLength];
+		numSamples++;
+	}
+	canvasContext.putImageData(imageData, 0, 0);
+}
+
 window.drawWaveforms = function () {
 	const height = 32;
 	const width = 4 * Math.round(height * Math.PI / 2);

@@ -1349,13 +1349,8 @@ class Channel {
 
 		if (fixedFrequency) {
 			toOperator.setFrequency(block, freqNum, 1);
-			if (to === 4) {
-				this.setFrequency(block, freqNum);
-			}
 		} else {
-			block = this.freqBlockNumbers[3];
-			freqNum = this.frequencyNumbers[3];
-			toOperator.setFrequency(block, freqNum, multiple);
+			this.setFrequency(this.freqBlockNumbers[3], this.frequencyNumbers[3]);
 		}
 
 		this.minKeyVelocity[to - 1] = this.minKeyVelocity[from - 1];
@@ -1464,35 +1459,34 @@ class Channel {
 
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
 		const fixedFrequency = this.fixedFrequency;
-		const operator = this.operators[operatorNum - 1];
-		const multiple = this.frequencyMultiples[operatorNum - 1];
-		let block = this.freqBlockNumbers[3];
-		let freqNum = this.frequencyNumbers[3];
 
 		if (fixed) {
 			if (preserve) {
-				if (!fixedFrequency[operatorNum - 1] &&
+				const multiple = this.frequencyMultiples[operatorNum - 1];
+				if (multiple !== 1 && !fixedFrequency[operatorNum - 1] &&
 					(operatorNum !== 4 ||
 						(fixedFrequency[0] && fixedFrequency[1] && fixedFrequency[2])
 					)
 				) {
 					// Turn a frequency multiple into a fixed frequency.
-					const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
-					[block, freqNum] = this.synth.fullFreqToComponents(fullFreqNumber);
+					let block = this.freqBlockNumbers[3];
+					let freqNum = this.frequencyNumbers[3];
+					[block, freqNum] = this.synth.multiplyFreqComponents(block, freqNum, multiple);
 					this.freqBlockNumbers[operatorNum - 1] = block;
 					this.frequencyNumbers[operatorNum - 1] = freqNum;
 				}
 			} else if (time !== undefined) {
 				// Restore a fixed frequency from a register.
-				block = this.freqBlockNumbers[operatorNum - 1];
-				freqNum = this.frequencyNumbers[operatorNum - 1];
-				operator.setFrequency(block, freqNum, 1, time, method);
+				const block = this.freqBlockNumbers[operatorNum - 1];
+				const freqNum = this.frequencyNumbers[operatorNum - 1];
+				this.operators[operatorNum - 1].setFrequency(block, freqNum, 1, time, method);
 			}
-		} else if (time !== undefined) {
-			// Restore a multiple of Operator 4's frequency.
-			operator.setFrequency(block, freqNum, multiple, time, method);
 		}
 		fixedFrequency[operatorNum - 1] = fixed;
+		if (time !== undefined) {
+			// Restore a frequency ratio or the overall mode may have changed unfixed <--> fixed
+			this.setFrequency(this.freqBlockNumbers[3], this.frequencyNumbers[3], time, method);
+		}
 	}
 
 	isOperatorFixed(operatorNum) {
@@ -1500,8 +1494,18 @@ class Channel {
 	}
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
-		for (let i = 0; i < 4; i++) {
-			if (!this.fixedFrequency[i]) {
+		const hasFixedFrequency = this.fixedFrequency.indexOf(true) !== -1;
+		if (hasFixedFrequency) {
+			for (let i = 0; i < 4; i++) {
+				if (!this.fixedFrequency[i]) {
+					const [operatorBlock, operatorFreqNum] = this.synth.multiplyFreqComponents(
+						blockNumber, frequencyNumber, this.frequencyMultiples[i]
+					);
+					this.operators[i].setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
+				}
+			}
+		} else {
+			for (let i = 0; i < 4; i++) {
 				const multiple = this.frequencyMultiples[i];
 				this.operators[i].setFrequency(blockNumber, frequencyNumber, multiple, time, method);
 			}
@@ -2224,7 +2228,7 @@ class FMSynth {
 		referencePitch /= 2;	// Account for high modulation index.
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
-		let referenceNote += 60;
+		referenceNote += 60;
 		let noteNumber = 60;
 		let stepIndex = 0;
 		for (let i = 60; i < 128; i++) {
@@ -2349,6 +2353,11 @@ class FMSynth {
 		return [block, Math.round(freqNum)];
 	}
 
+	multiplyFreqComponents(block, frequencyNumber, multiple) {
+		const fullFreqNumber = componentsToFullFreq(block, frequencyNumber) * multiple;
+		return this.fullFreqToComponents(fullFreqNumber);
+	}
+
 	frequencyToNote(block, frequencyNum, detune = 0) {
 		let lb = 0;
 		let ub = 127;
@@ -2405,13 +2414,10 @@ class TwoOperatorChannel {
 
 		if (fixedFrequency) {
 			toOperator.setFrequency(block, freqNum, 1);
-			if (to === 2) {
-				this.setFrequency(block, freqNum);
-			}
 		} else {
 			block = parent.getFrequencyBlock(this.operatorOffset + 2);
 			freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
-			toOperator.setFrequency(block, freqNum, multiple);
+			this.setFrequency(block, freqNum);
 		}
 
 		const sensitivity = parent.getDynamics(effectiveFrom);
@@ -2482,26 +2488,27 @@ class TwoOperatorChannel {
 	fixFrequency(operatorNum, fixed, time = undefined, method = 'setValueAtTime') {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
-		const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
-		const block = parent.getFrequencyBlock(this.operatorOffset + 2);
-		const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
 
 		if (fixed) {
-			if (!parent.isOperatorFixed(effectiveOperatorNum) &&
-				(operatorNum !== 1 || parent.isOperatorFixed(this.operatorOffset))
+			const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
+			if (multiple !== 1 && !parent.isOperatorFixed(effectiveOperatorNum) &&
+				(operatorNum !== 2 || parent.isOperatorFixed(this.operatorOffset))
 			) {
 				// Turn a frequency multiple into a fixed frequency.
-				const fullFreqNumber = componentsToFullFreq(block, freqNum) * multiple;
-				[block, freqNum] = parent.synth.fullFreqToComponents(fullFreqNumber);
+				let block = parent.getFrequencyBlock(this.operatorOffset + 2);
+				let freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
+				[block, freqNum] = this.synth.multiplyFreqComponents(block, freqNum, multiple);
 				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
 				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
 			}
-		} else if (time !== undefined) {
-			// Restore a multiple of Operator 2's frequency.
-			const operator = parent.getOperator(effectiveOperatorNum);
-			operator.setFrequency(block, freqNum, multiple, time, method);
 		}
 		parent.fixedFrequency[effectiveOperatorNum - 1] = fixed;
+		if (time !== undefined) {
+			// Restore a frequency ratio or the overall mode may have changed unfixed <--> fixed
+			const block = parent.getFrequencyBlock(this.operatorOffset + 2);
+			const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
+			this.setFrequency(block, freqNum, time, method);
+		}
 	}
 
 	isOperatorFixed(operatorNum) {
@@ -2511,9 +2518,24 @@ class TwoOperatorChannel {
 	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
-		for (let i = 1; i <= 2; i++) {
-			const operatorNum = offset + i;
-			if (!parent.isOperatorFixed(operatorNum)) {
+		const hasFixedFrequency =
+			parent.isOperatorFixed(offset + 1) ||
+			parent.isOperatorFixed(offset + 2);
+
+		if (hasFixedFrequency) {
+			for (let i = 1; i <= 2; i++) {
+				const operatorNum = offset + i;
+				if (!parent.isOperatorFixed(operatorNum)) {
+					const multiple = parent.getFrequencyMultiple(operatorNum);
+					const [operatorBlock, operatorFreqNum] = parent.synth.multiplyFreqComponents(
+						blockNumber, frequencyNumber, multiple
+					);
+					parent.getOperator(operatorNum).setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
+				}
+			}
+		} else {
+			for (let i = 1; i <= 2; i++) {
+				const operatorNum = offset + i;
 				const multiple = parent.getFrequencyMultiple(operatorNum);
 				parent.getOperator(operatorNum).setFrequency(blockNumber, frequencyNumber, multiple, time, method);
 			}

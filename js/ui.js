@@ -450,6 +450,13 @@ function waveform(event) {
 	operator.setWaveform(audioContext, waveform, audioContext.currentTime + 0.02);
 }
 
+function unfixFrequency(event) {
+	initialize();
+	const opNum = getOperator(this);
+	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
+	channel.fixFrequency(opNum, false, 0);
+}
+
 function frequencyMultipleSlider(event) {
 	initialize();
 	const opNum = getOperator(this);
@@ -463,7 +470,7 @@ function frequencyMultipleSlider(event) {
 	}
 	document.getElementById(opStr + '-freq-unfixed').checked = true;
 	document.getElementById(opStr + '-multiple').value = value;
-	channel.fixFrequency(opNum, false);
+	channel.fixFrequency(opNum, false, 0);
 	channel.setFrequencyMultiple(opNum, value, 0)
 }
 
@@ -485,7 +492,7 @@ function frequencyMultiple(event) {
 	const value = numerator / denominator;
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	document.getElementById('op' + opNum + '-multiple-slider').value = value;
-	channel.fixFrequency(opNum, false);
+	channel.fixFrequency(opNum, false, 0);
 	channel.setFrequencyMultiple(opNum, value, 0);
 }
 
@@ -527,7 +534,7 @@ function frequency(event) {
 	if (!(freqNum >= 0 && freqNum <= 2047)) {
 		freqNum = channel.getOperator(opNum).getFrequencyNumber();
 	}
-	channel.fixFrequency(opNum, true);
+	channel.fixFrequency(opNum, true, 0);
 	channel.setOperatorFrequency(opNum, block, freqNum);
 }
 
@@ -673,6 +680,8 @@ function createOperatorPage(n) {
 	html = html.replace(/\$/g, n);
 	const doc = domParser.parseFromString(html, 'text/html');
 	const opStr = 'op' + n;
+	doc.getElementById(opStr + '-freq-fixed').addEventListener('input', frequency);
+	doc.getElementById(opStr + '-freq-unfixed').addEventListener('input', unfixFrequency);
 	doc.getElementById(opStr + '-multiple-slider').addEventListener('input', frequencyMultipleSlider);
 	doc.getElementById(opStr + '-multiple').addEventListener('input', frequencyMultiple);
 	doc.getElementById(opStr + '-multiple-free').addEventListener('input', frequencyFreeMultiple);
@@ -730,50 +739,4 @@ function disableOperator(event) {
 for (let i = 1; i <=4; i++) {
 	document.getElementById('op' + i + '-enabled').addEventListener('input', enableOperator);
 	document.getElementById('op' + i + '-disabled').addEventListener('input', disableOperator);
-}
-
-
-window.drawWaveform = function (waveform, canvasContext, numCycles = 1) {
-	const width = canvasContext.canvas.width;
-	const height = canvasContext.canvas.height;
-	const imageData = canvasContext.getImageData(0, 0, width, height);
-	const pixels = imageData.data;
-	const sampleLength = waveform.length;
-	const length = sampleLength * numCycles;
-	const halfHeight = (height - 1) / 2 - 1;
-	let x = 0, total = 0, numSamples = 0, prevY;
-
-	const brightness = 64;
-	const shadowBrightness = 0;
-
-	function fillPixel(x, y) {
-		let offset = 4 * (y * width + x);
-		pixels[offset] = 255;
-		pixels[offset + 1] = brightness;
-		pixels[offset + 2] = brightness;
-		pixels[offset + 3] = 255;
-	}
-
-	for (let i = 0; i < length; i++) {
-		const newX = Math.trunc(i / length * width);
-		if (newX >= x + 1) {
-			const average = total / numSamples;
-			const pixelY = height - Math.round(average * halfHeight + halfHeight + 1.5);
-			if (x > 0) {
-				const dir = Math.sign(pixelY - prevY);
-				for (let y = prevY; y != pixelY; y += dir) {
-					fillPixel(x - 1, y);
-				}
-			}
-			fillPixel(x, pixelY);
-
-			total = 0;
-			numSamples = 0;
-			x = newX;
-			prevY = pixelY;
-		}
-		total += waveform[i % sampleLength];
-		numSamples++;
-	}
-	canvasContext.putImageData(imageData, 0, 0);
 }
