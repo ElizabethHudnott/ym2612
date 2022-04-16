@@ -2200,16 +2200,18 @@ class FMSynth {
 	}
 
 	/**Calculates frequency data for a scale of 128 MIDI notes.
-	 * @param {number} a4Pitch The pitch to tune A4 to, in Hertz.
-	 * @param {number} transpose The number of semitones to transpose the scale by.
+	 * @param {number} referencePitch The pitch to tune the reference note to (usually A4), in
+	 * Hertz.
+	 * @param {number} referenceNote The number of scale increments that the reference pitch is
+	 * above middle C. The default is 9 semitones (A4).
 	 * @param {number} interval The default value 2, separates consecutive copies of the root
 	 * note by a 2:1 frequency ratio (an octave).
-	 * @param {number} divisions How many notes the (chromatic) scale should have.
-	 * @param {number} steps A pattern of scale division increments used to move from one
-	 * keyboard key to the next. The pattern will be repeated up and down the keyboard from
-	 * Middle C.
+	 * @param {number} divisions How many notes the chromatic scale should have.
+	 * @param {number} steps A pattern of scale increments used to move from one keyboard key to
+	 * the next. The pattern will be repeated up and down the keyboard from middle C.
+	 *
 	 * Examples:
-	 * [1] A normal equal tempered scale.
+	 * [1] A regular equal tempered scale.
 	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
 	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
 	 * scale.
@@ -2218,18 +2220,15 @@ class FMSynth {
 	 * scale.
 	 *
 	 */
-	tuneMIDINotes(a4Pitch = 440, transpose = 0, interval = 2, divisions = 12, steps = [1]) {
-		a4Pitch /= 2;	// Account for high modulation index.
+	tuneMIDINotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12, steps = [1]) {
+		referencePitch /= 2;	// Account for high modulation index.
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
-		let a4NoteNumber = 60 - transpose;
-		for (let i = 0; i < 9; i++) {
-			a4NoteNumber += steps[i % numIntervals];
-		}
+		let referenceNote += 60;
 		let noteNumber = 60;
 		let stepIndex = 0;
 		for (let i = 60; i < 128; i++) {
-			const frequency = a4Pitch * (interval ** ((noteNumber - a4NoteNumber) / divisions));
+			const frequency = referencePitch * (interval ** ((noteNumber - referenceNote) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 			noteNumber  += steps[stepIndex];
 			stepIndex = (stepIndex + 1) % numIntervals;
@@ -2238,7 +2237,7 @@ class FMSynth {
 		stepIndex = numIntervals - 1;
 		for (let i = 59; i >= 0; i--) {
 			noteNumber -= steps[stepIndex];
-			const frequency = a4Pitch * (interval ** ((noteNumber - a4NoteNumber) / divisions));
+			const frequency = referencePitch * (interval ** ((noteNumber - referenceNote) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 			stepIndex--;
 			if (stepIndex < 0) {

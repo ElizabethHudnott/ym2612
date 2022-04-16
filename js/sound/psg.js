@@ -345,7 +345,7 @@ class PSG {
 		this.tuneMIDINotes(440);
 
 		let frequencyLimit = context.sampleRate / 2;
-		if (frequencyLimit > 24000) {
+		while (frequencyLimit > 24000) {
 			frequencyLimit /= 2;
 		}
 		const minFreqNumber = Math.ceil(this.frequencyToFreqNumber(frequencyLimit));
@@ -448,13 +448,14 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tuneMIDINotes(a4Pitch = 440, transpose = 0, interval = 2, divisions = 12) {
+	tuneMIDINotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
 		const step = interval ** (1 / divisions);
+		referenceNote += 60;
 		let prevFreqNum, prevIdealFrequency;
 		for (let i = 0; i < 128; i++) {
-			const idealFrequency = a4Pitch * interval ** ((i + transpose - 69) / divisions);
+			const idealFrequency = referencePitch * interval ** ((i - referenceNote) / divisions);
 			let freqNum = Math.round(this.frequencyToFreqNumber(idealFrequency));
 			const approxFrequency = this.frequencyNumberToHz(freqNum);
 

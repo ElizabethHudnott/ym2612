@@ -19,7 +19,7 @@ Pitch Effects
 
 Amplitude Effects
 	Volume Bend
-	Set Volume (after x ticks)
+	Set Volume
 	-----
 	Tremolo Depth
 

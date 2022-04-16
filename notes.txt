@@ -1,12 +1,12 @@
 Wanted Feature List / Change List
 ---------------------------------
 Algorithms on Other Systems
-	1 -> 2 & 3 -> 4		(Bleass, Dirtywave M8) diamond shape
+	1 -> 2 & 3 -> 4		Omit (Bleass, Dirtywave M8) diamond shape
 	1 -> 2 -> 3 & 4		(Bleass, Dirtywave M8)
 	1 & 2 & 3 -> 4			(DX7, Bleass, Dirtywave M8)
 	1 -> 2 & 3, 4			(DX7, Dirtywave M8)
 	1->2&4, 3->2&4			Algorithm 4 + more (Digitone)
-	1->2&3, 2->3, 3->4	(Digitone)
+	1->2&3, 2->3->4		(Digitone)
 Renumber operators 2 & 3
 
 Bug: Reading .value is broken in chrome
@@ -24,7 +24,7 @@ Add second release stage to envelopes
 AM envelopes
 Operator ratio bend
 	Separate ratio node
-Operator frequency offset in Hz
+Operator frequency offset in frequency numbers
 
 Envelope trigger method (regardless of key currently on or off)
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance, vibrato depth?)
@@ -43,11 +43,13 @@ envelope shift
 Add panning to PSG (like Sega Game Gear?)
 White noise as a modulator (through filter + resonance?)
 
+PSG
+	reciprocal node?
+	wave sequencing (alternate pulse and saw using a square wave LFO)
+
 OPL2/3-like features
 	Compatibility
 		Separate LFOs for pitch and volume?
-
-CSM mode?
 
 Amplitude Bend
 	Plain (how will this work with 2-op channels?)
@@ -67,7 +69,7 @@ Delay/Chorus unit
 Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
-Microtuning (step offsets for PSG, randomization/analog?)
+Microtuning (step offsets for PSG, getMIDINote for PSG, randomization/analog?)
 
 UI
 	Tabindexes in the custom algorithm section
