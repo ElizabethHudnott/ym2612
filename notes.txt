@@ -38,6 +38,7 @@ glide
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 	hard sync effect. Like Casio CZ?
+inverted attack
 negative sustain rates
 envelope shift
 Add panning to PSG (like Sega Game Gear?)
@@ -65,6 +66,14 @@ Feedback amount envelope (or bend?)
 	Looping bends?
 
 Delay/Chorus unit
+
+Combine sample with synth
+	Roland Linear Arithmetic Synthesis
+	Korg Advanced Integrated synthesis (M1)
+	Casio ZPI & Advanced and High Quality Large Waveform
+	Ensoniq Cross Wave Synthesis (SQ-80)
+	Kawai Digital Multi Spectrum (K4)
+	Yamaha SY77, etc.
 
 Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself

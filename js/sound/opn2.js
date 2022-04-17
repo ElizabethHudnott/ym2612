@@ -1327,6 +1327,7 @@ class Channel {
 		this.minAttack = new Array(4);
 		this.maxAttack = new Array(4);
 		this.operatorDelay = [0, 0, 0, 0];
+		this.muted = false;
 
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
@@ -2013,10 +2014,11 @@ class Channel {
 
 	mute(muted, time = 0) {
 		this.muteControl.setValueAtTime(muted ? 0 : 1, time);
+		this.muted = muted;
 	}
 
 	isMuted() {
-		return this.muteControl.value === 0;
+		return this.muted;
 	}
 
 	volumeAutomation(
