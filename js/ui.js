@@ -470,8 +470,8 @@ function frequencyMultipleSlider(event) {
 	}
 	document.getElementById(opStr + '-freq-unfixed').checked = true;
 	document.getElementById(opStr + '-multiple').value = value;
-	channel.fixFrequency(opNum, false, 0);
 	channel.setFrequencyMultiple(opNum, value, 0)
+	channel.fixFrequency(opNum, false, 0);
 }
 
 function frequencyMultiple(event) {
@@ -492,8 +492,8 @@ function frequencyMultiple(event) {
 	const value = numerator / denominator;
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	document.getElementById('op' + opNum + '-multiple-slider').value = value;
-	channel.fixFrequency(opNum, false, 0);
 	channel.setFrequencyMultiple(opNum, value, 0);
+	channel.fixFrequency(opNum, false, 0);
 }
 
 function frequencyFreeMultiple(event) {
