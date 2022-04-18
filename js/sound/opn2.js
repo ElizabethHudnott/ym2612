@@ -95,14 +95,14 @@ async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirro
 	let decayMod = ENV_INCREMENT_MOD[decayRate];
 	let sustainMod = ENV_INCREMENT_MOD[sustainRate];
 	const totalMod = decayMod + sustainMod;
-	if (totalMod === 8) {
+	if (totalMod === 4 || totalMod === 8) {
 		/* Instead of 4 steps out of every 8, change to 1 step out of every 2
 		 * (repeating 01 pattern).
 		 */
 		decayMod = 1;
 		sustainMod = 1;
 		commonPower += 2;
-	} else if (totalMod === 12) {
+	} else if (totalMod === 6 || totalMod === 12) {
 		/* Instead of 6 steps out of every 8, change to 3 steps out of every 4
 		 * (repeating 0111 pattern).
 		 */
@@ -362,8 +362,12 @@ class Envelope {
 		const envelopeRate = this.envelopeRate;
 
 		let beginLevel = 0;
+		let postAttackLevel = 1023;
 		const endRelease = this.endRelease;
-		if (endRelease > 0) {
+		if (invert) {
+			beginLevel = 1023;
+			postAttackLevel = 0;
+		} else if (endRelease > 0) {
 			//I.e. it's not the first time the envelope ran.
 			if (time < endRelease) {
 				// Still in the release phase
@@ -371,49 +375,46 @@ class Envelope {
 				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
 				beginLevel = this.releaseLevel * (1 - timeProportion);
 			}
-			if (invert) {
-				beginLevel = 1023 - beginLevel;
-			}
 		}
 
 		this.beginAttack = time;
 		this.beginLevel = beginLevel;
 		this.hasAttack = true;
 		let endAttack = time;
-		if (invert) {
-			cancelAndHoldAtTime(gain, 0, time);
+		let attackRate;
+		if (this.attackRate === 0) {
+			attackRate = 0;
 		} else {
-			let attackRate;
-			if (this.attackRate === 0) {
-				attackRate = 0;
-			} else {
-				attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
-			}
-			if (attackRate <= 1) {
-				// Level never rises
-				if (beginLevel === 0) {
-					this.endSustain = time;
-					channel.scheduleSoundOff(operator, time);
-				} else {
-					cancelAndHoldAtTime(gain, beginLevel / 1023, time);
-					this.hasAttack = false;
-					this.endAttack = time;
-					this.endDecay = Infinity;
-					this.endSustain = Infinity;
-				}
-				return;
-			} else if (attackRate < 62 && beginLevel < 1023) {
-				// Non-infinite attack
-				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
-				const target = ATTACK_TARGET[attackRate - 2];
-				const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
-				gain.setTargetAtTime(target / 1023, time, timeConstant);
-				this.prevAttackRate = attackRate;
-				const attackTime = -timeConstant * Math.log((1023 - target) / (beginLevel - target));
-				endAttack += attackTime;
-			}
-			cancelAndHoldAtTime(gain, 1, endAttack);
+			attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
 		}
+		if (attackRate <= 1) {
+			// Level never changes
+			if (beginLevel === 0) {
+				this.endSustain = time;
+				channel.scheduleSoundOff(operator, time);
+			} else {
+				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+				this.hasAttack = false;
+				this.endAttack = time;
+				this.endDecay = Infinity;
+				this.endSustain = Infinity;
+			}
+			return;
+		} else if (attackRate < 62 && beginLevel !== postAttackLevel) {
+			// Non-infinite attack
+			cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+			let target = ATTACK_TARGET[attackRate - 2];
+			if (invert) {
+				target = 1023 - target;
+			}
+			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
+			gain.setTargetAtTime(target / 1023, time, timeConstant);
+			const attackTime = -timeConstant *
+				Math.log((postAttackLevel - target) / (beginLevel - target));
+			endAttack += attackTime;
+			this.prevAttackRate = attackRate;
+		}
+		cancelAndHoldAtTime(gain, postAttackLevel / 1023, endAttack);
 		this.endAttack = endAttack;
 
 		if (this.looping && this.decayRate > 0 && (this.sustainRate > 0 || this.sustain === 0)) {
@@ -534,7 +535,10 @@ class Envelope {
 
 			// In the attack phase.
 			const attackRate = this.prevAttackRate;
-			const target = ATTACK_TARGET[attackRate - 2];
+			let target = ATTACK_TARGET[attackRate - 2];
+			if (this.inverted) {
+				target = 1023 - target;
+			}
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
 			const beginAttack = this.beginAttack;
 			const beginLevel = this.beginLevel;

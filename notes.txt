@@ -38,7 +38,7 @@ glide
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 	hard sync effect. Like Casio CZ?
-inverted attack
+SSG should include attack phase (inverted if needed)
 negative sustain rates
 envelope shift
 Add panning to PSG (like Sega Game Gear?)
