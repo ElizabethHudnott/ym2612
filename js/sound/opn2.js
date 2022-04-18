@@ -505,7 +505,12 @@ class Envelope {
 		} else {
 
 			// Sustain phase
-			const sustainTime = this.decayTime(this.sustain, 0, this.sustainRate, rateAdjust) / envelopeRate;
+			let sustainRate = this.sustainRate;
+			if (sustainRate < 0) {
+				sustainRate = -sustainRate;
+				finalValue = 1 - finalValue;
+			}
+			const sustainTime = this.decayTime(this.sustain, 0, sustainRate, rateAdjust) / envelopeRate;
 			endSustain += sustainTime;
 			gain.linearRampToValueAtTime(finalValue, endSustain);
 
@@ -562,7 +567,10 @@ class Envelope {
 		if (time >= endSustain) {
 
 			// Sustain decayed to zero
-			linearValue = this.jump ? 1023 : 0;
+			linearValue = this.sustainRate < 0 ? 1023 : 0;
+			if (this.jump) {
+				linearValue = 1023 - linearValue;
+			}
 
 		} else if (time >= endDecay) {
 
