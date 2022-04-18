@@ -68,6 +68,8 @@ for (let i = 0; i <= 63; i++) {
 	ENV_INCREMENT[i] =  ENV_INCREMENT_MOD[i] * (2 ** power);
 }
 
+const OPL_ENVELOPE_TICK = 36 / 3579545;
+
 function rateAdjustment(keyCode, scaling) {
 	if (scaling === 0) {
 		return 0;
@@ -77,6 +79,13 @@ function rateAdjustment(keyCode, scaling) {
 		scaling = -scaling;
 	}
 	return Math.trunc(keyCode / 2 ** (4 - scaling));
+}
+
+function dampenTime(from, rateAdjust) {
+		const distance = Math.max(from - 7, 0);
+		const rate = Math.min(Math.round(48 + rateAdjust), 63);
+		const gradient = ENV_INCREMENT[rate];
+		return OPL_ENVELOPE_TICK * Math.ceil(distance / gradient);
 }
 
 async function makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
@@ -180,6 +189,7 @@ class Envelope {
 		this.releaseRate = 17;
 		this.sustain = 1023;	// Already converted into an attenuation value.
 		this.envelopeRate = 1;
+		this.reset = false;
 
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
@@ -188,7 +198,9 @@ class Envelope {
 		// Values stored during key on.
 		this.wasInverted = false;
 		this.beginLevel = 0;
+		this.hasDampen = false;
 		this.hasAttack = true;
+		this.beginDampen = Infinity;
 		this.beginAttack = Infinity;
 		this.prevAttackRate = 0;
 		this.endAttack = 0;
@@ -365,10 +377,14 @@ class Envelope {
 
 		let beginLevel = 0;
 		let postAttackLevel = 1023;
+		this.beginDampen = time;
+		this.hasDampen = false;
+		let endDampen = time;
 		const endRelease = this.endRelease;
 		if (invert) {
 			beginLevel = 1023;
 			postAttackLevel = 0;
+			this.beginLevel = 1023;
 		} else if (endRelease > 0) {
 			//I.e. it's not the first time the envelope ran.
 			if (time < endRelease) {
@@ -377,12 +393,19 @@ class Envelope {
 				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
 				beginLevel = this.releaseLevel * (1 - timeProportion);
 			}
+			this.beginLevel = beginLevel;
+			if (this.reset && beginLevel > 7) {
+				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+				endDampen += dampenTime(beginLevel, rateAdjust);
+				gain.linearRampToValueAtTime(7 / 1023, endDampen);
+				beginLevel = 7;
+				this.hasDampen = true;
+			}
 		}
 
-		this.beginAttack = time;
-		this.beginLevel = beginLevel;
+		this.beginAttack = endDampen;
 		this.hasAttack = true;
-		let endAttack = time;
+		let endAttack = endDampen;
 		let attackRate;
 		if (this.attackRate === 0) {
 			attackRate = 0;
@@ -392,25 +415,25 @@ class Envelope {
 		if (attackRate <= 1) {
 			// Level never changes
 			if (beginLevel === 0) {
-				this.endSustain = time;
-				channel.scheduleSoundOff(operator, time);
+				this.endSustain = endDampen;
+				channel.scheduleSoundOff(operator, endDampen);
 			} else {
-				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+				cancelAndHoldAtTime(gain, beginLevel / 1023, endDampen);
 				this.hasAttack = false;
-				this.endAttack = time;
+				this.endAttack = endDampen;
 				this.endDecay = Infinity;
 				this.endSustain = Infinity;
 			}
 			return;
 		} else if (attackRate < 62 && beginLevel !== postAttackLevel) {
 			// Non-infinite attack
-			cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+			cancelAndHoldAtTime(gain, beginLevel / 1023, endDampen);
 			let target = ATTACK_TARGET[attackRate - 2];
 			if (invert) {
 				target = 1023 - target;
 			}
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * tickRate;
-			gain.setTargetAtTime(target / 1023, time, timeConstant);
+			gain.setTargetAtTime(target / 1023, endDampen, timeConstant);
 			const attackTime = -timeConstant *
 				Math.log((postAttackLevel - target) / (beginLevel - target));
 			endAttack += attackTime;
@@ -477,8 +500,8 @@ class Envelope {
 		if (this.decayRate === 0) {
 			let endTime;
 			if (invert) {
-				endTime = time;
-				channel.scheduleSoundOff(operator, time);
+				endTime = endAttack;
+				channel.scheduleSoundOff(operator, endAttack);
 			} else {
 				endTime = Infinity;
 			}
@@ -533,10 +556,15 @@ class Envelope {
 		const endAttack = this.endAttack;
 		let linearValue;
 
-		if (!this.hasAttack) {
+		if (time < this.beginAttack) {
+
+			return 7 + (this.beginLevel - 7) *
+				(time - this.beginDampen) / (this.beginAttack - this.beginDampen);
+
+		} else if (!this.hasAttack) {
 
 			// Attack rate was 0.
-			return this.beginLevel;
+			return this.hasDampen ? 0 : this.beginLevel;
 
 		} else if (time <= this.endAttack) {
 
@@ -548,7 +576,10 @@ class Envelope {
 			}
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
 			const beginAttack = this.beginAttack;
-			const beginLevel = this.beginLevel;
+			let beginLevel = this.beginLevel;
+			if (this.hasDampen) {
+				beginLevel = Math.min(beginLevel, 7);
+			}
 			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
 
 		} else if (this.sampleNode) {
@@ -1004,6 +1035,14 @@ class Operator {
 		return this.envelope.getEnvelopeRate();
 	}
 
+	setEnvelopeReset(enabled) {
+		this.envelope.reset = enabled;
+	}
+
+	getEnvelopeReset() {
+		return this.envelope.reset;
+	}
+
 	attenuationAutomation(automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)) {
 		const envelope = this.envelope;
 		if (!envelope.looping) {
@@ -1153,12 +1192,12 @@ class FMOperator extends Operator {
 
 	keyOn(context, time) {
 		if (!this.keyIsOn && !this.disabled) {
-			if (this.oscillator1 && this.channel.oldStopTime > time) {
+			super.keyOn(context, time);
+			if (this.oscillator1 && !this.envelope.reset && this.channel.oldStopTime > time) {
 				this.stopOscillator(context.currentTime + NEVER);
 			} else {
-				this.newOscillator(context, time);
+				this.newOscillator(context, this.envelope.beginAttack);
 			}
-			super.keyOn(context, time);
 		}
 	}
 
