@@ -26,9 +26,10 @@ Operator ratio bend
 	Separate ratio node
 Operator frequency offset in frequency numbers
 
+linearValueAtTime - check values cached appropriately
 Envelope trigger method (regardless of key currently on or off)
-Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance, vibrato depth?)
-Individual oscillator(?): envelope reset on/off, free running on/off?
+Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance)
+Individual oscillator: envelope reset on/off
 envelopes synced to tempo?
 attenuation bend and velocity?
 

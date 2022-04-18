@@ -181,7 +181,12 @@ class Envelope {
 		this.sustain = 1023;	// Already converted into an attenuation value.
 		this.envelopeRate = 1;
 
+		this.inverted = false;
+		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
+		this.looping = false;
+
 		// Values stored during key on.
+		this.wasInverted = false;
 		this.beginLevel = 0;
 		this.hasAttack = true;
 		this.beginAttack = Infinity;
@@ -192,10 +197,6 @@ class Envelope {
 		this.beginRelease = 0;
 		this.releaseLevel = 0;
 		this.endRelease = 0;
-
-		this.inverted = false;
-		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
-		this.looping = false;
 
 		this.sampleNode = undefined;
 		this.ssgSample = undefined;
@@ -360,6 +361,7 @@ class Envelope {
 		const gain = this.gain;
 		const invert = this.inverted;
 		const envelopeRate = this.envelopeRate;
+		this.wasInverted = invert;
 
 		let beginLevel = 0;
 		let postAttackLevel = 1023;
@@ -541,7 +543,7 @@ class Envelope {
 			// In the attack phase.
 			const attackRate = this.prevAttackRate;
 			let target = ATTACK_TARGET[attackRate - 2];
-			if (this.inverted) {
+			if (this.wasInverted) {
 				target = 1023 - target;
 			}
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
@@ -594,7 +596,7 @@ class Envelope {
 
 		}
 
-		if (this.inverted) {
+		if (this.wasInverted) {
 			linearValue = 1023 - linearValue;
 		}
 		return linearValue;
