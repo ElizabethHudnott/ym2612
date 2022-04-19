@@ -83,7 +83,7 @@ function rateAdjustment(keyCode, scaling) {
 
 function dampenTime(from, rateAdjust) {
 		const distance = Math.max(from - 7, 0);
-		const rate = Math.min(Math.round(48 + rateAdjust), 63);
+		const rate = Math.min(48 + rateAdjust, 63);
 		const gradient = ENV_INCREMENT[rate];
 		return OPL_ENVELOPE_TICK * Math.ceil(distance / gradient);
 }
