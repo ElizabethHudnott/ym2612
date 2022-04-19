@@ -68,7 +68,7 @@ for (let i = 0; i <= 63; i++) {
 	ENV_INCREMENT[i] =  ENV_INCREMENT_MOD[i] * (2 ** power);
 }
 
-const OPL_ENVELOPE_TICK = 36 / 3579545;
+const OPL_ENVELOPE_TICK = 72 / 3579545;
 
 function rateAdjustment(keyCode, scaling) {
 	if (scaling === 0) {
@@ -82,7 +82,7 @@ function rateAdjustment(keyCode, scaling) {
 }
 
 function dampenTime(from, rateAdjust) {
-		const distance = Math.max(from - 7, 0);
+		const distance = Math.ceil(from / 2);	// OPL has 512 levels instead of 1024
 		const rate = Math.min(48 + rateAdjust, 63);
 		const gradient = ENV_INCREMENT[rate];
 		return OPL_ENVELOPE_TICK * Math.ceil(distance / gradient);
@@ -189,7 +189,7 @@ class Envelope {
 		this.releaseRate = 17;
 		this.sustain = 1023;	// Already converted into an attenuation value.
 		this.envelopeRate = 1;
-		this.reset = false;
+		this.reset = false;	// Rapidly fade level to zero before retriggering
 
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
@@ -394,11 +394,11 @@ class Envelope {
 				beginLevel = this.releaseLevel * (1 - timeProportion);
 			}
 			this.beginLevel = beginLevel;
-			if (this.reset && beginLevel > 7) {
+			if (this.reset && beginLevel > 0) {
 				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
 				endDampen += dampenTime(beginLevel, rateAdjust);
-				gain.linearRampToValueAtTime(7 / 1023, endDampen);
-				beginLevel = 7;
+				gain.linearRampToValueAtTime(0 / 1023, endDampen);
+				beginLevel = 0;
 				this.hasDampen = true;
 			}
 		}
@@ -558,7 +558,7 @@ class Envelope {
 
 		if (time < this.beginAttack) {
 
-			return 7 + (this.beginLevel - 7) *
+			return this.beginLevel *
 				(time - this.beginDampen) / (this.beginAttack - this.beginDampen);
 
 		} else if (!this.hasAttack) {
@@ -577,9 +577,6 @@ class Envelope {
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
 			const beginAttack = this.beginAttack;
 			let beginLevel = this.beginLevel;
-			if (this.hasDampen) {
-				beginLevel = Math.min(beginLevel, 7);
-			}
 			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
 
 		} else if (this.sampleNode) {
