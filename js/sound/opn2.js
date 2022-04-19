@@ -191,6 +191,10 @@ class Envelope {
 		this.envelopeRate = 1;
 		this.reset = false;	// Rapidly fade level to zero before retriggering
 
+		this.velocitySensitivity = 0;
+		this.rateSensitivity = 0;
+		this.velocity = 127;
+
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
 		this.looping = false;
@@ -229,6 +233,9 @@ class Envelope {
 		envelope.sustain = this.sustain;
 		envelope.sustainRate = this.sustainRate;
 		envelope.releaseRate = this.releaseRate;
+		envelope.reset = this.reset;
+		envelope.velocitySensitivity = this.velocitySensitivity;
+		envelope.rateSensitivity = this.rateSensitivity;
 		envelope.inverted = this.inverted;
 		envelope.jump = this.jump;
 		envelope.looping = this.looping;
@@ -247,12 +254,53 @@ class Envelope {
 	}
 
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		this.totalLevelNode.offset[method](-level / 128, time);
 		this.totalLevel = level;
+		// Higher velocities result in less attenuation when a positive sensitivity setting is used.
+		level = level - Math.round((this.velocity >> 2) / 31 * this.velocitySensitivity);
+		level = Math.min(Math.max(level, 0), 127);
+		this.totalLevelNode.offset[method](-level / 128, time);
 	}
 
 	getTotalLevel() {
 		return this.totalLevel;
+	}
+
+	/**
+	 * @param {number} sensitivity Yamaha use the range 0..45 on OPP. (Possibly -45..45 on
+	 * later chips?)
+	 */
+	setVelocitySensitivity(sensitivity) {
+		if (sensitivity < 0) {
+			this.totalLevel = Math.min(this.totalLevel, 127 - sensitivity);
+		} else {
+			this.totalLevel = Math.max(this.totalLevel, sensitivity);
+		}
+		this.velocitySensitivity = sensitivity;
+	}
+
+	getVelocitySensitivity() {
+		return this.velocitySensitivity;
+	}
+
+	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
+		this.velocity = velocity;
+		this.setTotalLevel(this.totalLevel, time, method);
+	}
+
+	/**
+	 * @param {number} sensitivity Yamaha use the range -12..12.
+	 */
+	setRateSensitivity(sensitivity) {
+		if (sensitivity < 0) {
+			this.attackRate = Math.max(this.attackRate, 2 + sensitivity);
+		} else {
+			this.attackRate = Math.min(this.attackRate, 31 - sensitivity);
+		}
+		this.rateSensitivity = sensitivity;
+	}
+
+	getRateSensitivity() {
+		return this.rateSensitivity;
 	}
 
 	/**
@@ -356,6 +404,15 @@ class Envelope {
 		return rate < 1 ? Math.round(-10 / rate) / 10 : rate;
 	}
 
+	getScaledAttack(velocity) {
+		if (this.rateSensitivity === 0) {
+			return this.attackRate;
+		}
+		let attack = this.attackRate +
+			Math.round((this.velocity >> 3) / 15 * this.rateSensitivity);
+		return Math.min(Math.max(attack, 2), 31);
+	}
+
 	/**
 	 * Don't call with rate = 0, because that means infinite time.
 	 */
@@ -367,7 +424,8 @@ class Envelope {
 
 	/**Opens the envelope at a specified time.
 	 */
-	keyOn(context, operator, time) {
+	keyOn(context, velocity, operator, time) {
+		this.setVelocity(velocity, time);
 		const rateAdjust = rateAdjustment(operator.keyCode, this.rateScaling);
 		const tickRate = this.channel.synth.envelopeTick;
 		const gain = this.gain;
@@ -406,11 +464,9 @@ class Envelope {
 		this.beginAttack = endDampen;
 		this.hasAttack = true;
 		let endAttack = endDampen;
-		let attackRate;
-		if (this.attackRate === 0) {
-			attackRate = 0;
-		} else {
-			attackRate = Math.min(Math.round(2 * this.attackRate + rateAdjust), 63);
+		let attackRate = this.getScaledAttack(velocity);
+		if (attackRate > 0) {
+			attackRate = Math.min(Math.round(2 * attackRate + rateAdjust), 63);
 		}
 		if (attackRate <= 1) {
 			// Level never changes
@@ -942,8 +998,8 @@ class Operator {
 		return this.disabled;
 	}
 
-	keyOn(context, time) {
-		this.envelope.keyOn(context, this, time);
+	keyOn(context, velocity, time) {
+		this.envelope.keyOn(context, velocity, this, time);
 		this.keyIsOn = true;
 	}
 
@@ -966,6 +1022,22 @@ class Operator {
 
 	getTotalLevel() {
 		return this.envelope.getTotalLevel();
+	}
+
+	setVelocitySensitivity(sensitivity) {
+		this.envelope.setVelocitySensitivity(sensitivity);
+	}
+
+	getVelocitySensitivity() {
+		return this.envelope.getVelocitySensitivity();
+	}
+
+	setRateSensitivity(sensitivity) {
+		this.envelope.setRateSensitivity(sensitivity);
+	}
+
+	getRateSensitivity() {
+		return this.envelope.getRateSensitivity();
 	}
 
 	setRateScaling(amount) {
@@ -1187,9 +1259,9 @@ class FMOperator extends Operator {
 		return this.vibratoDepth;
 	}
 
-	keyOn(context, time) {
+	keyOn(context, velocity, time) {
 		if (!this.keyIsOn && !this.disabled) {
-			super.keyOn(context, time);
+			super.keyOn(context, velocity, time);
 			if (this.oscillator1 && !this.envelope.reset && this.channel.oldStopTime > time) {
 				this.stopOscillator(context.currentTime + NEVER);
 			} else {
@@ -1369,13 +1441,9 @@ class Channel {
 		this.detune = 1;	// 1:1 with non-detuned frequency
 
 		this.tremoloDepth = 0;	// linear scale
-		this.tremoloEnabled = [false, false, false, false];
 		this.vibratoDepth = 0;
+		this.tremoloEnabled = [false, false, false, false];
 		this.vibratoEnabled = [true, true, true, true];
-		this.minKeyVelocity = [127, 127, 127, 127];
-		this.maxKeyVelocity = [127, 127, 127, 127];
-		this.minAttack = new Array(4);
-		this.maxAttack = new Array(4);
 		this.operatorDelay = [0, 0, 0, 0];
 		this.muted = false;
 
@@ -1407,11 +1475,8 @@ class Channel {
 		} else {
 			this.setFrequency(this.freqBlockNumbers[3], this.frequencyNumbers[3]);
 		}
-
-		this.minKeyVelocity[to - 1] = this.minKeyVelocity[from - 1];
-		this.maxKeyVelocity[to - 1] = this.maxKeyVelocity[from - 1];
-		this.minAttack[to - 1] = this.minAttack[from - 1];
-		this.maxAttack[to - 1] = this.maxAttack[from - 1];
+		this.tremoloEnabled[to - 1] = this.tremoloEnabled[from - 1];
+		this.vibratoEnabled[to - 1] = this.vibratoEnabled[from - 1];
 		this.operatorDelay[to - 1] = this.operatorDelay[from - 1];
 	}
 
@@ -1927,41 +1992,43 @@ class Channel {
 	}
 
 	/**
-	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} or
-	 * {@link Channel.keyOnWithVelocity} for that.
+	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} for that.
 	 */
-	keyOnOff(context, time, op1, op2 = op1, op3 = op1, op4 = op1) {
+	keyOnOff(
+		context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION,
+		op1 = velocity !== 0, op2 = op1, op3 = op1, op4 = op1
+	) {
 		const operators = this.operators;
 		if (op1) {
-			operators[0].keyOn(context, time + this.operatorDelay[0]);
+			operators[0].keyOn(context, velocity, time + this.operatorDelay[0]);
 		} else {
 			operators[0].keyOff(time);
 		}
 		if (op2) {
-			operators[1].keyOn(context, time + this.operatorDelay[1]);
+			operators[1].keyOn(context, velocity, time + this.operatorDelay[1]);
 		} else {
 			operators[1].keyOff(time);
 		}
 		if (op3) {
-			operators[2].keyOn(context, time + this.operatorDelay[2]);
+			operators[2].keyOn(context, velocity, time + this.operatorDelay[2]);
 		} else {
 			operators[2].keyOff(time);
 		}
 		if (op4) {
-			operators[3].keyOn(context, time + this.operatorDelay[3]);
+			operators[3].keyOn(context, velocity, time + this.operatorDelay[3]);
 		} else {
 			operators[3].keyOff(time);
 		}
 		this.scheduleOscillators();
 	}
 
-	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOn(context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION) {
 		this.triggerLFO(context, time);
-		this.keyOnOff(context, time, true);
+		this.keyOnOff(context, velocity, time);
 	}
 
 	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
-		this.keyOnOff(context, time, false);
+		this.keyOnOff(context, 0, time);
 	}
 
 	setOperatorDelay(operatorNum, delay) {
@@ -1970,67 +2037,6 @@ class Channel {
 
 	getOperatorDelay(operatorNum) {
 		return this.operatorDelay[operatorNum - 1] * 1000;
-	}
-
-	/**Invoke directly to apply aftertouch.
-	 */
-	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
-		const velocityFraction = (velocity - 1) / 126;
-		for (let i = 0; i < 4; i++) {
-			const minLevel = this.minKeyVelocity[i];
-			const maxLevel = this.maxKeyVelocity[i];
-			if (minLevel !== maxLevel) {
-				let totalLevel = minLevel +
-					Math.round(velocityFraction * (maxLevel - minLevel));
-				totalLevel = 127 - totalLevel;
-				this.operators[i].setTotalLevel(totalLevel, time, method);
-			}
-		}
-	}
-
-	/**When this method is used then the overall output level needs to be controlled using
-	 * the channel's setModulationDepth() method rather than setTotalLevel().
-	 */
-	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
-		const velocityFraction = (velocity - 1) / 126;
-		for (let i = 0; i < 4; i++) {
-			const minAttack = this.minAttack[i];
-			if (minAttack !== undefined) {
-				const maxAttack = this.maxAttack[i];
-				const attack = minAttack + Math.round(velocityFraction * (maxAttack - minAttack));
-				this.operators[i].setAttack(attack);
-			}
-		}
-		this.setVelocity(velocity, time);
-		this.keyOn(context, time);
-	}
-
-	/**Controls velocity sensitivity.
-	 */
-	setDynamics(
-		operatorNum, minLevel, maxLevel = 127, time = 0, minAttack = undefined, maxAttack = this.maxAttack[operatorNum - 1]
-	) {
-		const operator = this.operators[operatorNum - 1];
-		if (minLevel === maxLevel) {
-			operator.setTotalLevel(127 - maxLevel, time);
-		}
-		this.minKeyVelocity[operatorNum - 1] = minLevel;
-		this.maxKeyVelocity[operatorNum - 1] = maxLevel;
-
-		if (maxAttack === undefined) {
-			maxAttack = operator.getAttack();
-		}
-		this.minAttack[operatorNum - 1] = minAttack;
-		this.maxAttack[operatorNum - 1] = maxAttack;
-	}
-
-	getDynamics(operatorNum) {
-		return {
-			minLevel: this.minKeyVelocity[operatorNum - 1],
-			maxLevel: this.maxKeyVelocity[operatorNum - 1],
-			minAttack: this.minAttack[operatorNum - 1],
-			maxAttack: this.maxAttack[operatorNum - 1]
-		}
 	}
 
 	soundOff(time = 0) {
@@ -2833,30 +2839,33 @@ class TwoOperatorChannel {
 		return this.parentChannel.getLFOPreset();
 	}
 
-	keyOnOff(context, time, op1, op2 = op1) {
+	keyOnOff(
+		context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION,
+		op1 = velocity !== 0, op2 = op1
+	) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		const operator1 = parent.getOperator(offset + 1);
 		const operator2 = parent.getOperator(offset + 2);
 		if (op1) {
-			operator1.keyOn(context, time);
+			operator1.keyOn(context, velocity, time + parent.getOperatorDelay(offset + 1));
 		} else {
 			operator1.keyOff(time);
 		}
 		if (op2) {
-			operator2.keyOn(context, time);
+			operator2.keyOn(context, velocity, time + parent.getOperatorDelay(offset + 2));
 		} else {
 			operator2.keyOff(time);
 		}
 		parent.scheduleOscillators();
 	}
 
-	keyOn(context, time = context.currentTime + TIMER_IMPRECISION) {
-		this.keyOnOff(context, time, true);
+	keyOn(context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION) {
+		this.keyOnOff(context, velocity, time);
 	}
 
 	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
-		this.keyOnOff(context, time, false);
+		this.keyOnOff(context, 0, time);
 	}
 
 	setOperatorDelay(operatorNum, delay) {
@@ -2865,36 +2874,6 @@ class TwoOperatorChannel {
 
 	getOperatorDelay(operatorNum) {
 		return this.parentChannel.getOperatorDelay(this.operatorOffset + operatorNum);
-	}
-
-	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
-		const parent = this.parentChannel;
-		for (let i = 1; i <= 2; i++) {
-			const operatorNum = this.operatorOffset + i;
-			const minLevel = parent.minKeyVelocity[operatorNum - 1];
-			const maxLevel = parent.maxKeyVelocity[operatorNum - 1];
-			if (minLevel !== maxLevel) {
-				let totalLevel = minLevel +
-					Math.round((maxLevel - minLevel) * (velocity - 1) / 126);
-				totalLevel = 127 - totalLevel;
-				parent.getOperator(operatorNum).setTotalLevel(totalLevel, time, method);
-			}
-		}
-	}
-
-	keyOnWithVelocity(context, velocity, time = context.currentTime + TIMER_IMPRECISION) {
-		this.setVelocity(velocity, time);
-		this.keyOn(context, time);
-	}
-
-	setDynamics(operatorNum, minLevel, maxLevel = 127, time = 0, minAttack = undefined, maxAttack = undefined) {
-		this.parentChannel.setDynamics(
-			this.operatorOffset + operatorNum, minLevel, maxLevel, time, minAttack, maxAttack
-		);
-	}
-
-	getDynamics(operatorNum) {
-		return this.parentChannel.getDynamics(this.operatorOffset + operatorNum);
 	}
 
 	soundOff(time = 0) {

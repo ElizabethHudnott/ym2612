@@ -33,7 +33,7 @@ envelopes synced to tempo?
 attenuation bend and velocity?
 
 Noise/S&H/sample as LFO source?
-Level scaling (per operator) (DX7 style? Or SY77? OR OPL?)
+Level scaling (per operator) (DX7 style? Or SY77? Or OPL? Or OPP?)
 glide
 full envelope(s) for vibrato & tremolo?
 
