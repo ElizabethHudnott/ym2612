@@ -1963,8 +1963,8 @@ class Channel {
 		this.keyOnOff(context, time, true);
 	}
 
-	keyOff(time) {
-		this.keyOnOff(undefined, time, false);
+	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
+		this.keyOnOff(context, time, false);
 	}
 
 	setOperatorDelay(operatorNum, delay) {

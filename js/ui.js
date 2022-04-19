@@ -29,13 +29,13 @@ document.body.addEventListener('keydown', function (event) {
 	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
-	channel.keyOn(audioContext, audioContext.currentTime + 0.02);
+	channel.keyOn(audioContext);
 	soundSystem.applyFilter();
 });
 
 document.body.addEventListener('keyup', function (event) {
 	initialize();
-	channel.keyOff(audioContext.currentTime + 0.02);
+	channel.keyOff(audioContext);
 });
 
 let filterFrequency, filterQ;
