@@ -4,7 +4,7 @@ const LONG_REGISTER = Object.freeze({
 	CH3_FREQUENCY: 6,	// 6-8
 });
 
-const PCM_LEVELS = [0, 1, 6, 6];
+const PCM_LEVELS = [0, 99, 132, 132];
 
 const write = [];
 

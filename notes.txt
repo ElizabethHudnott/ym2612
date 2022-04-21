@@ -11,6 +11,7 @@ Renumber operators 2 & 3
 
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
+Changing channel volume while PCM is in use doesn't work (problem?)
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
@@ -20,7 +21,8 @@ Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
 
 Split into separate files: envelope, operator, channel, synth
-Add second release stage to envelopes
+negative sustain rate needs to follow attack curve
+Add second release stage to envelopes (from -18db)
 AM envelopes
 Operator ratio bend
 	Separate ratio node
@@ -50,6 +52,7 @@ PSG
 
 OPL2/3-like features
 	Compatibility
+		Fast envelope setting (matching OPL clock rate)
 		Separate LFOs for pitch and volume?
 
 Amplitude Bend
@@ -79,6 +82,9 @@ Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
 Microtuning (step offsets for PSG, getMIDINote for PSG, randomization/analog?)
+
+More Ideas
+	Velocity sensitive detuning
 
 UI
 	Tabindexes in the custom algorithm section

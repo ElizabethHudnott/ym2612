@@ -2,8 +2,7 @@ import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
-import {logToLinear, linearToLog} from './sound/opn2.js';
-import {PitchBend} from './sound/bend.js';
+import {PitchBend, VolumeAutomation} from './sound/bend.js';
 
 function initialize() {
 	if (window.audioContext !== undefined) {
@@ -19,6 +18,7 @@ function initialize() {
 	window.ym2612 = new YM2612(soundSystem.fm, context);
 	window.OscillatorConfig = OscillatorConfig;
 	window.PitchBend = PitchBend;
+	window.VolumeAutomation = VolumeAutomation;
 
 	soundSystem.start(context.currentTime + 0.02);
 	synth.setChannelGain(6);
@@ -93,20 +93,20 @@ function updateAlgorithmDetails() {
 	for (let i = 1; i <= 3; i++) {
 		for (let j = i + 1; j <= 4; j++) {
 			const depth = channel.getModulationDepth(i, j);
-			const box = document.getElementById('modulation-' + i + '-' + j);
-			box.value = depth * 100;
+			document.getElementById('modulation-' + i + '-' + j).value = depth;
 		}
 	}
 	let total = 0;
 	for (let i = 1; i <= 4; i++) {
 		const operator = channel.getOperator(i);
 		if (!operator.disabled) {
-			const outputLevel = operator.getVolume();
-			total += outputLevel;
+			const gain = operator.getGain();
+			total += Math.abs(gain);
 			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(linearToLog(outputLevel) / 1.023) / 10;
+			box.value = Math.round(operator.getOutputLevel());
 		}
 	}
+	total *= 1 + Math.abs(channel.getPan());
 	const overdrive = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
 	document.getElementById('overdrive').value = overdrive;
 }
@@ -129,7 +129,7 @@ for (let i = 0; i <= 8; i++) {
 }
 
 function modulationDepth(event) {
-	const value = parseFloat(this.value) / 100;
+	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
 		const id = this.id;
 		const from = parseInt(id.slice(-3));
@@ -148,8 +148,7 @@ function outputLevel() {
 	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
 		const opNum = parseInt(this.id.slice(-1));
-		const volume = logToLinear(value * 10.23);
-		channel.getOperator(opNum).setVolume(volume);
+		channel.getOperator(opNum).setOutputLevel(value);
 	}
 }
 
@@ -160,15 +159,15 @@ for (let i = 1; i <= 4; i++) {
 function normalizeLevels(overdrive = 0) {
 	initialize();
 	const operators = new Array(4);
-	const currentLevels = new Array(4);
+	const currentGains = new Array(4);
 	let total = 0;
 	for (let i = 0; i < 4; i++) {
 		const operator = channel.getOperator(i + 1);
 		operators[i] = operator;
 		if (!operator.disabled) {
-			const outputLevel = operator.getVolume();
-			currentLevels[i] = outputLevel;
-			total += Math.abs(outputLevel);
+			const gain = operator.getGain();
+			currentGains[i] = gain;
+			total += Math.abs(gain);
 		}
 	}
 	if (total === 0) {
@@ -179,10 +178,10 @@ function normalizeLevels(overdrive = 0) {
 	for (let i = 0; i < 4; i++) {
 		const operator = operators[i];
 		if (!operator.disabled) {
-			const outputLevel = (overdrive + 1) * currentLevels[i] / total;
-			operator.setVolume(outputLevel);
+			const gain = (overdrive + 1) * currentGains[i] / total;
+			operator.setGain(gain);
 			const box = document.getElementById('output-level-' + String(i + 1));
-			box.value = Math.trunc(linearToLog(outputLevel) / 1.023) / 10;
+			box.value = Math.round(operator.getOutputLevel());
 		}
 	}
 }
@@ -714,16 +713,10 @@ domParser = undefined;
 
 function enableOperator(event) {
 	const opNum = parseInt(this.id[2]);
-	for (let i = opNum + 1; i <= 4; i++) {
-		document.getElementById('modulation-' + opNum + '-' + i).value = 0;
-	}
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = false;
 	}
-	const volumeBox = document.getElementById('output-level-' + opNum);
-	const volume = logToLinear(parseFloat(volumeBox.value) * 10.23) || 1;
-	channel.enableOperator(opNum, volume);
-	setTimeout(updateAlgorithmDetails, 20);
+	channel.enableOperator(opNum);
 }
 
 function disableOperator(event) {
@@ -733,7 +726,6 @@ function disableOperator(event) {
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = true;
 	}
-	setTimeout(updateAlgorithmDetails, 20);
 }
 
 for (let i = 1; i <=4; i++) {

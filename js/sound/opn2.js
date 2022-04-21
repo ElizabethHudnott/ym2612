@@ -39,8 +39,38 @@ function linearToLog(y) {
 	return y === 0 ? 0 : Math.sign(y) * (1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS);
 }
 
+const DX_TO_SY_LEVEL = [
+	0, 5, 9, 13, 17, 20, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 42, 43, 45, 46, 48
+];
+
+function dxToSYLevel(outputLevel) {
+	if (outputLevel <= 20) {
+		return DX_TO_SY_LEVEL[Math.round(outputLevel)]
+	} else {
+		return outputLevel + 28;
+	}
+}
+
+function syToDXLevel(level) {
+	if (level >= 48) {
+		return level - 28;
+	} else {
+		for (let i = 19; i >= 0; i--) {
+			if (level >= DX_TO_SY_LEVEL[i]) {
+				return i;
+			}
+		}
+	}
+}
+
 function modulationIndex(outputLevel) {
-	return Math.sign(outputLevel) * 4 * Math.PI * 2 ** (-11 * (1 - Math.abs(outputLevel)));
+	const level = dxToSYLevel(Math.abs(outputLevel));
+	return Math.sign(outputLevel) * Math.PI * 2 ** (33 / 16 - (127 - level) / 8);;
+}
+
+function outputLevelToGain(outputLevel) {
+	const level = dxToSYLevel(Math.abs(outputLevel));
+	return logToLinear(Math.sign(outputLevel) * level * 1023 / 127);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -50,7 +80,7 @@ function calcKeyCode(blockNumber, frequencyNumber) {
 }
 
 function componentsToFullFreq(blockNumber, frequencyNumber) {
-	return Math.trunc(0.5 * (frequencyNumber << blockNumber));
+	return Math.trunc(0.5 * (frequencyNumber * 2 ** blockNumber));
 }
 
 const ENV_INCREMENT_MOD = [0, 3, 4, 4, 4, 4, 6, 6];
@@ -809,7 +839,7 @@ class Operator {
 		this.disabled = false;
 
 		this.tremoloDepth = 0;
-		this.volume = 1;
+		this.outputLevel = 99;
 	}
 
 	copyTo(operator) {
@@ -975,13 +1005,24 @@ class Operator {
 		return this.tremoloDepth;
 	}
 
-	setVolume(level, time = 0, method = 'setValueAtTime') {
-		this.mixer[method](level, time);
-		this.volume = level;
+	setOutputLevel(outputLevel, time = 0, method = 'setValueAtTime') {
+		const gain = outputLevelToGain(outputLevel);
+		this.mixer[method](gain, time);
+		this.outputLevel = outputLevel;
 	}
 
-	getVolume() {
-		return this.volume;
+	getOutputLevel() {
+		return this.outputLevel;
+	}
+
+	setGain(gain, time = 0, method = 'setValueAtTime') {
+		this.mixer[method](gain, time);
+		let level = linearToLog(gain) * 127 / 1023;
+		this.outputLevel = Math.sign(gain) * syToDXLevel(Math.abs(level));
+	}
+
+	getGain() {
+		return outputLevelToGain(this.outputLevel);
 	}
 
 	disable(time = 0) {
@@ -1288,49 +1329,49 @@ const FOUR_OP_ALGORITHMS = [
 	 */
 
 	// 1 -> 2 -> 3 -> 4
-	[[1, 0, 0, 1, 0, 1], [0, 0, 0, 1]],
+	[[99, 0, 0, 99, 0, 99], [0, 0, 0, 99]],
 
 	// 1 \
 	//    |--> 3 -> 4
 	// 2 /
-	[[0, 1, 0, 1, 0, 1], [0, 0, 0, 1]],
+	[[0, 99, 0, 99, 0, 99], [0, 0, 0, 99]],
 
 	// 1 -----\
 	//         |--> 4
 	// 2 -> 3 /
-	[[0, 0, 1, 1, 0, 1], [0, 0, 0, 1]],
+	[[0, 0, 99, 99, 0, 99], [0, 0, 0, 99]],
 
 
 	// 1 -> 2 \
 	//        |--> 4
 	// 3 -----/
-	[[1, 0, 0, 0, 1, 1], [0, 0, 0, 1]],
+	[[99, 0, 0, 0, 99, 99], [0, 0, 0, 99]],
 
 	// 1 -> 2
 	// 3 -> 4
-	[[1, 0, 0, 0, 0, 1], [0, 1, 0, 1]],
+	[[99, 0, 0, 0, 0, 99], [0, 99, 0, 99]],
 
 	//   /--> 2
 	// 1 |--> 3
 	//   \--> 4
-	[[1, 1, 1, 0, 0, 0], [0, 1, 1, 1]],
+	[[99, 99, 99, 0, 0, 0], [0, 99, 99, 99]],
 
 	// 1 -> 2
 	//      3
 	//      4
-	[[1, 0, 0, 0, 0, 0], [0, 1, 1, 1]],
+	[[99, 0, 0, 0, 0, 0], [0, 99, 99, 99]],
 
 	// No modulation
-	[[0, 0, 0, 0, 0, 0], [1, 1, 1, 1]],
+	[[0, 0, 0, 0, 0, 0], [99, 99, 99, 99]],
 
 	//           1
 	// 2 -> 3 -> 4
-	[[0, 0, 0, 1, 0, 1], [1, 0, 0, 1]],
+	[[0, 0, 0, 99, 0, 99], [99, 0, 0, 99]],
 ];
 
 const TWO_OP_ALGORITHMS = [
-	[1, [0, 1]], // FM
-	[0, [1, 1]], // Additive
+	[99, [0, 99]], // FM
+	[0, [99, 99]], // Additive
 ];
 
 // 0db, 1.4db, 5.9db, 11.8db
@@ -1359,13 +1400,13 @@ class Channel {
 	constructor(synth, context, output, dbCurve) {
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
-		const volume = new GainNode(context);
-		shaper.connect(volume);
-		this.volumeControl = volume.gain;
+		const gain = new GainNode(context);
+		shaper.connect(gain);
+		this.gainControl = gain.gain;
 
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
-		volume.connect(panner);
+		gain.connect(panner);
 		this.panner = panner;
 		const mute = new GainNode(context);
 		panner.connect(mute);
@@ -1440,6 +1481,7 @@ class Channel {
 		this.fixedFrequency = [false, false, false, false];
 		this.detune = 1;	// 1:1 with non-detuned frequency
 
+		this.outputLevel = 99;
 		this.tremoloDepth = 0;	// linear scale
 		this.vibratoDepth = 0;
 		this.tremoloEnabled = [false, false, false, false];
@@ -1512,7 +1554,7 @@ class Channel {
 	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM remains disabled
 	 */
 	activate(context, time = 0) {
-		this.setVolume(1, time, method);
+		this.setVolume(this.outputLevel, time, method);
 	}
 
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
@@ -1525,7 +1567,7 @@ class Channel {
 			const operator = this.operators[i];
 			const outputLevel = outputLevels[i];
 			operator.enable();
-			operator.setVolume(outputLevel, time, method);
+			operator.setOutputLevel(outputLevel, time, method);
 		}
 	}
 
@@ -1548,7 +1590,7 @@ class Channel {
 			const outputLevels = algorithm[1];
 			for (let j = 0; j < 4; j++) {
 				const algorithmOutputs = outputLevels[j] !== 0;
-				const thisOutputs = this.operators[j].getVolume() !== 0;
+				const thisOutputs = this.operators[j].getOutputLevel() !== 0;
 				if (algorithmOutputs !== thisOutputs) {
 					continue algorithm;
 				}
@@ -1558,10 +1600,13 @@ class Channel {
 		return -1;
 	}
 
-	setModulationDepth(modulatorOpNum, carrierOpNum, amount, time = 0, method = 'setValueAtTime') {
+	/**
+	 * @param {number} depth Range -99..99
+	 */
+	setModulationDepth(modulatorOpNum, carrierOpNum, depth, time = 0, method = 'setValueAtTime') {
 		const index = indexOfGain(modulatorOpNum, carrierOpNum);
-		this.gains[index][method](modulationIndex(amount), time);
-		this.modulationDepths[index] = amount;
+		this.gains[index][method](modulationIndex(depth), time);
+		this.modulationDepths[index] = depth;
 	}
 
 	getModulationDepth(modulatorOpNum, carrierOpNum) {
@@ -1956,7 +2001,7 @@ class Channel {
 	}
 
 	scheduleSoundOff(operator, time) {
-		if (operator.getVolume() !== 0) {
+		if (operator.getOutputLevel() !== 0) {
 			this.stopTime = Math.max(this.stopTime, time);
 		}
 	}
@@ -2060,12 +2105,16 @@ class Channel {
 		return this.pan;
 	}
 
+	/**
+	 * @param {number} volume Range -99..99
+	 */
 	setVolume(volume, time = 0, method = 'setValueAtTime') {
-		this.volumeControl[method](volume, time);
+		this.gainControl[method](outputLevelToGain(volume), time);
+		this.outputLevel = volume;
 	}
 
-	getVolume() {
-		return this.volumeControl.value;
+	setGain(gain, time = 0, method = 'setValueAtTime') {
+		this.gainControl[method](gain, time);
 	}
 
 	mute(muted, time = 0) {
@@ -2081,7 +2130,7 @@ class Channel {
 		automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)
 	) {
 		automation.execute(
-			this.volumeControl, release, startTime, timesPerStep, 1, undefined, maxSteps
+			this.gainControl, release, startTime, timesPerStep, 1, undefined, maxSteps
 		);
 	}
 
@@ -2191,26 +2240,35 @@ class FMSynth {
 	}
 
 	/**
-	 * @param {number} amount The gain to apply to the PCM channel, in the range [0..numChannels].
-	 * Values in the range (0, 1] will fade down the volume of the highest numbered FM channel
-	 * to make space in the mix for PCM content. Values greater than one will fade down the
-	 * volume of the other FM channels in addition to silencing the last one.
+	 * @param {number} volume The output level of the PCM channel. Values in the range 1..99
+	 * (or -99..-1) will fade down the volume of the highest numbered FM channel to make space
+	 * in the mix for the PCM content. Values greater than 99 (or less than -99) will
+	 * additionally reduce the volume of the other FM channels as well as silencing the last
+	 * one. PCM volume values up to 132 can be used for a six channel synth.
 	 */
-	mixPCM(amount, time = 0, method = 'setValueAtTime') {
-		let lastChannelVolume, otherChannelsVolume;
-		if (amount <= 1) {
-			lastChannelVolume = 1 - amount;
-			otherChannelsVolume = 1;
-		} else {
-			lastChannelVolume = 0;
-			otherChannelsVolume = 1 - (amount - 1) / (this.channels.length - 1);
-		}
+	mixPCM(volume, time = 0, method = 'setValueAtTime') {
 		const numChannels = this.channels.length;
-		this.channels[numChannels - 1].setVolume(lastChannelVolume, time, method);
-		this.pcmAmp.gain[method](amount, time);
-		for (let i = 0; i < numChannels - 1; i++) {
-			this.channels[i].setVolume(otherChannelsVolume, time, method);
+		const pcmGain = Math.min(outputLevelToGain(Math.abs(volume)), numChannels);
+
+		let lastChannelGain, otherChannelsGain;
+		if (pcmGain <= 1) {
+			lastChannelGain = 1 - pcmGain;
+			otherChannelsGain = 1;
+		} else {
+			lastChannelGain = 0;
+			otherChannelsGain = 1 - (pcmGain - 1) / (numChannels - 1);
 		}
+
+		let channel = this.channels[numChannels - 1];
+		lastChannelGain *= outputLevelToGain(channel.outputLevel);
+		channel.setGain(lastChannelGain, time, method);
+
+		for (let i = 0; i < numChannels - 1; i++) {
+			const channel = this.channels[i];
+			const gain = otherChannelsGain * outputLevelToGain(channel.outputLevel);
+			channel.setGain(gain, time, method);
+		}
+		this.pcmAmp.gain[method](Math.sign(volume) * pcmGain, time);
 	}
 
 	getPCMMix() {
@@ -2514,7 +2572,7 @@ class TwoOperatorChannel {
 	 */
 	activate(context, time = 0) {
 		const parent = this.parentChannel;
-		parent.setVolume(0.5, time);	// Reserve half the output level for the other 2 op channel.
+		parent.setGain(0.5, time);	// Reserve half the output level for the other 2 op channel.
 		// Disable features that don't apply to 2 op channels.
 		parent.setLFOShape(context, 'triangle', time);	// Fixed LFO shape
 		parent.setLFOKeySync(context, false);
@@ -2530,7 +2588,7 @@ class TwoOperatorChannel {
 			const operator = parent.getOperator(offset + i);
 			const outputLevel = outputLevels[i - 1];
 			operator.enable();
-			operator.setVolume(outputLevel, time, method);
+			operator.setOutputLevel(outputLevel, time, method);
 		}
 	}
 
@@ -2890,7 +2948,7 @@ class TwoOperatorChannel {
 
 export {
 	Envelope, FMOperator, Channel, FMSynth,
-	logToLinear, linearToLog, cancelAndHoldAtTime,
+	outputLevelToGain, cancelAndHoldAtTime,
 	DETUNE_AMOUNTS, TREMOLO_PRESETS
 };
 

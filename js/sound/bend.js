@@ -1,4 +1,4 @@
-import {logToLinear, cancelAndHoldAtTime} from './opn2.js';
+import {outputLevelToGain, cancelAndHoldAtTime} from './opn2.js';
 
 class Point {
 	constructor(time, value) {
@@ -271,7 +271,7 @@ class PitchBend extends Bend {
 class VolumeAutomation extends Bend {
 
 	constructor() {
-		super(1);
+		super(99);
 	}
 
 	get min() {
@@ -279,15 +279,15 @@ class VolumeAutomation extends Bend {
 	}
 
 	get max() {
-		return 63;	// Amiga style volume measurement
+		return 99;
 	}
 
 	encodeValue(volume) {
-		return logToLinear(Math.round(volume * 1023 / 63));
+		return outputLevelToGain(volume);
 	}
 
 	get minNonZero() {
-		return 2 ** (-10 * 1023 / 1024);
+		return 1;
 	}
 
 }
