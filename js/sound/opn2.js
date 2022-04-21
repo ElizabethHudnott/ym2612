@@ -1283,11 +1283,12 @@ class FMOperator extends Operator {
 		} else {
 			this.amMod.gain.setValueAtTime(1, time);
 		}
+
 		oscillator1.start(time);
 		this.stopOscillator(time);	// Stop old oscillator
-
-		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
 		this.bias.setValueAtTime(gain * config.bias, time);
+		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
+
 		this.oscillator1 = oscillator1;
 		this.oscillator2 = oscillator2;
 	}

@@ -720,6 +720,7 @@ function enableOperator(event) {
 		elem.hidden = false;
 	}
 	channel.enableOperator(opNum);
+	updateAlgorithmDetails();
 }
 
 function disableOperator(event) {
@@ -729,6 +730,7 @@ function disableOperator(event) {
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = true;
 	}
+	updateAlgorithmDetails();
 }
 
 for (let i = 1; i <=4; i++) {
