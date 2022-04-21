@@ -24,18 +24,19 @@ function initialize() {
 	synth.setChannelGain(6);
 }
 
+const delay = 0.02
+
 document.body.addEventListener('keydown', function (event) {
 	initialize();
 	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
-	channel.keyOn(audioContext);
+	channel.keyOn(audioContext, 127, audioContext.currentTime + delay);
 	soundSystem.applyFilter();
 });
 
 document.body.addEventListener('keyup', function (event) {
-	initialize();
-	channel.keyOff(audioContext);
+	channel.keyOff(audioContext, audioContext.currentTime + delay);
 });
 
 let filterFrequency, filterQ;
@@ -121,7 +122,7 @@ function algorithmRadio(event) {
 	}
 	const algorithmNumber = parseInt(this.id.slice(-1));
 	channel.useAlgorithm(algorithmNumber);
-	setTimeout(updateAlgorithmDetails, 20);
+	updateAlgorithmDetails();
 }
 
 for (let i = 0; i <= 8; i++) {
@@ -145,11 +146,13 @@ for (let i = 1; i <= 3; i++) {
 }
 
 function outputLevel() {
+	initialize();
 	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
 		const opNum = parseInt(this.id.slice(-1));
 		channel.getOperator(opNum).setOutputLevel(value);
 	}
+	updateAlgorithmDetails();
 }
 
 for (let i = 1; i <= 4; i++) {

@@ -237,6 +237,7 @@ class Envelope {
 		this.beginDampen = Infinity;
 		this.beginAttack = Infinity;
 		this.prevAttackRate = 0;
+		this.prevSustainTC = 0;
 		this.endAttack = 0;
 		this.endDecay = 0;
 		this.endSustain = 0;
@@ -606,6 +607,7 @@ class Envelope {
 		if (this.sustainRate === 0) {
 
 			// Infinite sustain or no sustain
+			this.prevSustainTC = 0;
 			if (sustain === 0) {
 				this.endSustain = endDecay;
 			} else {
@@ -616,14 +618,20 @@ class Envelope {
 		} else {
 
 			// Sustain phase
-			let sustainRate = this.sustainRate;
-			if (sustainRate < 0) {
-				sustainRate = -sustainRate;
+			const sustainRate = this.sustainRate;
+			const sustainTime = this.decayTime(this.sustain, 0, Math.abs(sustainRate), rateAdjust) / envelopeRate;
+			let timeConstant;
+			if (sustainRate > 0) {
+				endSustain += sustainTime;
+				timeConstant = 0;	// Doesn't apply
+				gain.linearRampToValueAtTime(finalValue, endSustain);
+			} else {
+				endSustain = Infinity;
 				finalValue = 1 - finalValue;
+				timeConstant = sustainTime / 3;
+				gain.setTargetAtTime(finalValue, endDecay, timeConstant)
 			}
-			const sustainTime = this.decayTime(this.sustain, 0, sustainRate, rateAdjust) / envelopeRate;
-			endSustain += sustainTime;
-			gain.linearRampToValueAtTime(finalValue, endSustain);
+			this.prevSustainTC = timeConstant;
 
 		}
 
@@ -683,7 +691,12 @@ class Envelope {
 		if (time >= endSustain) {
 
 			// Sustain decayed to zero
-			linearValue = this.sustainRate < 0 ? 1023 : 0;
+			if (this.prevSustainTC !== 0) {
+				// Negative sustain rate
+				linearValue = 1023;
+			} else {
+				linearValue = 0;
+			}
 			if (this.jump) {
 				linearValue = 1023 - linearValue;
 			}
@@ -691,7 +704,11 @@ class Envelope {
 		} else if (time >= endDecay) {
 
 			// In the sustain phase.
-			if (endSustain === Infinity) {
+			const timeConstant = this.prevSustainTC;
+			if (timeConstant !== 0) {
+				// Negative sustain rate
+				linearValue = 1023 + (this.sustain - 1023) * Math.exp((endDecay - time) / timeConstant);
+			} else if (this.endSustain === Infinity) {
 				linearValue = this.sustain;
 			} else {
 				const timeProportion = (time - endDecay) / (endSustain - endDecay);
