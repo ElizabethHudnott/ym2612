@@ -17,7 +17,7 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 /** Approximately -48db converted to base 2.
  *  https://gendev.spritesmind.net/forum/viewtopic.php?f=24&t=386&p=6114&hilit=48db#p6114
  */
-const ATTENUATION_BITS = 10;
+const ATTENUATION_BITS = 8;
 
 /**
  * @param {number} x A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest,
