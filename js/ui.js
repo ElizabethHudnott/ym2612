@@ -108,8 +108,8 @@ function updateAlgorithmDetails() {
 		}
 	}
 	total *= 1 + Math.abs(channel.getPan());
-	const overdrive = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
-	document.getElementById('overdrive').value = overdrive;
+	const distortion = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
+	document.getElementById('distortion').value = distortion;
 }
 
 function algorithmRadio(event) {
@@ -159,7 +159,7 @@ for (let i = 1; i <= 4; i++) {
 	document.getElementById('output-level-' + i).addEventListener('input', outputLevel);
 }
 
-function normalizeLevels(overdrive = 0) {
+function normalizeLevels(distortion = 0) {
 	initialize();
 	const operators = new Array(4);
 	const currentGains = new Array(4);
@@ -181,7 +181,7 @@ function normalizeLevels(overdrive = 0) {
 	for (let i = 0; i < 4; i++) {
 		const operator = operators[i];
 		if (!operator.disabled) {
-			const gain = (overdrive + 1) * currentGains[i] / total;
+			const gain = (distortion + 1) * currentGains[i] / total;
 			operator.setGain(gain);
 			const box = document.getElementById('output-level-' + String(i + 1));
 			box.value = Math.round(operator.getOutputLevel());
@@ -189,7 +189,7 @@ function normalizeLevels(overdrive = 0) {
 	}
 }
 
-document.getElementById('overdrive').addEventListener('input', function (event) {
+document.getElementById('distortion').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		normalizeLevels(value);
@@ -198,7 +198,7 @@ document.getElementById('overdrive').addEventListener('input', function (event) 
 
 document.getElementById('btn-normalize-levels').addEventListener('click', function (event) {
 	normalizeLevels();
-	document.getElementById('overdrive').value = 0;
+	document.getElementById('distortion').value = 0;
 });
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
