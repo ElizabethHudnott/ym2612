@@ -1,17 +1,30 @@
+N Any hexadecimal digit
+
 Note Track Fields
 	Pitch
-		normal or linear or exponential slide in a specified amount of time
-	Note length
-		in lines and ticks or sustained or retriggered (every x ticks with optional velocity change)
-	Velocity, slur, key off
-	Load Instrument (or stick with previous)
-		resets volume
-	Effects (can be delayed by a number of ticks)
+
+	Dynamics
+		 00 Slur
+		 NN Key on with specified velocity, no sustain
+		SNN Sustained key on with specified velocity
+		RNN Key on multiple times (retrigger) with specified initial velocity
+			 Retrigger time (in ticks) and optional velocity change (add/subtract/multiple) configured separately
+		R  Release (key off)
+
+	Delay
+		N Number of ticks
+
+	Instrument
+		00 Continue using the previously selected instrument
+		NN Select a new instrument and reset the volume control to maximum
+
+	Effects
 
 Master Control Track Fields
 	Effects
 
 Pitch Effects
+	Portamento
 	Arpeggio offsets (one or more of them, repeating pattern, 1 note every tick)
 	Pitch Bend
 	-----
@@ -19,7 +32,7 @@ Pitch Effects
 
 Amplitude Effects
 	Volume Bend
-	Set Volume
+	Set Volume (with optional delay)
 	-----
 	Tremolo Depth
 
@@ -35,7 +48,6 @@ Other Standard Note Effects
 	Loop End
 	Sample Offset
 	Sample Fine-Tune
-	Note Delay
 	Funk Loop
 
 Other Note Effects
@@ -46,7 +58,7 @@ Macros
 
 
 Master Control Effects
-	Pattern Delay
+	Pattern Delay (extra time for effects to run)
 	Set Tempo (absolute or relative)
 	Set ticks per line
 	Groove

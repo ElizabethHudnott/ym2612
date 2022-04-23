@@ -21,7 +21,9 @@ Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
 
 Split into separate files: envelope, operator, channel, synth
-negative sustain rate needs to follow attack curve
+Correct beginLevel when there's a velocity change
+Sustain on/off envelope option
+Envelope trigger method (regardless of key currently on or off)
 Add second release stage to envelopes (from -18db)
 AM envelopes
 Operator ratio bend
@@ -29,7 +31,6 @@ Operator ratio bend
 Operator frequency offset in frequency numbers
 
 linearValueAtTime - check values saved appropriately
-Envelope trigger method (regardless of key currently on or off)
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance)
 envelopes synced to tempo?
 attenuation bend and velocity?

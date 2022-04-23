@@ -20,23 +20,25 @@ function cancelAndHoldAtTime(param, holdValue, time) {
 const ATTENUATION_BITS = 8;
 
 /**
- * @param {number} x A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest,
- * inverted polarity).
- * @return {number} A number in the range 1 (loudest) to 0 (silence) to -1 (loudest, inverted
- * polarity).
+ * @param {number} x A number in the range 0 (silence) to 1023 (loudest).
+ * @return {number} A number in the range 0 (silence) to 1 (loudest).
  */
 function logToLinear(x) {
-	return Math.sign(x) * 2 ** (-ATTENUATION_BITS * (1023 - Math.abs(x)) / 1024);
+	if (x <= 0) {
+		return 0;
+	}
+	return 2 ** (-ATTENUATION_BITS * (1023 - Math.abs(x)) / 1024);
 }
 
 /**
- * @param {number} y A number in the range 1 (loudest) to 0 (silence) to -1 (loudest, inverted
- * polarity).
- * @return {number} A number in the range 1023 (loudest) to 0 (silence) to -1023 (loudest, inverted
- * polarity).
+ * @param {number} y A number in the range 0 (silence) to 1 (loudest).
+ * @return {number} A number in the range 0 (silence) to 1023 (loudest).
  */
 function linearToLog(y) {
-	return y === 0 ? 0 : Math.sign(y) * (1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS);
+	if (y <= 0) {
+		return 0;
+	}
+	return 1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS;
 }
 
 const DX_TO_SY_LEVEL = [
@@ -70,7 +72,7 @@ function modulationIndex(outputLevel) {
 
 function outputLevelToGain(outputLevel) {
 	const level = dxToSYLevel(Math.abs(outputLevel));
-	return logToLinear(Math.sign(outputLevel) * level * 1023 / 127);
+	return Math.sign(outputLevel) * logToLinear(level * 1023 / 127);
 }
 
 function calcKeyCode(blockNumber, frequencyNumber) {
@@ -439,7 +441,7 @@ class Envelope {
 		if (this.rateSensitivity === 0) {
 			return this.attackRate;
 		}
-		let attack = this.attackRate +
+		const attack = this.attackRate +
 			Math.round((this.velocity >> 3) / 15 * this.rateSensitivity);
 		return Math.min(Math.max(attack, 2), 31);
 	}
@@ -1034,8 +1036,8 @@ class Operator {
 
 	setGain(gain, time = 0, method = 'setValueAtTime') {
 		this.mixer[method](gain, time);
-		let level = linearToLog(gain) * 127 / 1023;
-		this.outputLevel = Math.sign(gain) * syToDXLevel(Math.abs(level));
+		let level = linearToLog(Math.abs(gain)) * 127 / 1023;
+		this.outputLevel = Math.sign(gain) * syToDXLevel(level);
 	}
 
 	getGain() {
