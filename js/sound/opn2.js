@@ -67,7 +67,7 @@ function syToDXLevel(level) {
 
 function modulationIndex(outputLevel) {
 	const level = dxToSYLevel(Math.abs(outputLevel));
-	return Math.sign(outputLevel) * Math.PI * 2 ** (33 / 16 - (127 - level) / 8);;
+	return Math.sign(outputLevel) * Math.PI * 2 ** (33 / 16 - (127 - level) / 8);
 }
 
 function outputLevelToGain(outputLevel) {
@@ -824,7 +824,9 @@ class Operator {
 		this.frequency =
 			channel.synth.frequencyStep *
 			componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
+		// Before multiplier
 		const centreFrequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
+		// After multiplier
 		const frequencyNode = new ConstantSourceNode(context, {offset: 0});
 		centreFrequencyNode.connect(frequencyNode.offset);
 
@@ -1580,7 +1582,7 @@ class Channel {
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
 			const depth = modulations[i];
-			this.gains[i + 2][method](modulationIndex(depth), time);
+			this.gains[i + 2][method](modulationIndex(depth) / 2, time);
 			this.modulationDepths[i + 2] = depth;
 		}
 		for (let i = 0; i < 4; i++) {
@@ -1625,7 +1627,7 @@ class Channel {
 	 */
 	setModulationDepth(modulatorOpNum, carrierOpNum, depth, time = 0, method = 'setValueAtTime') {
 		const index = indexOfGain(modulatorOpNum, carrierOpNum);
-		this.gains[index][method](modulationIndex(depth), time);
+		this.gains[index][method](modulationIndex(depth) / 2, time);
 		this.modulationDepths[index] = depth;
 	}
 
