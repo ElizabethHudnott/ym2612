@@ -1497,7 +1497,7 @@ class Channel {
 		];
 		this.modulationDepths = new Array(this.gains.length);
 
-		this.freqBlockNumbers = [4, 4, 4, 4];
+		this.freqBlockNumbers = [3, 3, 3, 3];
 		this.frequencyNumbers = [1093, 1093, 1093, 1093];
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.fixedFrequency = [false, false, false, false];
