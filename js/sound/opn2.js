@@ -824,9 +824,9 @@ class Operator {
 		this.frequency =
 			channel.synth.frequencyStep *
 			componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
-		// Before multiplier
+		// The operator's frequency before FM modulation
 		const centreFrequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
-		// After multiplier
+		// The oscillator's frequency at this precise moment
 		const frequencyNode = new ConstantSourceNode(context, {offset: 0});
 		centreFrequencyNode.connect(frequencyNode.offset);
 
