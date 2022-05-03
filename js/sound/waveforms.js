@@ -110,6 +110,7 @@ const Waveform = {
 
 	// From the Yamaha SY77, SY99 and TG77
 	SINE_SQUARED:	OscillatorConfig.ringMod('sine', true, 0, 'sine'),
+	COSINE_SINE:	OscillatorConfig.ringMod('cosine', false, 0, 'sine', 1, 1, 2), // d/dx of above
 	ALTERNATING_SINE:	OscillatorConfig.ringMod('sine', true, 0, 'square', 1, 2),
 	/* Sort of the derivative of ALTERNATING_SINE. The initial phase is 90 degrees off. Use
 		COSINE instead of SINE as the carrier (or SQUARE90 instead of SQUARE) to compensate. */

@@ -21,14 +21,19 @@ Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
 
 Split into separate files: envelope, operator, channel, synth
+OPZ waveforms (PeriodicWaves)
+Change distortion into decibels
 Correct beginLevel when there's a velocity change
+Phase reset (on/off/auto)
+	When on (or auto) then keep phase synchronized when using envelope reset mode
 Sustain on/off envelope option
 Envelope trigger method (regardless of key currently on or off)
 Add second release stage to envelopes (from -18db)
 AM envelopes
 Operator ratio bend
 	Separate ratio node
-Operator frequency offset in frequency numbers
+Operator frequency offset (in frequency numbers) (can be combined with a ratio)
+Operator frequency ratios with partial key tracking (percentage)
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance)
@@ -91,7 +96,7 @@ UI
 	Tabindexes in the custom algorithm section
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI
-	Separate coarse (restricted to odd or even?) and fine (fractional) frequency ratio sliders
+	Use slider to control coarse and fine (detune2) ratios together
 	Pad LED display with trailing zeros after decimal point
 	More intense red LEDs
 	Custom waveform editor? (max 64 time steps, 4-6 bit levels, like Famicom Disk System)
