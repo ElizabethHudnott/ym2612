@@ -3,6 +3,7 @@ import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
+import Recorder from './sound/recorder.js';
 
 function initialize() {
 	if (window.audioContext !== undefined) {
@@ -12,6 +13,9 @@ function initialize() {
 	window.audioContext = context;
 	const soundSystem = new GenesisSound(context);
 	window.soundSystem = soundSystem;
+	window.recorder = new Recorder(context);
+	recorder.connectIn(soundSystem.filter);
+	recorder.ondatarecorded = processRecording;
 	window.synth = soundSystem.fm;
 	window.channel = synth.getChannel(1);
 	window.psg = soundSystem.psg;
@@ -24,19 +28,41 @@ function initialize() {
 	synth.setChannelGain(6);
 }
 
-const delay = 0.02
+function processRecording(blob) {
+	const player = document.getElementById('recording');
+	if (player.src !== '') {
+		URL.revokeObjectURL(player.src);
+	}
+	player.src = URL.createObjectURL(blob);
+}
+
+document.getElementById('btn-record').addEventListener('click', function (event) {
+	initialize();
+	switch (recorder.state) {
+	case 'inactive':
+		recorder.start();
+		break;
+	case 'recording':
+		recorder.pause();
+		recorder.requestAudio();
+		break;
+	case 'paused':
+		recorder.resume();
+		break;
+	}
+});
 
 document.body.addEventListener('keydown', function (event) {
 	initialize();
 	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
 		return;
 	}
-	channel.keyOn(audioContext, 127, audioContext.currentTime + delay);
+	channel.keyOn(audioContext);
 	soundSystem.applyFilter();
 });
 
 document.body.addEventListener('keyup', function (event) {
-	channel.keyOff(audioContext, audioContext.currentTime + delay);
+	channel.keyOff(audioContext);
 });
 
 let filterFrequency, filterQ;

@@ -23,7 +23,16 @@ class OscillatorConfig {
 		oscillator2Shape = undefined, oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1,
 		modDepth = 1, gain = 1, additive = false
 	) {
-		this.oscillator1Shape = oscillator1Shape;
+		if (oscillator1Shape === 'cosine') {
+			this.oscillator1Shape = 'custom';
+			this.sines = Float32Array.from([0, 0]);
+			this.cosines = Float32Array.from([0, 1]);
+		} else {
+			this.oscillator1Shape = oscillator1Shape;
+			this.sines = undefined;
+			this.cosines = undefined;
+		}
+		this.periodicWave = undefined;
 		this.waveShaping = waveShaping;
 		this.bias = bias;
 		this.oscillator2Shape = oscillator2Shape;
@@ -61,18 +70,58 @@ class OscillatorConfig {
 		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 2, gain);
 	}
 
-	static additive(
+	// Adds together two oscillators
+	static additive2(
 		oscillator1Shape, waveShaping, bias, oscillator2Shape,
 		oscillator2FrequencyMult = 1, oscillator1FrequencyMult = 1, gain = 1
 	) {
 		return new OscillatorConfig(oscillator1Shape, waveShaping, bias, oscillator2Shape, oscillator2FrequencyMult, oscillator1FrequencyMult, 0, 0.5 * gain, true);
 	}
 
+	// Adds together sine waves
+	static additiveSin(sines, waveShaping = false, bias = 0, oscillator2FrequencyMult = undefined, oscillator1FrequencyMult = 1) {
+		let config;
+		if (oscillator2FrequencyMult === undefined) {
+			config = new OscillatorConfig('custom', waveShaping, bias);
+		} else {
+			config = new OscillatorConfig('custom', waveShaping, bias, 'square', oscillator2FrequencyMult, oscillator1FrequencyMult);
+		}
+		config.sines = Float32Array.from([0].concat(sines));
+		config.cosines = new Float32Array(sines.length + 1);
+		return config;
+	}
+
+	// Adds together cosine waves
+	static additiveCos(cosines, waveShaping = false, bias = 0, oscillator2FrequencyMult = undefined, oscillator1FrequencyMult = 1) {
+		let config;
+		if (oscillator2FrequencyMult === undefined) {
+			config = new OscillatorConfig('custom', waveShaping, bias);
+		} else {
+			config = new OscillatorConfig('custom', waveShaping, bias, 'square', oscillator2FrequencyMult, oscillator1FrequencyMult);
+		}
+		config.sines = new Float32Array(cosines.length + 1);
+		config.cosines = Float32Array.from([0].concat(cosines));
+		return config;
+	}
+
+	// Adds together a mixture of sine waves and cosine waves
+	static additive(sines, cosines, waveShaping = false, bias = 0, oscillator2FrequencyMult = undefined, oscillator1FrequencyMult = 1) {
+		let config;
+		if (oscillator2FrequencyMult === undefined) {
+			config = new OscillatorConfig('custom', waveShaping, bias);
+		} else {
+			config = new OscillatorConfig('custom', waveShaping, bias, 'square', oscillator2FrequencyMult, oscillator1FrequencyMult);
+		}
+		config.sines = Float32Array.from([0].concat(sines));
+		config.cosines = Float32Array.from([0].concat(cosines));
+		return config;
+	}
+
 }
 
-const root = x => 2 * Math.atan(Math.sqrt(x));
-const organGain = (harmonic, x) => 2 / (Math.sin(x) + Math.sin(harmonic * x));
-
+const W2_COEFFICIENTS = [1, 0, -0.19, 0, 0.03, 0, -0.01];
+const COW2_COEFFICIENTS = [1, 0, -0.19 * 3, 0, 0.03 * 5, 0, -0.01 * 7];
+const W2_OFFSET = -1.8824761903362 / Math.PI;
 
 const Waveform = {
 	// Waveforms are listed in pairs, one waveform followed by its derivative, where available.
@@ -97,10 +146,19 @@ const Waveform = {
 
 	ABS_ODD_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2),
 	SQUARE:			OscillatorConfig.mono('square'),
-	SAWTOOTH:		OscillatorConfig.mono('sawtooth'),
 	PULSE:			new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, 2/3, true),	// 25% duty cycle
+	SAWTOOTH:		OscillatorConfig.mono('sawtooth'),
 
-	// From Yamaha chips used in early 2000s mobile phones
+	// From the Yamaha DX11 and TX81Z (OP Z)
+	W2:				OscillatorConfig.additiveSin(W2_COEFFICIENTS),
+	COW2:				OscillatorConfig.additiveCos(COW2_COEFFICIENTS),
+	HALF_W2:			OscillatorConfig.additiveSin(W2_COEFFICIENTS, false, W2_OFFSET, 1),	// W4
+	HALF_COW2:		OscillatorConfig.additiveCos(COW2_COEFFICIENTS, false, 0, 1),
+	ODD_W2:			OscillatorConfig.additiveSin(W2_COEFFICIENTS, false, 0, 1, 2),	// W6
+	ODD_COW2:		OscillatorConfig.additiveCos(COW2_COEFFICIENTS, false, 0, 1, 2),
+	ABS_ODD_W2:		OscillatorConfig.additiveSin(W2_COEFFICIENTS, true, W2_OFFSET, 1, 2),	// W8
+
+	// From Yamaha chips used in early 2000s mobile phones, e.g. YMU762 (MA-3)
 	HALF_TRIANGLE:	OscillatorConfig.am('triangle', false, -0.25, 'square'),
 	QUARTER_TRIANGLE:	OscillatorConfig.am('triangle', true, -0.25, 'square', 2),
 	ODD_TRIANGLE:	OscillatorConfig.am('triangle', false, 0, 'square', 1, 2),
@@ -110,62 +168,37 @@ const Waveform = {
 
 	// From the Yamaha SY77, SY99 and TG77
 	SINE_SQUARED:	OscillatorConfig.ringMod('sine', true, 0, 'sine'),
-	COSINE_SINE:	OscillatorConfig.ringMod('cosine', false, 0, 'sine', 1, 1, 2), // d/dx of above
-	ALTERNATING_SINE:	OscillatorConfig.ringMod('sine', true, 0, 'square', 1, 2),
-	/* Sort of the derivative of ALTERNATING_SINE. The initial phase is 90 degrees off. Use
-		COSINE instead of SINE as the carrier (or SQUARE90 instead of SQUARE) to compensate. */
-	ALTERNATING_COSINE: OscillatorConfig.ringMod('cosine', false, 0, 'square', 1, 2),
+	ALTERNATING_SINE:	OscillatorConfig.ringMod('sine', true, 0, 'square', 1, 2), // d/dx(|sin(x)| * sin(x))
 
 	// Additive
-	TRIANGLE12:		OscillatorConfig.additive('triangle', false, 0, 'triangle', 2, 1, 4/3),
-	SQUARE12:		OscillatorConfig.additive('square', false, 0, 'square', 2),
-	SAW12:			OscillatorConfig.additive('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3),
-	SINE1234:		new OscillatorConfig('sine', false, -0.25, 'sine', 2, 1, 1, 2/3, true),
-	COSINE1234:		new OscillatorConfig(
-							'cosine', false, -0.25, 'cosine', 2, 1, 1, 2/3, true
-						),
-	SINE12:			OscillatorConfig.additive('sine', false, 0, 'sine', 2, 1,
-							organGain(2, root(6 - Math.sqrt(33)))
-						),
-	COSINE12:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 2, 1,
-							organGain(2, root(6 - Math.sqrt(33)))
-						),
-	SINE13:			OscillatorConfig.additive('sine', false, 0, 'sine', 3, 1,
-							organGain(3, root(5 - 2 * Math.sqrt(6)))
-						),
-	COSINE13:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 3, 1,
-							organGain(3, root(5 - 2 * Math.sqrt(6)))
-						),
-	SINE14:			OscillatorConfig.additive('sine', false, 0, 'sine', 4, 1,
-							organGain(4, 2 * 0.97043)
-						),
-	COSINE14:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 4, 1,
-							organGain(4, 2 * 0.97043)
-						),
-	SINE15:			OscillatorConfig.additive('sine', false, 0, 'sine', 5, 1,
-							organGain(5, Math.PI / 2)
-						),
-	COSINE15:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 5, 1,
-							organGain(5, Math.PI / 2)
-						),
-	SINE16:			OscillatorConfig.additive('sine', false, 0, 'sine', 6, 1,
-							organGain(6, root(0.597383))
-						),
-	COSINE16:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 6, 1,
-							organGain(6, root(0.597383))
-						),
-	SINE17:			OscillatorConfig.additive('sine', false, 0, 'sine', 7, 1,
-							organGain(7, root(0.402496))
-						),
-	COSINE17:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 7, 1,
-							organGain(7, root(0.402496))
-						),
-	SINE18:			OscillatorConfig.additive('sine', false, 0, 'sine', 8, 1,
-							organGain(8, root(1.47569))
-						),
-	COSINE18:		OscillatorConfig.additive('cosine', false, 0, 'cosine', 8, 1,
-							organGain(8, root(1.47569))
-						),
+	TRIANGLE12:		OscillatorConfig.additive2('triangle', false, 0, 'triangle', 2, 1, 4/3),
+	SQUARE12:		OscillatorConfig.additive2('square', false, 0, 'square', 2),
+	SAW12:			OscillatorConfig.additive2('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3),
+
+	SINE12345:		OscillatorConfig.additiveSin([1, -1/2, 1/3, -1/4, 1/5]),
+	COSINE12345:	OscillatorConfig.additiveCos([1, -1, 1, -1, 1]),
+
+	SINE12:			OscillatorConfig.additiveSin([1, 1]),
+	COSINE12:		OscillatorConfig.additiveCos([1, 2]),
+
+	SINE13:			OscillatorConfig.additiveSin([1, 0, 1]),
+	COSINE13:		OscillatorConfig.additiveCos([1, 0, 3]),
+
+	SINE14:			OscillatorConfig.additiveSin([1, 0, 0, 1]),
+	COSINE14:		OscillatorConfig.additiveCos([1, 0, 0, 4]),
+
+	SINE15:			OscillatorConfig.additiveSin([1, 0, 0, 0, 1]),
+	COSINE15:		OscillatorConfig.additiveCos([1, 0, 0, 0, 5]),
+
+	SINE16:			OscillatorConfig.additiveSin([1, 0, 0, 0, 0, 1]),
+	COSINE16:		OscillatorConfig.additiveCos([1, 0, 0, 0, 0, 6]),
+
+	SINE17:			OscillatorConfig.additiveSin([1, 0, 0, 0, 0, 0, 1]),
+	COSINE17:		OscillatorConfig.additiveCos([1, 0, 0, 0, 0, 0, 7]),
+
+	SINE18:			OscillatorConfig.additiveSin([1, 0, 0, 0, 0, 0, 0, 1]),
+	COSINE18:		OscillatorConfig.additiveCos([1, 0, 0, 0, 0, 0, 0, 8]),
+
 }
 
 Waveform[0] = Waveform.SINE;

@@ -1237,16 +1237,29 @@ class FMOperator extends Operator {
 		const config = this.oscillatorConfig;
 
 		let oscillator1;
-		if (config.oscillator1Shape === 'cosine') {
+		if (config.periodicWave !== undefined) {
+
 			oscillator1 = new OscillatorNode(
 				context,
-				{frequency: 0, periodicWave: this.channel.synth.cosineWave}
+				{frequency: 0, periodicWave: config.periodicWave}
 			);
+
+		} else if (config.oscillator1Shape === 'custom') {
+
+			const periodicWave = new PeriodicWave(
+				context,
+				{real: config.cosines, imag: config.sines}
+			);
+			oscillator1 = new OscillatorNode(context, {frequency: 0, periodicWave: periodicWave});
+			config.periodicWave = periodicWave;
+
 		} else {
+
 			oscillator1 = new OscillatorNode(
 				context,
 				{frequency: 0, type: config.oscillator1Shape}
 			);
+
 		}
 
 		if (config.oscillator1FrequencyMult === 1) {
@@ -1259,15 +1272,9 @@ class FMOperator extends Operator {
 		const gain = config.gain;	// Overall gain
 		let oscillator2;
 		if (config.oscillator2Shape !== undefined) {
-			if (config.oscillator2Shape === 'cosine') {
-				oscillator2 = new OscillatorNode(context, {
-					frequency: config.frequencyOffset, periodicWave: this.channel.synth.cosineWave
-				});
-			} else {
-				oscillator2 = new OscillatorNode(context, {
-					frequency: config.frequencyOffset, type: config.oscillator2Shape
-				});
-			}
+			oscillator2 = new OscillatorNode(context, {
+				frequency: config.frequencyOffset, type: config.oscillator2Shape
+			});
 			if (config.oscillator1FrequencyMult !== 1) {
 				// Oscillator 1 has customized pitch, Oscillator 2 is the fundamental.
 				this.frequencyNode.connect(oscillator2.frequency);
@@ -2182,8 +2189,6 @@ class FMSynth {
 
 		// Used by the operators to remove the DC offset inherent in certain wave shapes.
 		this.dcOffset = new ConstantSourceNode(context);
-
-		this.cosineWave = context.createPeriodicWave([0, 1], [0, 0]);
 
 		const channels = new Array(numChannels);
 		for (let i = 0; i < numChannels; i++) {

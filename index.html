@@ -28,93 +28,13 @@
 		<div class="tab-content" id="instrument-tabs">
 			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
 				<fieldset class="panel">
-					<h1>LFO</h1>
-					<div class="row">
-						<label class="col-auto" for="lfo-rate-slider">
-							Frequency
-						</label>
-					</div>
-					<div class="row mb-md-2">
-						<div class="col-12 col-md-6 mb-3 my-md-auto">
-							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-rate-slider">
-						</div>
-						<div class="col-6 col-md-3 mb-3 mb-md-0">
-							<div class="input-group">
-								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display" id="lfo-rate" disabled>
-								<div class="input-group-append">
-									<span class="input-group-text led-label">Hz</span>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="row form-group">
-						<div class="col-auto small">
-							Slow
-							<div class="custom-control custom-switch custom-control-inline">
-								<input type="checkbox" class="custom-control-input" id="fast-lfo">
-								<label class="custom-control-label" for="fast-lfo">Fast</label>
-							</div>
-						</div>
-						<div class="col-auto">
-							<div class="form-check small">
-								<input type="checkbox" id="lfo-rate-free" class="form-check-input">
-								<label for="lfo-rate-free" class="form-check-label">
-									Free Choice
-								</label>
-							</div>
-						</div>
-					</div>
-				</fieldset>
-				<fieldset class="panel">
-					<h1>Filter</h1>
-					<div class="row form-group">
-						<div class="col-auto">
-							<div class="custom-control custom-switch">
-								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
-								<label class="custom-control-label" for="filter-enable">
-									Low Pass Filter
-								</label>
-							</div>
-						</div>
-					</div>
-					<div id="filter-config" class="collapse show">
-						<div class="row">
-							<label class="col-auto" for="filter-cutoff-slider">
-								Cutoff
-							</label>
-						</div>
-						<div class="row form-group">
-							<div class="col-12 col-md-6 mb-3 my-md-auto">
-								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
-							</div>
-							<div class="col-6 col-md-3">
-								<div class="input-group">
-									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">Hz</span>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="row">
-							<label class="col-auto" for="filter-q-slider">
-								Resonance
-							</label>
-						</div>
-						<div class="row form-group">
-							<div class="col-12 col-md-6 mb-3 my-md-auto">
-								<input type="range" min="-24" max="24" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
-							</div>
-							<div class="col-6 col-md-3">
-								<div class="input-group">
-									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">dB</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
+					<h1>Recording</h1>
+					<button type="button" class="btn btn-shaded" id="btn-record">
+						<svg viewBox="0 0 32 32" width="32px">
+							<circle cx="16" cy="16" r="16" fill="#11554f" stroke="#aaeee8">
+						</svg>
+					</button>
+					<audio id="recording" controls></audio>
 				</fieldset>
 			</div>
 
@@ -325,17 +245,81 @@
 					</div>
 				</fieldset>
 				<fieldset class="panel">
-					<h1>Effects</h1>
+					<h1>LFO</h1>
 					<div class="row">
-						<label class="col-auto" for="vibrato-slider">
-							Vibrato
+						<label class="col-auto col-md-3 col-form-label" for="lfo-rate-slider">
+							Frequency
 						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-rate-slider">
+						</div>
+						<div class="col-5 col-md-3 pr-md-4">
+							<div class="input-group">
+								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display" id="lfo-rate" disabled>
+								<div class="input-group-append">
+									<span class="input-group-text led-label">Hz</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<div class="d-none d-md-block col-md-3 col-form-label"></div>
+						<div class="col-auto pl-md-0 small">
+							Slow
+							<div class="custom-control custom-switch custom-control-inline">
+								<input type="checkbox" class="custom-control-input" id="fast-lfo">
+								<label class="custom-control-label" for="fast-lfo">Fast</label>
+							</div>
+						</div>
+						<div class="col-auto">
+							<div class="form-check small">
+								<input type="checkbox" id="lfo-rate-free" class="form-check-input">
+								<label for="lfo-rate-free" class="form-check-label">
+									Free Choice
+								</label>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="lfo-delay-slider">
+							Delay
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="8.1" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
+						</div>
+						<div class="col-5 col-md-3 pr-md-4">
+							<div class="input-group">
+								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
+								<div class="input-group-append">
+									<span class="input-group-text led-label">s</span>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="lfo-fade-slider">
+							Attack
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="8.1" value="0" step="0.1" class="form-control-range mt-1" id="lfo-fade-slider">
+						</div>
+						<div class="col-5 col-md-3 pr-md-4">
+							<div class="input-group">
+								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-fade">
+								<div class="input-group-append">
+									<span class="input-group-text led-label">s</span>
+								</div>
+							</div>
+						</div>
 					</div>
 					<div class="row">
-						<div class="col-12 col-md-9 mb-3 my-md-auto">
+						<label class="col-auto col-md-3 col-form-label" for="vibrato-slider">
+							Vibrato
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="7" value="0" class="form-control-range mt-1" id="vibrato-slider">
 						</div>
-						<div class="col-6 col-md-3">
+						<div class="col-5 col-md-3 pr-md-4">
 							<div class="input-group">
 								<input type="number" min="-999.9" max="999.9" step="0.1" value="0" class="form-control led-display" id="vibrato" disabled>
 								<div class="input-group-append">
@@ -345,7 +329,8 @@
 						</div>
 					</div>
 					<div class="row form-group">
-						<div class="col-auto">
+						<div class="d-none d-md-block col-md-3 col-form-label"></div>
+						<div class="col-auto pl-md-0">
 							<div class="form-check small">
 								<input type="checkbox" id="vibrato-free" class="form-check-input">
 								<label for="vibrato-free" class="form-check-label">
@@ -354,45 +339,55 @@
 							</div>
 						</div>
 					</div>
-					<div class="row">
-						<label class="col-auto" for="lfo-delay-slider">
-							LFO Delay
-						</label>
-					</div>
+				</fieldset>
+				<fieldset class="panel">
+					<h1>Filter</h1>
 					<div class="row form-group">
-						<div class="col-12 col-md-9 mb-3 my-md-auto">
-							<input type="range" min="0" max="8.1" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
-						</div>
-						<div class="col-6 col-md-3">
-							<div class="input-group">
-								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
-								<div class="input-group-append">
-									<span class="input-group-text led-label">seconds</span>
-								</div>
+						<div class="col-auto">
+							<div class="custom-control custom-switch">
+								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
+								<label class="custom-control-label" for="filter-enable">
+									Low Pass Filter
+								</label>
 							</div>
 						</div>
 					</div>
-					<div class="row">
-						<label class="col-auto" for="lfo-fade-slider">
-							LFO Attack
-						</label>
-					</div>
-					<div class="row form-group">
-						<div class="col-12 col-md-9 mb-3 my-md-auto">
-							<input type="range" min="0" max="8.1" value="0" step="0.1" class="form-control-range mt-1" id="lfo-fade-slider">
+					<div id="filter-config" class="collapse show">
+						<div class="row form-group">
+							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
+								Cutoff
+							</label>
+							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
+							</div>
+							<div class="col-5 col-md-3 pr-md-4">
+								<div class="input-group">
+									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">Hz</span>
+									</div>
+								</div>
+							</div>
 						</div>
-						<div class="col-6 col-md-3">
-							<div class="input-group">
-								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-fade">
-								<div class="input-group-append">
-									<span class="input-group-text led-label">seconds</span>
+						<div class="row form-group">
+							<label class="col-auto col-md-3 col-form-label" for="filter-q-slider">
+								Resonance
+							</label>
+							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="-24" max="24" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
+							</div>
+							<div class="col-5 col-md-3 pr-md-4">
+								<div class="input-group">
+									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">dB</span>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
 				</fieldset>
 			</div>
-
 		</div>
 
 		<template id="operator-template">
@@ -463,8 +458,8 @@
 										Triangle 1+2
 									</label>
 									<label class="btn btn-dark rounded-0 w-100 btn-led">
-										<input type="radio" name="op$-waveform" value="sine1234">
-										Sine 1+2+3+4
+										<input type="radio" name="op$-waveform" value="sine12345">
+										Sine 1+2+3+4+5
 									</label>
 									<label class="btn btn-dark rounded-0 w-100 btn-led">
 										<input type="radio" name="op$-waveform" value="sine12">
