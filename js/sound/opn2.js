@@ -2370,7 +2370,7 @@ class FMSynth {
 	 * Hertz.
 	 * @param {number} referenceNote The number of scale increments that the reference pitch is
 	 * above middle C. The default is 9 semitones (A4).
-	 * @param {number} interval The default value 2, separates consecutive copies of the root
+	 * @param {number} interval The default value of 2 separates consecutive copies of the root
 	 * note by a 2:1 frequency ratio (an octave).
 	 * @param {number} divisions How many notes the chromatic scale should have.
 	 * @param {number} steps A pattern of scale increments used to move from one keyboard key to

@@ -124,7 +124,7 @@ const COW2_COEFFICIENTS = [1, 0, -0.19 * 3, 0, 0.03 * 5, 0, -0.01 * 7];
 const W2_OFFSET = -1.8824761903362 / Math.PI;
 
 const Waveform = {
-	// Waveforms are listed in pairs, one waveform followed by its derivative, where available.
+	// Waveforms are mostly listed in pairs of one waveform followed by its derivative, where available.
 
 	SINE: 			OscillatorConfig.mono('sine'),
 	COSINE:			OscillatorConfig.mono('cosine'),
@@ -146,16 +146,20 @@ const Waveform = {
 
 	ABS_ODD_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2),
 	SQUARE:			OscillatorConfig.mono('square'),
+	LOG_SAW: 		OscillatorConfig.am('sawtooth', false, 0, 'sine', 1, -2, -0.1),	// approximate
 	PULSE:			new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, 2/3, true),	// 25% duty cycle
 	SAWTOOTH:		OscillatorConfig.mono('sawtooth'),
 
 	// From the Yamaha DX11 and TX81Z (OP Z)
 	W2:				OscillatorConfig.additiveSin(W2_COEFFICIENTS),
 	COW2:				OscillatorConfig.additiveCos(COW2_COEFFICIENTS),
+
 	HALF_W2:			OscillatorConfig.additiveSin(W2_COEFFICIENTS, false, W2_OFFSET, 1),	// W4
 	HALF_COW2:		OscillatorConfig.additiveCos(COW2_COEFFICIENTS, false, 0, 1),
+
 	ODD_W2:			OscillatorConfig.additiveSin(W2_COEFFICIENTS, false, 0, 1, 2),	// W6
 	ODD_COW2:		OscillatorConfig.additiveCos(COW2_COEFFICIENTS, false, 0, 1, 2),
+
 	ABS_ODD_W2:		OscillatorConfig.additiveSin(W2_COEFFICIENTS, true, W2_OFFSET, 1, 2),	// W8
 
 	// From Yamaha chips used in early 2000s mobile phones, e.g. YMU762 (MA-3)
@@ -208,6 +212,6 @@ Waveform[3] = Waveform.QUARTER_SINE;
 Waveform[4] = Waveform.ODD_SINE;
 Waveform[5] = Waveform.ABS_ODD_SINE;
 Waveform[6] = Waveform.SQUARE;
-Waveform[7] = Waveform.SAWTOOTH;
+Waveform[7] = Waveform.LOG_SAW;
 
 export {OscillatorConfig, Waveform};

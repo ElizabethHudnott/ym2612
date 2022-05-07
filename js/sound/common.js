@@ -54,7 +54,7 @@ function makeBasicWaveform(sampleRate, options = {}) {
 	const width = options.width || 1;
 
 	// By default, don't intensify the wave by cubing the basic waveform's sample values.
-	const cubed = options.cube;
+	const squared = options.power === 2;
 
 	// Multiple waves can be summed and normalized but we default to using the fundamental only.
 	const harmonics = options.harmonics || [1];
@@ -99,8 +99,8 @@ function makeBasicWaveform(sampleRate, options = {}) {
 				if (value < 0) {
 					phaseShifted *= negative;
 				}
-				if (cubed) {
-					phaseShifted = phaseShifted * phaseShifted * phaseShifted;
+				if (squared) {
+					phaseShifted = Math.abs(phaseShifted) * phaseShifted;
 				}
 			}
 			data[i] += phaseShifted;
@@ -120,7 +120,46 @@ function makeBasicWaveform(sampleRate, options = {}) {
 	return buffer;
 }
 
+const MICRO_TUNINGS = Object.freeze({
+	WHITE_ONLY: 	[0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+	BLACK_ONLY: 	[1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+	PURE_MAJOR: 	[0.70673, 1.33237, 1.11731, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
+	PURE_MINOR: 	[0.70673, 1.11731, 1.33237, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
+	MEAN_TONE: 		[0.76049, 1.171079, 1.171078, 0.76049, 1.171079, 0.76049, 1.171078, 0.76049, 1.171079, 1.171079, 0.760489, 1.171079],
+	PYTHAGOREAN: 	[1.13685, 0.90225, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 0.90225, 1.13685, 0.90225],
+	WERCKMEISTER: 	[0.90225, 1.01955, 1.01955, 0.9609, 1.0782, 0.90225, 1.0782, 0.9609, 0.9609, 1.0782, 0.9609, 1.0782],
+	KIRNBERGER: 	[0.90225, 1.02932, 1.00978, 0.92179, 1.11731, 0.92179, 1.06354, 0.95602, 0.97555, 1.06355, 0.92179, 1.11731],
+	VALLOTTI: 		[0.94135, 1.01955, 1.01955, 0.94135, 1.09775, 0.90225, 1.05865, 0.98045, 0.98045, 1.05865, 0.90225, 1.09775],
+});
+
+/**
+ * @param {number} gradations Use 85 for the SY-77 (approximate) or 64 for the DX11 and TX81Z.
+ * family.
+ */
+function roundMicrotuning(steps, gradations = 64) {
+	const numSteps = steps.length;
+	const newSteps = new Array(numSteps);
+	let total = 0;
+	for (let i = 0; i < numSteps; i++) {
+		const rounded = Math.round(steps[i] * gradations) / gradations;
+		newSteps[i] = rounded;
+		total += rounded;
+	}
+	newSteps[numSteps - 1] += numSteps - total;
+	return newSteps;
+}
+
+function rotateArray(arr, shift) {
+	const length = arr.length;
+	const newArr = new Array(length);
+	for (let i = 0; i < length; i++) {
+		newArr[i] = arr[(i + shift) % length];
+	}
+	return newArr;
+}
+
 export {
 	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
-	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS,
+	roundMicrotuning, rotateArray,
+	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
 }
