@@ -20,7 +20,6 @@ Bug: feedback path shouldn't go through the envelope
 Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
 
-Microtuning presets (TX-81Z manual)
 Split into separate files: envelope, operator, channel, synth
 Change distortion into decibels
 Correct beginLevel when there's a velocity change

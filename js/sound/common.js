@@ -139,13 +139,15 @@ const MICRO_TUNINGS = Object.freeze({
 function roundMicrotuning(steps, gradations = 64) {
 	const numSteps = steps.length;
 	const newSteps = new Array(numSteps);
-	let total = 0;
-	for (let i = 0; i < numSteps; i++) {
-		const rounded = Math.round(steps[i] * gradations) / gradations;
+	let error = 0, originalTotal = 0, roundedTotal = 0;
+	for (let i = 0; i < numSteps - 1; i++) {
+		const rounded = Math.round((steps[i] - error) * gradations) / gradations;
 		newSteps[i] = rounded;
-		total += rounded;
+		originalTotal += steps[i];
+		roundedTotal += rounded;
+		error = roundedTotal - originalTotal;
 	}
-	newSteps[numSteps - 1] += numSteps - total;
+	newSteps[numSteps - 1] = numSteps - roundedTotal;
 	return newSteps;
 }
 
