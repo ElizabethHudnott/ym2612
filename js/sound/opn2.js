@@ -2208,6 +2208,7 @@ class FMSynth {
 		pcmAmp.connect(channels[numChannels - 1].panner);
 		this.pcmAmp = pcmAmp;
 		this.dacRegister = undefined;
+		this.pcmLevel = 0;
 	}
 
 	enablePCMRegister(context) {
@@ -2267,15 +2268,15 @@ class FMSynth {
 	}
 
 	/**
-	 * @param {number} volume The output level of the PCM channel. Values in the range 1..99
+	 * @param {number} pcmLevel The output level of the PCM channel. Values in the range 1..99
 	 * (or -99..-1) will fade down the volume of the highest numbered FM channel to make space
 	 * in the mix for the PCM content. Values greater than 99 (or less than -99) will
 	 * additionally reduce the volume of the other FM channels as well as silencing the last
-	 * one. PCM volume values up to 132 can be used for a six channel synth.
+	 * one. PCM volume values up to 141 can be used for a six channel synth.
 	 */
-	mixPCM(volume, time = 0, method = 'setValueAtTime') {
+	mixPCM(pcmLevel, time = 0, method = 'setValueAtTime') {
 		const numChannels = this.channels.length;
-		const pcmGain = Math.min(outputLevelToGain(Math.abs(volume)), numChannels);
+		const pcmGain = Math.min(outputLevelToGain(Math.abs(pcmLevel)), numChannels);
 
 		let lastChannelGain, otherChannelsGain;
 		if (pcmGain <= 1) {
@@ -2295,11 +2296,12 @@ class FMSynth {
 			const gain = otherChannelsGain * outputLevelToGain(channel.outputLevel);
 			channel.setGain(gain, time, method);
 		}
-		this.pcmAmp.gain[method](Math.sign(volume) * pcmGain, time);
+		this.pcmAmp.gain[method](Math.sign(pcmLevel) * pcmGain, time);
+		this.pcmLevel = pcmLevel
 	}
 
 	getPCMMix() {
-		return this.pcmAmp.value;
+		return this.pcmLevel;
 	}
 
 	writePCM(value, time) {

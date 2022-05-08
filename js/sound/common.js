@@ -133,8 +133,8 @@ const MICRO_TUNINGS = Object.freeze({
 });
 
 /**
- * @param {number} gradations Use 85 for the SY-77 (approximate) or 64 for the DX11 and TX81Z.
- * family.
+ * @param {number} gradations Use 85 for the SY-77 family (approximate) or 64 for the DX11 and
+ * TX81Z.
  */
 function roundMicrotuning(steps, gradations = 64) {
 	const numSteps = steps.length;
