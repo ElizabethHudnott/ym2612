@@ -1,7 +1,7 @@
 Wanted Feature List / Change List
 ---------------------------------
-Algorithms on Other Systems
-	1 -> 2 & 3 -> 4		Omit (Bleass, Dirtywave M8) diamond shape
+Algorithms on Other Systems (to consider)
+	1 -> 2 & 3 -> 4		(Bleass, Dirtywave M8) diamond shape
 	1 -> 2 -> 3 & 4		(Bleass, Dirtywave M8)
 	1 & 2 & 3 -> 4			(DX7, Bleass, Dirtywave M8)
 	1 -> 2 & 3, 4			(DX7, Dirtywave M8)
@@ -15,9 +15,9 @@ Changing channel volume while PCM is in use doesn't work (problem?)
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
-Bug: feedback needs to be scaled by pitch
+Bug: modulation should scale according to modulator frequency, not carrier frequency
+Bug: feedback filter cutoff needs to match fundamental
 Bug: feedback path shouldn't go through the envelope
-Bug: pitch bend needs to account for feedback
 Bug?: slow fade in of vibrato
 
 Split into separate files: envelope, operator, channel, synth
@@ -25,14 +25,15 @@ Change distortion into decibels
 Correct beginLevel when there's a velocity change
 Phase reset (on/off/auto)
 	When on (or auto) then keep phase synchronized (by using the longest dampening time for all operators) when using envelope reset mode? No?
-Sustain on/off envelope option
+Sustain on/off envelope option (one shot)
 Envelope trigger method (regardless of key currently on or off)
-Add second release stage to envelopes (from -18db)
+Add second release stage to envelopes (from -18db, interdependent across operators, see "reverb" in DX11 manual)
 AM envelopes
 Operator ratio bend
 	Separate ratio node
 Operator frequency offset? (in frequency numbers) (can be combined with a ratio)
 Fixed operator with partial key tracking ("frequency key scaling") (as 0..99 centred on C3) (FS1R)
+add differentiation of log saw
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance (FS1R))
@@ -42,14 +43,13 @@ attenuation bend and velocity?
 Noise/S&H/sample as LFO source?
 Level scaling (per operator) (DX7 style? Or SY77? Or OPL? Or OPP?)
 glide
-full envelope(s) for vibrato & tremolo?
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 	hard sync effect. Like Casio CZ?
 SSG loop should include attack phase (modes 0 and 4)
 envelope shift
 Add panning to PSG (like Sega Game Gear?)
-White noise as a modulator (through filter + resonance?)
+White noise as a modulator? (through filter + resonance?)
 
 PSG
 	reciprocal node?
@@ -61,7 +61,7 @@ OPL2/3-like features
 		Separate LFOs for pitch and volume?
 
 Amplitude Bend
-	Plain (how will this work with 2-op channels?)
+	How will it work with 2-op channels?
 	Repeating via SSG
 
 Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
@@ -74,6 +74,8 @@ Feedback amount envelope (or bend?)
 	Looping bends?
 
 Delay/Chorus unit
+
+WAV output
 
 Combine sample with synth
 	Roland Linear Arithmetic Synthesis

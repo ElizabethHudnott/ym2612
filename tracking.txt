@@ -41,7 +41,6 @@ Modulation
 	LFO Shape
 
 Other Standard Note Effects
-	Panning Bend
 	Set Panning
 	-----
 	Loop Start (per track)

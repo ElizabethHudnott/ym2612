@@ -566,44 +566,12 @@ function frequency(event) {
 	channel.setOperatorFrequency(opNum, block, freqNum);
 }
 
-function rateScaleSlider(event) {
+function rateScaling(event) {
 	initialize();
 	const opNum = getOperator(this);
-	const value = parseFloat(this.value);
+	const value = parseInt(this.value);
 	document.getElementById('op' + opNum + '-rate-scale').value = value;
 	channel.getOperator(opNum).setRateScaling(value);
-}
-
-function rateScale(event) {
-	const opNum = getOperator(this);
-	const value = parseFloat(this.value);
-	if (Number.isFinite(value)) {
-		document.getElementById('op' + opNum + '-rate-scale-slider').value = value;
-		channel.getOperator(opNum).setRateScaling(value);
-	}
-}
-
-function rateScaleFree(event) {
-	initialize();
-	const opNum = getOperator(this);
-	const slider = document.getElementById('op' + opNum + '-rate-scale-slider');
-	const box = document.getElementById('op' + opNum + '-rate-scale');
-	const free = this.checked;
-	box.disabled = !free;
-	if (free) {
-		slider.step = 0.05;
-	} else {
-		let scaling = Math.round(channel.getOperator(opNum).getRateScaling());
-		if (scaling > 3) {
-			scaling = 3;
-		} else if (scaling < 0) {
-			scaling = 0;
-		}
-		slider.step = 1;
-		slider.value = scaling;
-		box.value = scaling;
-		channel.getOperator(opNum).setRateScaling(scaling);
-	}
 }
 
 function attackSlider(event) {
@@ -647,24 +615,6 @@ function sustainRateSlider(event) {
 	channel.getOperator(opNum).setSustainRate(value);
 }
 
-function sustainFree(event) {
-	initialize();
-	const opNum = getOperator(this);
-	const slider = document.getElementById('op' + opNum + '-sustain-slider');
-	const box = document.getElementById('op' + opNum + '-sustain');
-	const free = this.checked;
-	box.disabled = !free;
-	if (free) {
-		slider.step = 0.04;
-	} else {
-		const sustain = Math.round(channel.getOperator(opNum).getSustain());
-		slider.step = 1;
-		slider.value = sustain;
-		box.value = sustain;
-		channel.getOperator(opNum).setSustain(sustain);
-	}
-}
-
 function releaseSlider(event) {
 	initialize();
 	const opNum = getOperator(this);
@@ -673,19 +623,56 @@ function releaseSlider(event) {
 	channel.getOperator(opNum).setRelease(value);
 }
 
-function releaseFree(event) {
+function ratesFree(event) {
 	initialize();
 	const opNum = getOperator(this);
-	const slider = document.getElementById('op' + opNum + '-release-slider');
-	const box = document.getElementById('op' + opNum + '-release');
+	const idParts = ['attack', 'decay', 'sustain-rate', 'release'];
+	const methods = ['setAttack', 'setDecay', 'setSustainRate', 'setRelease'];
+	const precision = [0.5, 0.5, 0.5, 0.25];
 	const free = this.checked;
 	if (free) {
-		slider.step = 0.5;
+		for (let i = 0; i < idParts.length; i++) {
+			const slider = document.getElementById('op' + opNum + '-' + idParts[i] +'-slider');
+			slider.step = precision[i];
+		}
 	} else {
-		slider.step = 1;
-		const value = parseInt(slider.value);
-		box.value = value;
-		channel.getOperator(opNum).setRelease(value);
+		for (let i = 0; i < methods.length; i++) {
+			const id = 'op' + opNum + '-' + idParts[i];
+			const box = document.getElementById(id);
+			const slider = document.getElementById(id + '-slider');
+			slider.step = 1;
+			const value = parseInt(slider.value);
+			box.value = value;
+			channel.getOperator(opNum)[methods[i]](value);
+		}
+	}
+}
+
+function levelsFree(event) {
+	initialize();
+	const opNum = getOperator(this);
+	const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
+	const sustainSlider = document.getElementById('op' + opNum + '-sustain-slider');
+	const tlBox = document.getElementById('op' + opNum + '-total-level');
+	const sustainBox = document.getElementById('op' + opNum + '-sustain');
+	const free = this.checked;
+	tlBox.disabled = !free;
+	sustainBox.disabled = !free;
+
+	if (free) {
+		tlSlider.step = 0.5;
+		sustainSlider.step = 1 / 16;
+	} else {
+		const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
+		tlSlider.step = 1;
+		tlSlider.value = totalLevel;
+		tlBox.value = totalLevel;
+		channel.getOperator(opNum).setTotalLevel(totalLevel);
+		const sustain = Math.round(channel.getOperator(opNum).getSustain());
+		sustainSlider.step = 1;
+		sustainSlider.value = sustain;
+		sustainBox.value = sustain;
+		channel.getOperator(opNum).setSustain(sustain);
 	}
 }
 
@@ -715,17 +702,15 @@ function createOperatorPage(n) {
 	doc.getElementById(opStr + '-multiple-free').addEventListener('input', frequencyFreeMultiple);
 	doc.getElementById(opStr + '-block').addEventListener('input', frequency);
 	doc.getElementById(opStr + '-freq-num').addEventListener('input', frequency);
-	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaleSlider);
-	doc.getElementById(opStr + '-rate-scale').addEventListener('input', rateScale);
-	doc.getElementById(opStr + '-rate-scale-free').addEventListener('input', rateScaleFree);
+	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaling);
 	doc.getElementById(opStr + '-attack-slider').addEventListener('input', attackSlider);
 	doc.getElementById(opStr + '-decay-slider').addEventListener('input', decaySlider);
 	doc.getElementById(opStr + '-sustain-slider').addEventListener('input', sustainSlider);
 	doc.getElementById(opStr + '-sustain').addEventListener('input', sustain);
-	doc.getElementById(opStr + '-sustain-free').addEventListener('input', sustainFree);
 	doc.getElementById(opStr + '-sustain-rate-slider').addEventListener('input', sustainRateSlider);
 	doc.getElementById(opStr + '-release-slider').addEventListener('input', releaseSlider);
-	doc.getElementById(opStr + '-release-free').addEventListener('input', releaseFree);
+	doc.getElementById(opStr + '-rates-free').addEventListener('input', ratesFree);
+	doc.getElementById(opStr + '-levels-free').addEventListener('input', levelsFree);
 
 	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
 		element.addEventListener('input', waveform);

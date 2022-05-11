@@ -215,10 +215,10 @@ class Envelope {
 
 		this.totalLevel = 0;
 		this.rateScaling = 1;
-		this.attackRate = 16;
+		this.attackRate = 31;
 		this.decayRate = 0;
 		this.sustainRate = 0;
-		this.releaseRate = 17;
+		this.releaseRate = 31;
 		this.sustain = 1023;	// Already converted into an attenuation value.
 		this.envelopeRate = 1;
 		this.reset = false;	// Rapidly fade level to zero before retriggering
@@ -450,7 +450,7 @@ class Envelope {
 	 * Don't call with rate = 0, because that means infinite time.
 	 */
 	decayTime(from, to, basicRate, rateAdjust) {
-		const rate = Math.min(Math.round(2 * basicRate + rateAdjust), 63);
+		const rate = Math.min(2 * basicRate + rateAdjust, 63);
 		const gradient = ENV_INCREMENT[rate];
 		return this.channel.synth.envelopeTick * Math.ceil((from - to) / gradient);
 	}
@@ -499,7 +499,7 @@ class Envelope {
 		let endAttack = endDampen;
 		let attackRate = this.getScaledAttack(velocity);
 		if (attackRate > 0) {
-			attackRate = Math.min(Math.round(2 * attackRate + rateAdjust), 63);
+			attackRate = Math.min(2 * attackRate + rateAdjust, 63);
 		}
 		if (attackRate <= 1) {
 			// Level never changes
@@ -533,7 +533,7 @@ class Envelope {
 
 		if (this.looping && this.decayRate > 0 && (this.sustainRate > 0 || this.sustain === 0)) {
 			const decayInc = ENV_INCREMENT[2 * this.decayRate];
-			const scaledDecayRate = Math.min(Math.round(2 * this.decayRate + rateAdjust), 63);
+			const scaledDecayRate = Math.min(2 * this.decayRate + rateAdjust, 63);
 			const scaledDecayInc = ENV_INCREMENT[scaledDecayRate];
 			const decayMult = scaledDecayInc / decayInc;
 			let scaleFactor;
@@ -542,7 +542,7 @@ class Envelope {
 				scaleFactor = decayMult;
 			} else {
 				const sustainInc = ENV_INCREMENT[2 * this.sustainRate];
-				const scaledSustainRate = Math.min(Math.round(2 * this.sustainRate + rateAdjust), 63);
+				const scaledSustainRate = Math.min(2 * this.sustainRate + rateAdjust, 63);
 				const scaledSustainInc = ENV_INCREMENT[scaledSustainRate];
 				const sustainMult = scaledSustainInc / sustainInc;
 				const proportion = this.sustain / 1023;
@@ -928,7 +928,7 @@ class Operator {
 		let fullFreqNumber =
 			componentsToFullFreq(blockNumber, frequencyNumber) +
 			detuneSteps +
-			Math.trunc(this.detune2 * 2 ** (blockNumber - 7));
+			Math.trunc(this.detune2 * 2 ** (blockNumber - 7));	// Use floating point to support blockNumber > 7
 
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x1FFFF;
@@ -978,7 +978,17 @@ class Operator {
 		return this.detune;
 	}
 
-	setDetune2(cents, time = undefined, method = 'setValueAtTime') {
+	/**
+	 * The golden ratio is a good value to use.
+	 */
+	setDetune2Ratio(ratio, time = undefined, method = 'setValueAtTime') {
+		this.detune2 = Math.sign(ratio) * Math.round((Math.abs(ratio) % 1) * 2 ** 17);
+		if (time !== undefined) {
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+		}
+	}
+
+	setDetune2Cents(cents, time = undefined, method = 'setValueAtTime') {
 		this.detune2 = Math.sign(cents) * Math.round((2 ** (Math.abs(cents) / 1200) - 1) * 2 ** 17);
 		if (time !== undefined) {
 			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
@@ -1758,7 +1768,7 @@ class Channel {
 	}
 
 	getDetune() {
-		return Math.round(Math.log2(this.detune) * 12000) / 10;
+		return Math.round(Math.log2(this.detune) * 1200);
 	}
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
@@ -1831,13 +1841,13 @@ class Channel {
 	}
 
 	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		const amount = n === 0 ? 0 : 2 ** (n - 6);
+		const amount = n === 0 ? 0 : -1.4 * 2 ** (n - 6);
 		this.setFeedback(amount, operatorNum, time, method);
 	}
 
 	getFeedbackPreset(operatorNum = 1) {
 		const amount = this.getFeedback(operatorNum);
-		return amount === 0 ? 0 : Math.round(Math.log2(amount) + 6);
+		return amount === 0 ? 0 : Math.round(Math.log2(amount / -1.4) + 6);
 	}
 
 	setFeedbackFilter(cutoff, operatorNum = 1, time = 0, method = 'setValueAtTime') {
@@ -1910,8 +1920,7 @@ class Channel {
 	}
 
 	getVibratoPreset() {
-		const depth = Math.round(this.getVibratoDepth() * 10) / 10;
-		return VIBRATO_PRESETS.indexOf(depth);
+		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
 	}
 
 	enableVibrato(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
@@ -2756,7 +2765,7 @@ class TwoOperatorChannel {
 	}
 
 	getDetune() {
-		return Math.round(Math.log2(this.detune) * 12000) / 10;
+		return Math.round(Math.log2(this.detune) * 1200);
 	}
 
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
@@ -2887,7 +2896,7 @@ class TwoOperatorChannel {
 	}
 
 	getVibratoDepth() {
-		return Math.log2(this.vibratoDepth + 1) * 1200;
+		return Math.round(Math.log2(this.vibratoDepth + 1) * 12000) / 10;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -2895,8 +2904,7 @@ class TwoOperatorChannel {
 	}
 
 	getVibratoPreset() {
-		const depth = Math.round(this.getVibratoDepth() * 10) / 10;
-		return VIBRATO_PRESETS.indexOf(depth);
+		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
 	}
 
 	enableVibrato(operatorNum, enabled = true, time = 0, method = 'setValueAtTime') {
