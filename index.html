@@ -43,13 +43,13 @@
 					<h1>Algorithm</h1>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="0" id="algorithm-0" class="form-check">
+							<input type="radio" name="algorithm" value="0" id="algorithm-0">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-0">
 							<img src="img/algorithm-0.png" alt="1&rarr;2&rarr;3&rarr;4" class="mw-100 my-4" width="288" height="32">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="1" id="algorithm-1" class="form-check">
+							<input type="radio" name="algorithm" value="1" id="algorithm-1">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-1">
 							<img src="img/algorithm-1.png" alt="1&amp;2&rarr;3&rarr;4" class="mw-100" width="208" height="80">
@@ -57,13 +57,13 @@
 					</div>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="2" id="algorithm-2" class="form-check">
+							<input type="radio" name="algorithm" value="2" id="algorithm-2">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-2">
 							<img src="img/algorithm-2.png" alt="2&rarr;3&rarr;4 1&rarr;4" class="mw-100" width="208" height="80">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="3" id="algorithm-3" class="form-check">
+							<input type="radio" name="algorithm" value="3" id="algorithm-3">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-3">
 							<img src="img/algorithm-3.png" alt="1&rarr;2&rarr;4 3&rarr;4" class="mw-100" width="208" height="80">
@@ -71,13 +71,13 @@
 					</div>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="4" id="algorithm-4" class="form-check">
+							<input type="radio" name="algorithm" value="4" id="algorithm-4">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-4">
 							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4" width="144" height="72">
 						</label>
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="5" id="algorithm-5" class="form-check">
+							<input type="radio" name="algorithm" value="5" id="algorithm-5">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-5">
 							<img src="img/algorithm-5.png" alt="1&rarr;2, 3 &amp; 4" class="mw-100" width="144" height="112">
@@ -85,13 +85,13 @@
 					</div>
 					<div class="row form-group">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="6" id="algorithm-6" class="form-check">
+							<input type="radio" name="algorithm" value="6" id="algorithm-6">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-6">
 							<img src="img/algorithm-6.png" alt="1&rarr;2" width="144" height="112">
 						</label>
 						<div class="col-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked class="form-check">
+							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked>
 						</div>
 						<label class="col-5 my-auto" for="algorithm-7">
 							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4" width="216" height="56">
@@ -99,7 +99,7 @@
 					</div>
 					<div class="row form-group">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="8" id="algorithm-8" class="form-check">
+							<input type="radio" name="algorithm" value="8" id="algorithm-8">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-8">
 							<img src="img/algorithm-8.png" alt="1&rarr;2&rarr;3" width="216" height="80">
@@ -285,7 +285,7 @@
 							Delay
 						</label>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="0" max="8.1" value="0" step="0.1" class="form-control-range mt-1" id="lfo-delay-slider">
+							<input type="range" min="0" max="99" value="0" class="form-control-range mt-1" id="lfo-delay-slider">
 						</div>
 						<div class="col-5 col-md-3 pr-md-4">
 							<div class="input-group">
@@ -301,7 +301,7 @@
 							Fade
 						</label>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="-7" max="7" value="0" step="0.1" class="form-control-range mt-1" id="lfo-fade-slider">
+							<input type="range" min="0" max="99" value="0" class="form-control-range mt-1" id="lfo-fade-slider">
 						</div>
 						<div class="col-5 col-md-3 pr-md-4">
 							<div class="input-group">
@@ -309,6 +309,23 @@
 								<div class="input-group-append">
 									<span class="input-group-text led-label">s</span>
 								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<div class="d-none d-md-block col-md-3 col-form-label"></div>
+						<div class="col-auto pl-md-0 small">
+							<div class="form-check form-check-inline">
+								<input type="radio" name="lfo-fade-direction" value="1" id="lfo-fade-in" class="form-check-input" checked>
+								<label for="lfo-fade-in" class="form-check-label">
+									Fade in
+								</label>
+							</div>
+							<div class="form-check form-check-inline">
+								<input type="radio" name="lfo-fade-direction" value="-1" id="lfo-fade-out" class="form-check-input">
+								<label for="lfo-fade-out" class="form-check-label">
+									Fade out
+								</label>
 							</div>
 						</div>
 					</div>
@@ -575,10 +592,21 @@
 							Min Attenuation <small>(L1)</small>
 						</label>
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="0" max="127" value="0" class="form-control-range mt-1" id="op$-total-level-slider">
+							<input type="range" min="0" max="255" value="0" class="form-control-range mt-1" id="op$-total-level-slider">
 						</div>
 						<div class="col-4 col-md-2">
-							<input type="number" min="-127" max="127" value="0" class="form-control led-display" id="op$-total-level" disabled>
+							<input type="number" min="0" max="255" value="0" class="form-control led-display" id="op$-total-level" disabled>
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="op$-key-velocity-slider">
+							Velocity Sensitivity
+						</label>
+						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="-127" max="127" value="0" class="form-control-range mt-1" id="op$-key-velocity-slider">
+						</div>
+						<div class="col-4 col-md-2">
+							<input type="number" value="0" class="form-control led-display" id="op$-key-velocity" disabled>
 						</div>
 					</div>
 					<div class="row form-group">
@@ -634,17 +662,6 @@
 						</div>
 						<div class="col-4 col-md-2">
 							<input type="number" value="15" class="form-control led-display" id="op$-release" disabled>
-						</div>
-					</div>
-					<div class="row form-group">
-						<label class="col-auto col-md-3 col-form-label" for="op$-key-velocity-slider">
-							Velocity Sensitivity
-						</label>
-						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="-45" max="45" value="0" class="form-control-range mt-1" id="op$-key-velocity-slider">
-						</div>
-						<div class="col-4 col-md-2">
-							<input type="number" value="0" class="form-control led-display" id="op$-key-velocity" disabled>
 						</div>
 					</div>
 					<div class="row form-group">

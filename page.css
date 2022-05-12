@@ -88,6 +88,10 @@ input[type=range]::-moz-range-thumb {
 	cursor: pointer;
 }
 
+.small, small {
+	font-size:  90%;
+}
+
 .btn-shaded {
 	background: var(--shaded);
 }

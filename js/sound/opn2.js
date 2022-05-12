@@ -289,7 +289,7 @@ class Envelope {
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.totalLevel = level;
 		// Higher velocities result in less attenuation when a positive sensitivity setting is used.
-		level = level - Math.round((this.velocity >> 2) / 31 * this.velocitySensitivity);
+		level = ((level << 7) - 2 * this.velocitySensitivity * this.velocity) >> 7;
 		level = Math.min(Math.max(level, 0), 127);
 		this.totalLevelNode.offset[method](-level / 128, time);
 	}
@@ -299,15 +299,12 @@ class Envelope {
 	}
 
 	/**
-	 * @param {number} sensitivity Yamaha use the range 0..45 on OPP. (Possibly -45..45 on
-	 * later chips?)
+	 * @param {number} sensitivity Range -127..127. The SY77 has a range -7..7 and the YC88, etc.
+	 * series of organs have a touch sensitivity depth range of 0..127 (see supplementary
+	 * manual). To emulate the organs' touch sensitivity offset parameter, set totalLevel equal
+	 * to 255 minus twice the offset.
 	 */
 	setVelocitySensitivity(sensitivity) {
-		if (sensitivity < 0) {
-			this.totalLevel = Math.min(this.totalLevel, 127 - sensitivity);
-		} else {
-			this.totalLevel = Math.max(this.totalLevel, sensitivity);
-		}
 		this.velocitySensitivity = sensitivity;
 	}
 
@@ -664,6 +661,11 @@ class Envelope {
 
 		} else if (time <= this.endAttack) {
 
+			const beginLevel = this.beginLevel;
+			if (time === this.beginAttack) {
+				return beginLevel;
+			}
+
 			// In the attack phase.
 			const attackRate = this.prevAttackRate;
 			let target = ATTACK_TARGET[attackRate - 2];
@@ -672,7 +674,6 @@ class Envelope {
 			}
 			const timeConstant = ATTACK_CONSTANT[attackRate - 2] * this.channel.synth.envelopeTick;
 			const beginAttack = this.beginAttack;
-			let beginLevel = this.beginLevel;
 			return target + (beginLevel - target) * Math.exp(-(time - beginAttack) / timeConstant);
 
 		} else if (this.sampleNode) {
@@ -979,7 +980,7 @@ class Operator {
 	}
 
 	/**
-	 * The golden ratio is a good value to use.
+	 * Good values: 1/SQRT(2), Golden Ratio
 	 */
 	setDetune2Ratio(ratio, time = undefined, method = 'setValueAtTime') {
 		this.detune2 = Math.sign(ratio) * Math.round((Math.abs(ratio) % 1) * 2 ** 17);

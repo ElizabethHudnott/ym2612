@@ -334,37 +334,66 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	}
 });
 
+const LFO_DELAY_CONSTANT = Math.log2(7) / 70;
+
+function lfoDelayToSeconds(x) {
+	return Math.sign(x) * (2 ** (LFO_DELAY_CONSTANT * Math.abs(x)) - 0.5);
+}
+
+function lfoDelayToYamaha(time) {
+	return time === 0 ? 0 : Math.log2(time + 0.5) / LFO_DELAY_CONSTANT;
+}
+
 document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
 	initialize();
-	const value = parseFloat(this.value);
-	document.getElementById('lfo-delay').value = value;
-	channel.setLFODelay(value);
+	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
+	document.getElementById('lfo-delay').value = Math.round(time * 100) / 100;
+	channel.setLFODelay(time);
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
 	initialize();
-	const value = parseFloat(this.value);
-	if (value >= 0) {
-		document.getElementById('lfo-delay-slider').value = value;
-		channel.setLFODelay(value);
+	const time = parseFloat(this.value);
+	if (time >= 0) {
+		const sliderValue = lfoDelayToYamaha(time * 13 / 7);
+		document.getElementById('lfo-delay-slider').value = sliderValue;
+		channel.setLFODelay(time);
 	}
 });
 
 document.getElementById('lfo-fade-slider').addEventListener('input', function (event) {
 	initialize();
-	const value = parseFloat(this.value);
-	document.getElementById('lfo-fade').value = value;
-	channel.setLFOFade(value);
+	const direction = document.getElementById('lfo-fade-in').checked ? 1 : -1;
+	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
+	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
+	channel.setLFOFade(time);
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
 	initialize();
-	const value = parseFloat(this.value);
-	if (value >= 0) {
-		document.getElementById('lfo-fade-slider').value = value;
-		channel.setLFOFade(value);
+	const time = parseFloat(this.value);
+	if (Number.isFinite(time)) {
+		const sliderValue = lfoDelayToYamaha(Math.abs(time * 13 / 6));
+		document.getElementById('lfo-fade-slider').value = sliderValue;
+		if (time > 0) {
+			document.getElementById('lfo-fade-in').checked = true;
+		} else if (time < 0) {
+			document.getElementById('lfo-fade-out').checked = true;
+		}
+		channel.setLFOFade(time);
 	}
 });
+
+function lfoFadeDirection(event) {
+	const duration = Math.abs(channel.getLFOFade());
+	const time = parseInt(this.value) * duration;
+	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
+	document.getElementById('lfo-fade-slider').value = lfoDelayToYamaha(duration * 13 / 6);
+	channel.setLFOFade(time);
+}
+
+document.getElementById('lfo-fade-in').addEventListener('input', lfoFadeDirection);
+document.getElementById('lfo-fade-out').addEventListener('input', lfoFadeDirection);
 
 function vibratoPresetToCents(x) {
 	if (x === 0) {
