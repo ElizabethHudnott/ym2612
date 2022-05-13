@@ -130,7 +130,7 @@ function updateAlgorithmDetails() {
 			const gain = operator.getGain();
 			total += Math.abs(gain);
 			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(operator.getOutputLevel());
+			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
 		}
 	}
 	total *= 1 + Math.abs(channel.getPan());
@@ -210,7 +210,7 @@ function normalizeLevels(distortion = 0) {
 			const gain = (distortion + 1) * currentGains[i] / total;
 			operator.setGain(gain);
 			const box = document.getElementById('output-level-' + String(i + 1));
-			box.value = Math.round(operator.getOutputLevel());
+			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
 		}
 	}
 }
@@ -373,7 +373,7 @@ document.getElementById('lfo-fade').addEventListener('input', function (event) {
 	initialize();
 	const time = parseFloat(this.value);
 	if (Number.isFinite(time)) {
-		const sliderValue = lfoDelayToYamaha(Math.abs(time * 13 / 6));
+		const sliderValue = lfoDelayToYamaha(Math.abs(time) * 13 / 6);
 		document.getElementById('lfo-fade-slider').value = sliderValue;
 		if (time > 0) {
 			document.getElementById('lfo-fade-in').checked = true;
@@ -680,23 +680,29 @@ function ratesFree(event) {
 function levelsFree(event) {
 	initialize();
 	const opNum = getOperator(this);
-	const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
+
+	/*
+		const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
+		const tlBox = document.getElementById('op' + opNum + '-total-level');
+		tlBox.disabled = !free;
+	*/
+
 	const sustainSlider = document.getElementById('op' + opNum + '-sustain-slider');
-	const tlBox = document.getElementById('op' + opNum + '-total-level');
 	const sustainBox = document.getElementById('op' + opNum + '-sustain');
 	const free = this.checked;
-	tlBox.disabled = !free;
 	sustainBox.disabled = !free;
 
 	if (free) {
-		tlSlider.step = 0.5;
+		// tlSlider.step = 0.5;
 		sustainSlider.step = 1 / 16;
 	} else {
-		const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
-		tlSlider.step = 1;
-		tlSlider.value = totalLevel;
-		tlBox.value = totalLevel;
-		channel.getOperator(opNum).setTotalLevel(totalLevel);
+		/*
+			const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
+			tlSlider.step = 1;
+			tlSlider.value = totalLevel;
+			tlBox.value = totalLevel;
+			channel.getOperator(opNum).setTotalLevel(totalLevel);
+		*/
 		const sustain = Math.round(channel.getOperator(opNum).getSustain());
 		sustainSlider.step = 1;
 		sustainSlider.value = sustain;

@@ -46,7 +46,7 @@ const DX_TO_SY_LEVEL = [
 ];
 
 function dxToSYLevel(outputLevel) {
-	if (outputLevel <= 20) {
+	if (outputLevel < 20) {
 		return DX_TO_SY_LEVEL[Math.round(outputLevel)]
 	} else {
 		return outputLevel + 28;
@@ -906,6 +906,10 @@ class Operator {
 		this.envelopeGain.connect(destination);
 	}
 
+	connectFrequency(destination) {
+		this.centreFrequencyNode.connect(destination);
+	}
+
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
 	 * {@link Channel} (e.g. by its setFrequency() method) but it can also be useful to
 	 * invoke this method directly for individual operators to create dissonant sounds.
@@ -1469,14 +1473,15 @@ class Channel {
 		this.operators = [op1, op2, op3, op4];
 
 		const minDelay = 128 / context.sampleRate;
-		const dcBlock = 48.5;
 		const op1To1 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To1);
-		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
+		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: 0, Q: 0});
+		op1.connectFrequency(feedbackFilter1.frequency);
 		op1To1.connect(feedbackFilter1);
 		const delay1To1 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
 		feedbackFilter1.connect(delay1To1);
 		op1.connectIn(delay1To1);
+
 		const op1To2 = new GainNode(context, {gain: 0});
 		op1.connectOut(op1To2);
 		op2.connectIn(op1To2);
@@ -1496,16 +1501,16 @@ class Channel {
 
 		const op3To3 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To3);
-		const feedbackFilter3 = new BiquadFilterNode(context, {type: 'highpass', frequency: dcBlock, Q: 0});
+		const feedbackFilter3 = new BiquadFilterNode(context, {type: 'highpass', frequency: 0, Q: 0});
+		op3.connectFrequency(feedbackFilter3.frequency);
 		op3To3.connect(feedbackFilter3);
 		const delay3To3 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
 		feedbackFilter3.connect(delay3To3);
 		op3.connectIn(delay3To3);
+
 		const op3To4 = new GainNode(context, {gain: 0});
 		op3.connectOut(op3To4);
 		op4.connectIn(op3To4);
-
-		this.dcBlock = [feedbackFilter1.frequency, feedbackFilter3.frequency];
 
 		this.gains = [
 			op1To1.gain, op3To3.gain,
@@ -1849,14 +1854,6 @@ class Channel {
 	getFeedbackPreset(operatorNum = 1) {
 		const amount = this.getFeedback(operatorNum);
 		return amount === 0 ? 0 : Math.round(Math.log2(amount / -1.4) + 6);
-	}
-
-	setFeedbackFilter(cutoff, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		this.dcBlock[(operatorNum - 1) / 2][method](cutoff, time);
-	}
-
-	getFeedbackFilterFreq(operatorNum = 1) {
-		return this.dcBlock[(operatorNum - 1) / 2].value;
 	}
 
 	/**
@@ -2827,14 +2824,6 @@ class TwoOperatorChannel {
 
 	getFeedbackPreset() {
 		return this.parentChannel.getFeedbackPreset(this.operatorOffset + 1);
-	}
-
-	setFeedbackFilter(cutoff, time = 0, method = 'setValueAtTime') {
-		this.parentChannel.setFeedbackFilter(cutoff, this.operatorOffset + 1, time, method);
-	}
-
-	getFeedbackFilterFreq() {
-		return this.parentChannel.getFeedbackFilterFreq(this.operatorOffset + 1);
 	}
 
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {

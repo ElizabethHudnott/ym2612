@@ -7,7 +7,7 @@ Algorithms on Other Systems (to consider)
 	1 -> 2 & 3, 4			(DX7, Dirtywave M8)
 	1->2&4, 3->2&4			Algorithm 4 + more (Digitone)
 	1->2&3, 2->3->4		(Digitone)
-Renumber operators 2 & 3
+Renumber operators 2 & 3?
 
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
@@ -16,7 +16,6 @@ Changing channel volume while PCM is in use doesn't work (problem?)
 Add "Key On" and "Key Off" annotations to envelope diagram
 
 Bug: modulation should scale according to modulator frequency, not carrier frequency
-Bug: feedback filter cutoff needs to match fundamental
 Bug: feedback path shouldn't go through the envelope
 Bug?: slow fade in of vibrato
 
@@ -41,7 +40,7 @@ envelopes synced to tempo?
 attenuation bend and velocity?
 
 Noise/S&H/sample as LFO source?
-Level scaling (per operator) (DX7 style? Or SY77? Or OPL? Or OPP?)
+Level scaling (per operator) (DX7 style? Or DX7 ii? Or SY77? Or OPL? Or OPP?)
 glide
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
@@ -59,6 +58,8 @@ OPL2/3-like features
 	Compatibility
 		Fast envelope setting (matching OPL clock rate)
 		Separate LFOs for pitch and volume?
+
+One operator channels
 
 Amplitude Bend
 	How will it work with 2-op channels?
