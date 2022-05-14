@@ -1439,9 +1439,54 @@ function indexOfGain(modulatorOpNum, carrierOpNum) {
 	return index;
 }
 
-class Channel {
+class AbstractChannel {
+
+	frequencyToNote(block, frequencyNum) {
+		let lb = 0;
+		let ub = 127;
+		while (lb < ub) {
+			const mid = Math.trunc((lb + ub) / 2);
+			const noteBlock = this.noteFreqBlockNumbers[mid];
+			const noteFreqNum = this.noteFrequencyNumbers[mid];
+			if (block < noteBlock) {
+				ub = mid - 1;
+			} else if (block > noteBlock) {
+				lb = mid + 1;
+			} else if (frequencyNum < noteFreqNum) {
+				ub = mid - 1;
+			} else if (frequencyNum > noteFreqNum) {
+				lb = mid + 1;
+			} else {
+				return mid;
+			}
+		}
+		return lb;
+	}
+
+	fullFreqToComponents(fullFrequencyNumber) {
+		let block = 1, freqNum = fullFrequencyNumber;
+		if (freqNum < 1023.5) {
+			block = 0;
+			freqNum = Math.round(freqNum) * 2;
+		}
+		while (freqNum >= 2047.5 || (block < 7 && freqNum >= this.octaveThreshold)) {
+			freqNum /= 2;
+			block++;
+		}
+		return [block, Math.round(freqNum)];
+	}
+
+	multiplyFreqComponents(block, frequencyNumber, multiple) {
+		const fullFreqNumber = componentsToFullFreq(block, frequencyNumber) * multiple;
+		return this.fullFreqToComponents(fullFreqNumber);
+	}
+
+}
+
+class Channel extends AbstractChannel {
 
 	constructor(synth, context, output, dbCurve) {
+		super();
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 		const gain = new GainNode(context);
@@ -1524,7 +1569,6 @@ class Channel {
 		this.frequencyNumbers = [1093, 1093, 1093, 1093];
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.fixedFrequency = [false, false, false, false];
-		this.detune = 1;	// 1:1 with non-detuned frequency
 
 		this.outputLevel = 99;
 		this.tremoloDepth = 0;	// linear scale
@@ -1538,6 +1582,7 @@ class Channel {
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 
 		this.useAlgorithm(7);
+		this.tuneNotes();
 	}
 
 	copyOperator(from, to) {
@@ -1682,7 +1727,7 @@ class Channel {
 					// Turn a frequency multiple into a fixed frequency.
 					let block = this.freqBlockNumbers[3];
 					let freqNum = this.frequencyNumbers[3];
-					[block, freqNum] = this.synth.multiplyFreqComponents(block, freqNum, multiple);
+					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
 					this.freqBlockNumbers[operatorNum - 1] = block;
 					this.frequencyNumbers[operatorNum - 1] = freqNum;
 				}
@@ -1702,7 +1747,7 @@ class Channel {
 					let block = operator.getFrequencyBlock();
 					let freqNum = operator.getFrequencyNumber();
 					const multiple = operator.getFrequencyMultiple();
-					[block, freqNum] = this.synth.multiplyFreqComponents(block, freqNum, multiple);
+					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
 					operator.setFrequency(block, freqNum, 1, time, method);
 				}
 			} else {
@@ -1723,7 +1768,7 @@ class Channel {
 		if (hasFixedFrequency) {
 			for (let i = 0; i < 4; i++) {
 				if (!this.fixedFrequency[i]) {
-					const [operatorBlock, operatorFreqNum] = this.synth.multiplyFreqComponents(
+					const [operatorBlock, operatorFreqNum] = this.multiplyFreqComponents(
 						blockNumber, frequencyNumber, this.frequencyMultiples[i]
 					);
 					this.operators[i].setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
@@ -1769,17 +1814,9 @@ class Channel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
-	setDetune(cents) {
-		this.detune = 2 ** (cents / 1200);
-	}
-
-	getDetune() {
-		return Math.round(Math.log2(this.detune) * 1200);
-	}
-
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = this.synth.fullFreqToComponents(frequency);
+		const block = this.noteFreqBlockNumbers[noteNumber];
+		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		this.setFrequency(block, freqNum, time, method);
 	}
 
@@ -1825,15 +1862,15 @@ class Channel {
 
 	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
 		this.fixedFrequency[operatorNum - 1] = true;
-		const frequency = this.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = this.synth.fullFreqToComponents(frequency);
+		const block = this.noteFreqBlockNumbers[noteNumber];
+		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		this.setOperatorFrequency(operatorNum, block, freqNum, time, method);
 	}
 
 	getMIDINote(operatorNum = 4) {
 		const block = this.freqBlockNumbers[operatorNum - 1];
 		const freqNum = this.frequencyNumbers[operatorNum - 1];
-		return this.synth.frequencyToNote(block, freqNum, this.detune);
+		return this.frequencyToNote(block, freqNum);
 	}
 
 	setFeedback(amount, operatorNum = 1, time = 0, method = 'setValueAtTime') {
@@ -2174,14 +2211,42 @@ class Channel {
 		return 4;
 	}
 
+	/**Calculates frequency data for a scale of 128 MIDI notes.
+	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
+	 * @param {number} interval The default value of 2 separates consecutive copies of the root
+	 * note by a 2:1 frequency ratio (an octave). Different values can produce stretched
+	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
+	 * produce unusual scales, such as Wendy Carlos' alpha, beta and gamma scales.
+	 * @param {number} divisions How many notes the chromatic scale should have.
+	 * @param {number} steps A pattern of scale increments used to move from one keyboard key to
+	 * the next. The pattern will be repeated up and down the keyboard from middle C.
+	 *
+	 * Examples:
+	 * [1] A regular equal tempered scale.
+	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
+	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
+	 * scale.
+	 * [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0] Equal tempered notes on the black keys only. White
+	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
+	 * scale.
+	 *
+	 */
+	tuneNotes(detune = 0, interval = 2, divisions = 12, steps = [1]) {
+		const tuning = this.synth.getTuning(detune, interval, divisions, steps);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
 }
 
 class FMSynth {
 
 	constructor(context, output = context.destination, numChannels = 6, clockRate = ClockRate.PAL) {
+		// Tuning data
+		this.referencePitch = 220;
+		this.referenceNote = 69;
 		this.setClockRate(clockRate);
-		// Generate the table of frequencies in Hertz divided the synth's frequency step.
-		this.tuneMIDINotes(440);
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
 		channelGain.connect(output);
@@ -2231,14 +2296,7 @@ class FMSynth {
 	setClockRate(clockRate) {
 		this.envelopeTick = 72 * 6 / clockRate;
 		this.lfoRateMultiplier = clockRate / 8000000;
-		const oldFrequencyStep = this.frequencyStep;
 		this.frequencyStep = clockRate / (144 * 2 ** 20);
-		if (this.noteFrequencies) {
-			const ratio = oldFrequencyStep / this.frequencyStep;
-			for (let i = 0; i < 128; i++) {
-				this.noteFrequencies[i] *= ratio;
-			}
-		}
 	}
 
 	start(time) {
@@ -2374,36 +2432,26 @@ class FMSynth {
 		this.channelGain[method](level / this.channels.length, time);
 	}
 
-	/**Calculates frequency data for a scale of 128 MIDI notes.
-	 * @param {number} referencePitch The pitch to tune the reference note to (usually A4), in
-	 * Hertz.
-	 * @param {number} referenceNote The number of scale increments that the reference pitch is
-	 * above middle C. The default is 9 semitones (A4).
-	 * @param {number} interval The default value of 2 separates consecutive copies of the root
-	 * note by a 2:1 frequency ratio (an octave).
-	 * @param {number} divisions How many notes the chromatic scale should have.
-	 * @param {number} steps A pattern of scale increments used to move from one keyboard key to
-	 * the next. The pattern will be repeated up and down the keyboard from middle C.
-	 *
-	 * Examples:
-	 * [1] A regular equal tempered scale.
-	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
-	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
-	 * scale.
-	 * [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0] Equal tempered notes on the black keys only. White
-	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
-	 * scale.
-	 *
+	/**
+	 * @param {number} frequency The pitch to tune the reference note to, in Hertz.
+	 * @param {number} noteNumber The MIDI note number that gets tuned to the specified
+	 * frequency, usually 69 (A4).
 	 */
-	tuneMIDINotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12, steps = [1]) {
-		referencePitch /= 2;	// Account for high modulation index.
+	setReferencePitch(frequency, noteNumber = 69) {
+		this.referencePitch = frequency / 2;	// Account for high modulation index.
+		this.referenceNote = noteNumber;
+	}
+
+	getTuning(detune = 0, interval = 2, divisions = 12, steps = [1]) {
+		const referencePitch = this.referencePitch;
+		const referenceNote = this.referenceNote;
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
-		referenceNote += 60;
 		let noteNumber = 60;
 		let stepIndex = 0;
 		for (let i = 60; i < 128; i++) {
-			const frequency = referencePitch * (interval ** ((noteNumber - referenceNote) / divisions));
+			const frequency = referencePitch *
+				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 			noteNumber  += steps[stepIndex];
 			stepIndex = (stepIndex + 1) % numIntervals;
@@ -2412,14 +2460,14 @@ class FMSynth {
 		stepIndex = numIntervals - 1;
 		for (let i = 59; i >= 0; i--) {
 			noteNumber -= steps[stepIndex];
-			const frequency = referencePitch * (interval ** ((noteNumber - referenceNote) / divisions));
+			const frequency = referencePitch *
+				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 			stepIndex--;
 			if (stepIndex < 0) {
 				stepIndex = numIntervals - 1;
 			}
 		}
-		this.noteFrequencies = frequencyData;
 
 		// Adjustment to spread the key codes evenly
 		let blocks = [], freqNums = [], keyCodes = [];
@@ -2507,60 +2555,24 @@ class FMSynth {
 			}
 
 		} while (newVariance < variance || !changes);
-		this.octaveThreshold = thresholdHistory[0] - 0.5;
-	}
-
-
-	fullFreqToComponents(fullFrequencyNumber) {
-		let block = 1, freqNum = fullFrequencyNumber;
-		if (freqNum < 1023.5) {
-			block = 0;
-			freqNum = Math.round(freqNum) * 2;
-		}
-		while (freqNum >= 2047.5 || (block < 7 && freqNum >= this.octaveThreshold)) {
-			freqNum /= 2;
-			block++;
-		}
-		return [block, Math.round(freqNum)];
-	}
-
-	multiplyFreqComponents(block, frequencyNumber, multiple) {
-		const fullFreqNumber = componentsToFullFreq(block, frequencyNumber) * multiple;
-		return this.fullFreqToComponents(fullFreqNumber);
-	}
-
-	frequencyToNote(block, frequencyNum, detune = 0) {
-		let lb = 0;
-		let ub = 127;
-		while (lb < ub) {
-			let mid = Math.trunc((lb + ub) / 2);
-			const frequency = this.noteFrequencies[mid] / detune;
-			const [noteBlock, noteFreqNum] = this.fullFreqToComponents(frequency);
-			if (block < noteBlock) {
-				ub = mid - 1;
-			} else if (block > noteBlock) {
-				lb = mid + 1;
-			} else if (frequencyNum < noteFreqNum) {
-				ub = mid - 1;
-			} else if (frequencyNum > noteFreqNum) {
-				lb = mid + 1;
-			} else {
-				return mid;
-			}
-		}
-		return lb;
+		return {
+			octaveThreshold: 	thresholdHistory[0] - 0.5,
+			freqBlockNumbers: blocks,
+			frequencyNumbers: freqNums,
+		};
 	}
 
 }
 
-class TwoOperatorChannel {
+class TwoOperatorChannel extends AbstractChannel {
 
 	constructor(parentChannel, startingOperator) {
+		super();
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
-		this.detune = 0;	// 1:1 with non-detuned frequency
+		this.tuneNotes();
 	}
 
 	copyOperator(from, to) {
@@ -2668,7 +2680,7 @@ class TwoOperatorChannel {
 				// Turn a frequency multiple into a fixed frequency.
 				let block = parent.getFrequencyBlock(this.operatorOffset + 2);
 				let freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
-				[block, freqNum] = this.synth.multiplyFreqComponents(block, freqNum, multiple);
+				[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
 				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
 				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
 			}
@@ -2682,7 +2694,7 @@ class TwoOperatorChannel {
 					let block = operator.getFrequencyBlock();
 					let freqNum = operator.getFrequencyNumber();
 					const multiple = operator.getFrequencyMultiple();
-					[block, freqNum] = parent.synth.multiplyFreqComponents(block, freqNum, multiple);
+					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
 					operator.setFrequency(block, freqNum, 1, time, method);
 
 				}
@@ -2712,7 +2724,7 @@ class TwoOperatorChannel {
 				const operatorNum = offset + i;
 				if (!parent.isOperatorFixed(operatorNum)) {
 					const multiple = parent.getFrequencyMultiple(operatorNum);
-					const [operatorBlock, operatorFreqNum] = parent.synth.multiplyFreqComponents(
+					const [operatorBlock, operatorFreqNum] = this.multiplyFreqComponents(
 						blockNumber, frequencyNumber, multiple
 					);
 					parent.getOperator(operatorNum).setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
@@ -2758,17 +2770,9 @@ class TwoOperatorChannel {
 		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
 	}
 
-	setDetune(cents) {
-		this.detune = 2 ** (cents / 1200);
-	}
-
-	getDetune() {
-		return Math.round(Math.log2(this.detune) * 1200);
-	}
-
 	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
-		const frequency = this.parentChannel.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = parent.synth.fullFreqToComponents(frequency);
+		const block = this.noteFreqBlockNumbers[noteNumber];
+		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		this.setFrequency(block, freqNum, time, method);
 	}
 
@@ -2797,8 +2801,8 @@ class TwoOperatorChannel {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
-		const frequency = parent.synth.noteFrequencies[noteNumber] * this.detune;
-		const [block, freqNum] = parent.synth.fullFreqToComponents(frequency);
+		const block = this.noteFreqBlockNumbers[noteNumber];
+		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, method);
 	}
 
@@ -2807,7 +2811,7 @@ class TwoOperatorChannel {
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		const block = parent.getFrequencyBlock(effectiveOperatorNum);
 		const freqNum = parent.getFrequencyNumber(effectiveOperatorNum);
-		return parent.synth.frequencyToNote(block, freqNum, this.detune);
+		return this.frequencyToNote(block, freqNum);
 	}
 
 	setFeedback(amount, time = 0, method = 'setValueAtTime') {
@@ -2965,6 +2969,13 @@ class TwoOperatorChannel {
 		for (let i = 1; i <= 2; i++) {
 			this.parentChannel.getOperator(this.operatorOffset + i).soundOff(time);
 		}
+	}
+
+	tuneNotes(detune = 0, interval = 2, divisions = 12, steps = [1]) {
+		const tuning = this.parentChannel.synth.getTuning(detune, interval, divisions, steps);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
 	get numberOfOperators() {

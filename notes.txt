@@ -95,7 +95,6 @@ Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
 Microtuning
-	small octave stretch per instrument (e.g. piano)
 	randomization/analog?
 	step offsets for PSG
 	getMIDINote for PSG
