@@ -587,15 +587,21 @@
 							<input type="number" min="-9.9" max="9.9" step="0.1" value="1" class="form-control led-display" id="op$-rate-scale" disabled>
 						</div>
 					</div>
-					<div class="row form-group">
-						<label class="col-auto col-md-3 col-form-label" for="op$-total-level-slider">
+					<div class="row mb-1">
+						<label class="col-auto col-md-3 col-form-label pt-0" for="op$-total-level-slider">
 							Min Attenuation <small>(L1)</small>
 						</label>
-						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="0" max="255" value="0" class="form-control-range mt-1" id="op$-total-level-slider">
+						<div class="col-12 col-md-6 pl-md-0">
+							<input type="range" min="0" max="127" value="0" class="form-control-range mt-1 mb-2" id="op$-total-level-slider">
+							<div class="form-check small">
+								<input type="checkbox" class="form-check-input" id="op$-total-level-large">
+								<label for="op$-total-level-large" class="form-check-label">
+									+128
+								</label>
+							</div>
 						</div>
 						<div class="col-4 col-md-2">
-							<input type="number" min="0" max="255" value="0" class="form-control led-display" id="op$-total-level" disabled>
+							<input type="number" min="0" max="255" step="0.125" value="0" class="form-control led-display" id="op$-total-level" disabled>
 						</div>
 					</div>
 					<div class="row form-group">

@@ -29,10 +29,9 @@ Phase reset (on/off/auto)
 Renumber operators 2 & 3?
 Change defaults when used through UI: Algorithm 4, Operators 3 & 4 (will be 2 & 4) disabled
 AM envelopes
-Level scaling (SY77 and OPL styles, and DX7ii?)
 Refactor operator UI
 Finish UI
-Name and icon/logo
+Icon/logo
 OPN presets
 User presets
 Service worker

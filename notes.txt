@@ -40,7 +40,12 @@ envelopes synced to tempo?
 attenuation bend and velocity?
 
 Noise/S&H/sample as LFO source?
-Level scaling (per operator) (DX7 style? Or DX7 ii? Or SY77? Or OPL? Or OPP?)
+Level scaling (per operator)
+	Breakpoint
+	Left and right depths (change in output level)
+	Left and right curves (+linear, -linear, +exponential, -exponential, +stepped (OPL style), -stepped)
+	Can be applied to filter resonance too
+
 glide
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
@@ -89,7 +94,11 @@ Combine sample with synth
 Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
-Microtuning (step offsets for PSG, getMIDINote for PSG, randomization/analog?)
+Microtuning
+	small octave stretch per instrument (e.g. piano)
+	randomization/analog?
+	step offsets for PSG
+	getMIDINote for PSG
 
 More Ideas
 	Velocity sensitive detuning

@@ -16,6 +16,7 @@
 	--accent-color: hsl(175, 30%, 41%);
 	--border-color: hsl(300, 100%, 60%);
 	--shaded: hsl(305, 65%, 15%);
+	accent-color: var(--accent-color);
 }
 
 body {

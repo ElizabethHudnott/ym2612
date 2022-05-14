@@ -334,14 +334,12 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	}
 });
 
-const LFO_DELAY_CONSTANT = Math.log2(7) / 70;
-
 function lfoDelayToSeconds(x) {
-	return Math.sign(x) * (2 ** (LFO_DELAY_CONSTANT * Math.abs(x)) - 0.5);
+	return Math.sign(x) * (2 ** (Math.abs(x) / 25) - 0.5);
 }
 
 function lfoDelayToYamaha(time) {
-	return time === 0 ? 0 : Math.log2(time + 0.5) / LFO_DELAY_CONSTANT;
+	return time === 0 ? 0 : Math.log2(time + 0.5) * 25;
 }
 
 document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
@@ -681,11 +679,9 @@ function levelsFree(event) {
 	initialize();
 	const opNum = getOperator(this);
 
-	/*
-		const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
-		const tlBox = document.getElementById('op' + opNum + '-total-level');
-		tlBox.disabled = !free;
-	*/
+	const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
+	const tlBox = document.getElementById('op' + opNum + '-total-level');
+	tlBox.disabled = !free;
 
 	const sustainSlider = document.getElementById('op' + opNum + '-sustain-slider');
 	const sustainBox = document.getElementById('op' + opNum + '-sustain');
@@ -693,16 +689,15 @@ function levelsFree(event) {
 	sustainBox.disabled = !free;
 
 	if (free) {
-		// tlSlider.step = 0.5;
+		tlSlider.step = 0.5;
 		sustainSlider.step = 1 / 16;
 	} else {
-		/*
-			const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
-			tlSlider.step = 1;
-			tlSlider.value = totalLevel;
-			tlBox.value = totalLevel;
-			channel.getOperator(opNum).setTotalLevel(totalLevel);
-		*/
+		const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
+		tlSlider.step = 1;
+		tlSlider.value = totalLevel > 127 ? totalLevel - 128 : totalLevel;
+		tlBox.value = totalLevel;
+		channel.getOperator(opNum).setTotalLevel(totalLevel);
+
 		const sustain = Math.round(channel.getOperator(opNum).getSustain());
 		sustainSlider.step = 1;
 		sustainSlider.value = sustain;
