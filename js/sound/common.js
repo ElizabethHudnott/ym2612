@@ -18,46 +18,36 @@ function amplitudeToDecibels(amplitude) {
 	return -20 * Math.log10(1 - amplitude);
 }
 
-/**Creates a sample that can be used as a waveform for creating chip tunes.
- * @param {number} sampleRate The sample rate of the AudioContext used to play the sample.
+/**Produces a Float32Array that can be used as a waveform for creating chip tunes.
  * @param {object} options An object containing any additional options.
 */
-function makeBasicWaveform(sampleRate, options = {}) {
+function makeBasicWaveform(options = {}, length = 1024) {
 	// 'sine' or 'triangle'.
-	let type = options.type || ('duty' in options ? 'triangle' : 'sine');
+	let type = options.type || ('dutyCycle' in options ? 'triangle' : 'sine');
 
 	// Default to a 50% duty cycle for triangle waves.
-	let dutyCycle = 'duty' in options ? options.duty : 0.5;
+	let dutyCycle = 'dutyCycle' in options ? options.dutyCycle : 0.5;
 
-	// The number of samples used.
-	const length = options.length || 1024;
+	// Default to maximum amplitude
+	const amplitude = options.amplitude || 1;
 
-	// Default to 25 bit precision (mantissa length + sign bit of a IEEE 754 single precision number).
-	// Each sample has one of 2**sampleBits + 1 values.
-	const sampleBits = options.bits || 25;
-
-	// If set to 1 then the portions of the wave from PI/2 to PI radians and from 3PI/2 to 2PI
-	// radians are zeroed out (These values are for a 50% duty cycle). Defaults to 0. Fractional
-	// values are possible too.
-	const zeroed = options.pulse || 0;
+	const freqNumerator = options.frequencyMultiply || 1;
+	const freqDenominator = options.frequencyDivide || 1;
+	const frequency = freqNumerator / freqDenominator;
 
 	// Default to leaving negative samples as negative, i.e. undistorted, rather than creating,
-	// for example, a half sine (0) wave or a camel sine (-1) wave.
-	const negative = 'negative' in options ? options.negative : 1;
+	// for example, a half sine (0) wave or a camel sine (1) wave.
+	const negative = 'negative' in options ? -1 * options.negative : 1;
 
-	// For example,  0.25 turns a sine wave into a cosine wave. Phase shifts are inserted
-	// *after* negative samples interpretation.
-	const phaseShift = options.phaseShift || 0;
+	// For example, 0.25 turns a sine wave into a cosine wave.
+	const phaseShift = options.phase || 0;
 
 	// By default the waveform takes up 100% of the available samples, with no zero samples
 	// added as padding. Values between 0 and 1 are permissible.
 	const width = options.width || 1;
 
 	// By default, don't intensify the wave by cubing the basic waveform's sample values.
-	const squared = options.power === 2;
-
-	// Multiple waves can be summed and normalized but we default to using the fundamental only.
-	const harmonics = options.harmonics || [1];
+	const square = options.square === true;
 
 	let wave;
 	if (type === 'sine') {
@@ -80,41 +70,92 @@ function makeBasicWaveform(sampleRate, options = {}) {
 
 	}
 
-	const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
-	const data = buffer.getChannelData(0);
-	const period = Math.round(length * width);
-	const cutoffOneLB = dutyCycle / 2 + (1 - zeroed) * (1 - dutyCycle) / 2;
-	const zeroPoint = dutyCycle / 2 + (1 - dutyCycle) / 2;
-	const cutoffTwoLB = dutyCycle / 2 + (1 - dutyCycle) + (1 - zeroed) * dutyCycle / 2;
+	const data = new Float32Array(length);
+	const wavePeriod = Math.round(length / frequency * width);
+	const fullPeriod = Math.round(length / frequency);
 
-	for (let harmonic of harmonics) {
-		for (let i = 0; i < period; i++) {
-			const x = ((i + 0.5) * harmonic / period) % 1;
-			let value, phaseShifted;
-			if (x > cutoffTwoLB || (x > cutoffOneLB && x <= zeroPoint)) {
-				value = 0;
-			} else {
-				value = wave(x);
-				phaseShifted = wave(x + phaseShift);
-				if (value < 0) {
-					phaseShifted *= negative;
-				}
-				if (squared) {
-					phaseShifted = Math.abs(phaseShifted) * phaseShifted;
-				}
+	for (let i = 0; i < length; i++) {
+		const fullX = (i + phaseShift * fullPeriod) % fullPeriod;
+		if (fullX < wavePeriod) {
+			const waveX = ((fullX + 0.5) / wavePeriod) % 1;
+			let value = wave(waveX);
+			if (square) {
+				value *= Math.abs(value);
 			}
-			data[i] += phaseShifted;
+			if (value < 0) {
+				value *= negative;
+			}
+			data[i] = amplitude * value;
 		}
 	}
 
-	let max = 0;
-	for (let i = 0; i < period; i++) {
-		max = Math.max(max, data[i]);
+	return data;
+}
+
+function gcd(a, b) {
+	while (b !== 0) {
+		[a, b] = [b, a % b];
+	}
+	return a;
+}
+
+function lcm(values) {
+	if (values.length === 0) {
+		return 1;
+	}
+	let lcmSoFar = values[0];
+	for (let i = 1; i < values.length; i++) {
+		const nextValue = values[i];
+		lcmSoFar = lcmSoFar * nextValue / gcd(lcmSoFar, nextValue);
+	}
+	return lcmSoFar;
+}
+
+/**
+ * @param {number} sampleBits Defaults to 25 bit precision (mantissa length + sign bit of an
+ * IEEE 754 single precision number). Each sample has one of 2**sampleBits + 1 values.
+ */
+function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 25) {
+	const numWaves = waveOptionsArr.length;
+	const denominators = [];
+	for (let waveOptions of waveOptionsArr) {
+		let denominator = waveOptions.frequencyDivide;
+		if (denominator) {
+			const numerator = waveOptions.frequencyMultiply || 1;
+			denominator /= gcd(numerator, denominator);
+			denominators.push(denominator);
+		}
+	}
+	length *= lcm(denominators);
+
+	const waves = new Array(numWaves);
+	for (let i = 0; i < numWaves; i++) {
+		waves[i] = makeBasicWaveform(waveOptionsArr[i], length);
 	}
 
+	const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+	const summedWave = buffer.getChannelData(0);
+	let min = Number.MAX_VALUE, max = Number.MIN_VALUE, offset = 0;
+	for (let i = 0; i < length; i++) {
+		let total = 0;
+		for (let wave of waves) {
+			total += wave[i];
+		}
+		summedWave[i] = total;
+		offset += total;
+		min = Math.min(min, total);
+		max = Math.max(max, total);
+	}
+
+	const subtract = offset / length;
+	min -= subtract;
+	max -= subtract;
+	const magnitude = Math.max(max, Math.abs(min));
+
 	const steps = 2 ** (sampleBits - 1);
-	for (let i = 0; i < period; i++) {
-		data[i] = Math.round(steps * data[i] / max) / steps;
+	for (let i = 0; i < length; i++) {
+		const value = (summedWave[i] - subtract) / magnitude;
+		summedWave[i] = Math.round(steps * value) / steps;
 	}
 
 	return buffer;
@@ -161,7 +202,7 @@ function rotateArray(arr, shift) {
 }
 
 export {
-	decibelReductionToAmplitude, amplitudeToDecibels, makeBasicWaveform,
+	decibelReductionToAmplitude, amplitudeToDecibels, makeMathyWave,
 	roundMicrotuning, rotateArray,
 	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
 }
