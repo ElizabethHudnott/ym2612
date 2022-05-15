@@ -187,31 +187,11 @@ for (let i = 1; i <= 4; i++) {
 
 function normalizeLevels(distortion = 0) {
 	initialize();
-	const operators = new Array(4);
-	const currentGains = new Array(4);
-	let total = 0;
-	for (let i = 0; i < 4; i++) {
-		const operator = channel.getOperator(i + 1);
-		operators[i] = operator;
-		if (!operator.disabled) {
-			const gain = operator.getGain();
-			currentGains[i] = gain;
-			total += Math.abs(gain);
-		}
-	}
-	if (total === 0) {
-		total = 1;
-	}
-	total *= 1 + Math.abs(channel.getPan());
+	channel.normalizeLevels(distortion);
 
-	for (let i = 0; i < 4; i++) {
-		const operator = operators[i];
-		if (!operator.disabled) {
-			const gain = (distortion + 1) * currentGains[i] / total;
-			operator.setGain(gain);
-			const box = document.getElementById('output-level-' + String(i + 1));
-			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
-		}
+	for (let i = 1; i <= 4; i++) {
+		const box = document.getElementById('output-level-' + i);
+		box.value = Math.round(channel.getOperator(i).getOutputLevel() * 2) / 2;
 	}
 }
 

@@ -20,6 +20,7 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 
 Necessary Improvements
 ----------------------
+testing
 add differentiation of log saw
 Split into separate files: envelope, operator, channel, synth
 Computer keyboard input
@@ -27,7 +28,7 @@ MIDI input
 Portamento
 Phase reset (on/off/auto)
 Renumber operators 2 & 3?
-Change defaults when used through UI: Algorithm 4, Operators 3 & 4 (will be 2 & 4) disabled
+Use Algorithm 4 at start-up, Operators 3 & 4 (will be 2 & 4) disabled
 AM envelopes
 Refactor operator UI
 Finish UI

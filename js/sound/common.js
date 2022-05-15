@@ -6,9 +6,18 @@ const ClockRate = {
 	NTSC: 53693175 / 7
 }
 
-const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2, 0, 0, 0, 0, 0, 0, 0, 0];
+const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
 
 const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
+
+function cancelAndHoldAtTime(param, holdValue, time) {
+	if (param.cancelAndHoldAtTime) {
+		param.cancelAndHoldAtTime(time);
+	} else {
+		param.cancelScheduledValues(time);
+	}
+	param.setValueAtTime(holdValue, time);
+}
 
 function decibelReductionToAmplitude(decibels) {
 	return 10 ** (-decibels / 20);
@@ -16,6 +25,112 @@ function decibelReductionToAmplitude(decibels) {
 
 function amplitudeToDecibels(amplitude) {
 	return -20 * Math.log10(1 - amplitude);
+}
+
+const MICRO_TUNINGS = {
+	WHITE_ONLY: 	[0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+	BLACK_ONLY: 	[1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+	PURE_MAJOR: 	[0.70673, 1.33237, 1.11731, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
+	PURE_MINOR: 	[0.70673, 1.11731, 1.33237, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
+	MEAN_TONE: 		[0.76049, 1.171079, 1.171078, 0.76049, 1.171079, 0.76049, 1.171078, 0.76049, 1.171079, 1.171079, 0.760489, 1.171079],
+	PYTHAGOREAN: 	[1.13685, 0.90225, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 0.90225, 1.13685, 0.90225],
+	WERCKMEISTER: 	[0.90225, 1.01955, 1.01955, 0.9609, 1.0782, 0.90225, 1.0782, 0.9609, 0.9609, 1.0782, 0.9609, 1.0782],
+	KIRNBERGER: 	[0.90225, 1.02932, 1.00978, 0.92179, 1.11731, 0.92179, 1.06354, 0.95602, 0.97555, 1.06355, 0.92179, 1.11731],
+	VALLOTTI: 		[0.94135, 1.01955, 1.01955, 0.94135, 1.09775, 0.90225, 1.05865, 0.98045, 0.98045, 1.05865, 0.90225, 1.09775],
+};
+
+/**
+ * @param {number} gradations Use 85 for the SY-77 family (approximate) or 64 for the DX11 and
+ * TX81Z.
+ */
+function roundMicrotuning(steps, gradations = 64) {
+	const numSteps = steps.length;
+	const newSteps = new Array(numSteps);
+	let error = 0, originalTotal = 0, roundedTotal = 0;
+	for (let i = 0; i < numSteps - 1; i++) {
+		const rounded = Math.round((steps[i] - error) * gradations) / gradations;
+		newSteps[i] = rounded;
+		originalTotal += steps[i];
+		roundedTotal += rounded;
+		error = roundedTotal - originalTotal;
+	}
+	newSteps[numSteps - 1] = numSteps - roundedTotal;
+	return newSteps;
+}
+
+function rotateArray(arr, shift) {
+	const length = arr.length;
+	const newArr = new Array(length);
+	for (let i = 0; i < length; i++) {
+		newArr[i] = arr[(i + shift) % length];
+	}
+	return newArr;
+}
+
+/** Approximately -48db converted to base 2.
+ *  https://gendev.spritesmind.net/forum/viewtopic.php?f=24&t=386&p=6114&hilit=48db#p6114
+ */
+const ATTENUATION_BITS = 8;
+
+/**
+ * @param {number} x A number in the range 0 (silence) to 1023 (loudest).
+ * @return {number} A number in the range 0 (silence) to 1 (loudest).
+ */
+function logToLinear(x) {
+	if (x <= 0) {
+		return 0;
+	}
+	return 2 ** (-ATTENUATION_BITS * (1023 - Math.abs(x)) / 1024);
+}
+
+/**
+ * @param {number} y A number in the range 0 (silence) to 1 (loudest).
+ * @return {number} A number in the range 0 (silence) to 1023 (loudest).
+ */
+function linearToLog(y) {
+	if (y <= 0) {
+		return 0;
+	}
+	return 1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS;
+}
+
+const DX_TO_SY_LEVEL = [
+	0, 5, 9, 13, 17, 20, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 42, 43, 45, 46, 48
+];
+
+function dxToSYLevel(outputLevel) {
+	if (outputLevel < 20) {
+		return DX_TO_SY_LEVEL[Math.round(outputLevel)]
+	} else {
+		return outputLevel + 28;
+	}
+}
+
+function syToDXLevel(level) {
+	if (level >= 48) {
+		return level - 28;
+	} else {
+		for (let i = 19; i >= 0; i--) {
+			if (level >= DX_TO_SY_LEVEL[i]) {
+				return i;
+			}
+		}
+	}
+}
+
+function modulationIndex(outputLevel) {
+	const level = dxToSYLevel(Math.abs(outputLevel));
+	return Math.sign(outputLevel) * Math.PI * 2 ** (33 / 16 - (127 - level) / 8);
+}
+
+function outputLevelToGain(outputLevel) {
+	const level = dxToSYLevel(Math.abs(outputLevel));
+	return Math.sign(outputLevel) * logToLinear(level * 1023 / 127);
+}
+
+function gainToOutputLevel(gain) {
+	const level = linearToLog(Math.abs(gain)) * 127 / 1023;
+	return Math.sign(gain) * syToDXLevel(level);
 }
 
 /**Produces a Float32Array that can be used as a waveform for creating chip tunes.
@@ -159,48 +274,10 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 	return buffer;
 }
 
-const MICRO_TUNINGS = Object.freeze({
-	WHITE_ONLY: 	[0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1],
-	BLACK_ONLY: 	[1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
-	PURE_MAJOR: 	[0.70673, 1.33237, 1.11731, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
-	PURE_MINOR: 	[0.70673, 1.11731, 1.33237, 0.70673, 1.11731, 0.70673, 1.33237, 0.70673, 1.11731, 1.33237, 0.70673, 1.11731],
-	MEAN_TONE: 		[0.76049, 1.171079, 1.171078, 0.76049, 1.171079, 0.76049, 1.171078, 0.76049, 1.171079, 1.171079, 0.760489, 1.171079],
-	PYTHAGOREAN: 	[1.13685, 0.90225, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 1.13685, 0.90225, 0.90225, 1.13685, 0.90225],
-	WERCKMEISTER: 	[0.90225, 1.01955, 1.01955, 0.9609, 1.0782, 0.90225, 1.0782, 0.9609, 0.9609, 1.0782, 0.9609, 1.0782],
-	KIRNBERGER: 	[0.90225, 1.02932, 1.00978, 0.92179, 1.11731, 0.92179, 1.06354, 0.95602, 0.97555, 1.06355, 0.92179, 1.11731],
-	VALLOTTI: 		[0.94135, 1.01955, 1.01955, 0.94135, 1.09775, 0.90225, 1.05865, 0.98045, 0.98045, 1.05865, 0.90225, 1.09775],
-});
-
-/**
- * @param {number} gradations Use 85 for the SY-77 family (approximate) or 64 for the DX11 and
- * TX81Z.
- */
-function roundMicrotuning(steps, gradations = 64) {
-	const numSteps = steps.length;
-	const newSteps = new Array(numSteps);
-	let error = 0, originalTotal = 0, roundedTotal = 0;
-	for (let i = 0; i < numSteps - 1; i++) {
-		const rounded = Math.round((steps[i] - error) * gradations) / gradations;
-		newSteps[i] = rounded;
-		originalTotal += steps[i];
-		roundedTotal += rounded;
-		error = roundedTotal - originalTotal;
-	}
-	newSteps[numSteps - 1] = numSteps - roundedTotal;
-	return newSteps;
-}
-
-function rotateArray(arr, shift) {
-	const length = arr.length;
-	const newArr = new Array(length);
-	for (let i = 0; i < length; i++) {
-		newArr[i] = arr[(i + shift) % length];
-	}
-	return newArr;
-}
-
 export {
-	decibelReductionToAmplitude, amplitudeToDecibels, makeMathyWave,
+	cancelAndHoldAtTime, decibelReductionToAmplitude, amplitudeToDecibels,
 	roundMicrotuning, rotateArray,
+	logToLinear, linearToLog, modulationIndex, outputLevelToGain, gainToOutputLevel,
+	makeMathyWave,
 	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
 }

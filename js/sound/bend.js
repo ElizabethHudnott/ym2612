@@ -1,4 +1,4 @@
-import {outputLevelToGain, cancelAndHoldAtTime} from './opn2.js';
+import {outputLevelToGain, cancelAndHoldAtTime} from './common.js';
 
 class Point {
 	constructor(time, value) {

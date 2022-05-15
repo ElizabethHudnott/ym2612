@@ -1,6 +1,6 @@
 import {
-	decibelReductionToAmplitude, amplitudeToDecibels, ClockRate as OPNClockRate,
-	LFO_FREQUENCIES, VIBRATO_PRESETS
+	decibelReductionToAmplitude, amplitudeToDecibels,
+	ClockRate as OPNClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS,
 } from './common.js';
 
 const AMPLITUDES = new Array(31);
@@ -19,8 +19,6 @@ const ClockRate = {
 const CLOCK_RATIO = OPNClockRate.NTSC / ClockRate.NTSC;
 
 const TREMOLO_PRESETS = [0, 1, 3, 6];
-
-let supportsCancelAndHold;
 
 class NoiseChannel {
 	constructor(context, lfo, output, clockRate) {
@@ -218,7 +216,7 @@ class ToneChannel {
 
 		this.frequency = 0;
 		this.lastFreqChange = 0;
-		this.keyCode = -Infinity;
+		this.keyCode = 0;
 	}
 
 	start(time = 0) {
@@ -250,7 +248,7 @@ class ToneChannel {
 		}
 		this.frequency = frequency;
 		this.lastFreqChange = time;
-		this.keyCode = this.synth.calcKeyCode(frequency);
+		this.keyCode = this.synth.keyCode(frequency);
 	}
 
 	getFrequency() {
@@ -342,7 +340,7 @@ class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = ClockRate.PAL, callback = undefined) {
 		this.setClockRate(context, clockRate);
-		this.tuneMIDINotes(440);
+		this.tuneNotes(440);
 
 		let frequencyLimit = context.sampleRate / 2;
 		while (frequencyLimit > 24000) {
@@ -362,7 +360,6 @@ class PSG {
 
 		const lfo1 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo1 = lfo1;
-		supportsCancelAndHold = lfo1.frequency.cancelAndHoldAtTime !== undefined;
 		const lfo2 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo2 = lfo2;
 
@@ -448,7 +445,7 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tuneMIDINotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
+	tuneNotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
 		const step = interval ** (1 / divisions);
@@ -492,10 +489,10 @@ class PSG {
 		return n === 1 ? this.lfo1 : this.lfo2;
 	}
 
-	/**Approximates calcKeyCode in opn2.js, but derives the key code from a frequency in
-	 * Hertz rather than an OPN style frequency number.
+	/**Approximates keyCode in the FM synth but derives the key code from a frequency in Hertz
+	 * rather than a Yamaha frequency number.
 	 */
-	calcKeyCode(frequency) {
+	keyCode(frequency) {
 		const multiple = frequency / this.hertzToFBits;
 		const block = Math.max(Math.ceil(Math.log2(multiple / 16)), 0);
 		const remainder = Math.trunc(multiple / (2 ** block));

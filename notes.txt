@@ -58,6 +58,7 @@ White noise as a modulator? (through filter + resonance?)
 PSG
 	reciprocal node?
 	wave sequencing (alternate pulse and saw using a square wave LFO)
+	replace calcKeyCode with less jumpy version
 
 OPL2/3-like features
 	Compatibility
@@ -95,6 +96,7 @@ Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
 makeBasicWaveform
+	alternating / invert every x repetitions (see also SY-77 waveforms)
 	trapezoid option (as fraction that is flat, increase sine/tri frequency as needed)
 
 Microtuning
@@ -104,6 +106,8 @@ Microtuning
 
 More Ideas
 	Velocity sensitive detuning
+
+Make the number of operators per channel a constructor argument
 
 UI
 	Tabindexes in the custom algorithm section
