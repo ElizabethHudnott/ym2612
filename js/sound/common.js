@@ -46,8 +46,8 @@ function makeBasicWaveform(options = {}, length = 1024) {
 	// added as padding. Values between 0 and 1 are permissible.
 	const width = options.width || 1;
 
-	// By default, don't intensify the wave by cubing the basic waveform's sample values.
-	const square = options.square === true;
+	// By default, don't intensify the wave by squaring, etc.
+	const power = 'power' in options ? options.power : 1;
 
 	let wave;
 	if (type === 'sine') {
@@ -79,9 +79,7 @@ function makeBasicWaveform(options = {}, length = 1024) {
 		if (fullX < wavePeriod) {
 			const waveX = ((fullX + 0.5) / wavePeriod) % 1;
 			let value = wave(waveX);
-			if (square) {
-				value *= Math.abs(value);
-			}
+			value = Math.sign(value) * (Math.abs(value) ** power);
 			if (value < 0) {
 				value *= negative;
 			}

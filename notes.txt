@@ -94,6 +94,9 @@ Combine sample with synth
 Custom waveforms
 	Only available for an operator that is not modulated by another operator or itself
 
+makeBasicWaveform
+	trapezoid option (as fraction that is flat, increase sine/tri frequency as needed)
+
 Microtuning
 	randomization/analog?
 	step offsets for PSG
@@ -110,3 +113,11 @@ UI
 	Pad LED display with trailing zeros after decimal point
 	More intense red LEDs
 	Custom waveform editor? (max 64 time steps, 4-6 bit levels, like Famicom Disk System)
+
+initial phase offsets (DX7)("Understanding FM Implementations: A Call for Common Standards")
+	carrier:modulator	modulator	carrier
+			1:1			PI				0
+			1:2			0				0
+			1:3			PI				0
+			2:3			PI				PI
+			2:1			0				PI
