@@ -205,7 +205,7 @@ export default class Envelope {
 			// Level never changes
 			if (beginLevel === 0) {
 				this.endSustain = endDampen;
-				channel.scheduleSoundOff(operator, endDampen);
+				this.channel.scheduleSoundOff(operator, endDampen);
 			} else {
 				cancelAndHoldAtTime(gain, beginLevel / 1023, endDampen);
 				this.hasAttack = false;
@@ -293,7 +293,7 @@ export default class Envelope {
 			let endTime;
 			if (invert) {
 				endTime = endAttack;
-				channel.scheduleSoundOff(operator, endAttack);
+				this.channel.scheduleSoundOff(operator, endAttack);
 			} else {
 				endTime = Infinity;
 			}
@@ -347,7 +347,7 @@ export default class Envelope {
 		}
 		this.endSustain = endSustain;
 		if (finalValue === 0) {
-			channel.scheduleSoundOff(operator, endSustain);
+			this.channel.scheduleSoundOff(operator, endSustain);
 		}
 	}
 
@@ -465,7 +465,7 @@ export default class Envelope {
 		cancelAndHoldAtTime(gain, currentValue / 1023, time);
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
-		channel.scheduleSoundOff(operator, endRelease);
+		this.channel.scheduleSoundOff(operator, endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
 		this.endRelease = endRelease;

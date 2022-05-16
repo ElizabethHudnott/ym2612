@@ -76,7 +76,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		parent.setModulationDepth(offset + 1, offset + 2, modulationDepth, time, method);
 		for (let i = 1; i <= 2; i++) {
 			const operator = parent.getOperator(offset + i);
-			const outputLevel = outputLevels[i - 1];
+			const outputLevel = outputLevels[i - 1] || 0;
 			operator.enable();
 			operator.setOutputLevel(outputLevel, time, method);
 		}

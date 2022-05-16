@@ -269,13 +269,13 @@ class Channel extends AbstractChannel {
 
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {
 		for (let i = 0; i < 6; i++) {
-			const depth = modulations[i];
+			const depth = modulations[i] || 0;
 			this.gains[i + 2][method](modulationIndex(depth) / 2, time);
 			this.modulationDepths[i + 2] = depth;
 		}
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];
-			const outputLevel = outputLevels[i];
+			const outputLevel = outputLevels[i] || 0;
 			operator.enable();
 			operator.setOutputLevel(outputLevel, time, method);
 		}
