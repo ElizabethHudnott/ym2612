@@ -21,7 +21,7 @@ export default class Envelope {
 		4, 5, 6, 7,		// 48-51
 		4, 5, 6, 7,		// 52-55
 		4, 5, 6, 7,		// 56-59
-		4, 4, 4, 4
+		4, 4, 4, 4		// 60-63
 	];
 
 	static increment = new Array(64);
@@ -128,7 +128,7 @@ export default class Envelope {
 	}
 
 	rateAdjustment(keyCode) {
-		const scaling = this.rateScaling;
+		let scaling = this.rateScaling;
 		if (scaling === 0) {
 			return 0;
 		}

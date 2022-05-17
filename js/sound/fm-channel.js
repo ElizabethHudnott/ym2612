@@ -547,13 +547,17 @@ class Channel extends AbstractChannel {
 	}
 
 	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		const amount = n === 0 ? 0 : -1.4 * 2 ** (n - 6);
+		const amount = n === 0 ? 0 : -this.synth.feedbackCallibration * 2 ** (n - 6);
 		this.setFeedback(amount, operatorNum, time, method);
 	}
 
 	getFeedbackPreset(operatorNum = 1) {
 		const amount = this.getFeedback(operatorNum);
-		return amount === 0 ? 0 : Math.round(Math.log2(amount / -1.4) + 6);
+		if (amount === 0) {
+			return 0;
+		} else {
+			return Math.round(Math.log2(amount / -this.synth.feedbackCallibration) + 6);
+		}
 	}
 
 	/**

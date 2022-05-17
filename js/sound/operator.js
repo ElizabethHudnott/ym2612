@@ -118,18 +118,6 @@ class Operator {
 		this.frequencyNode = undefined;
 	}
 
-	/**Configures this operator to modulate an external source (usually another operator).
-	 * This method is usually called by the {@link Channel} constructor.
-	 * @param {AudioNode} destination The signal to modulate.
-	 */
-	connectOut(destination) {
-		this.envelopeGain.connect(destination);
-	}
-
-	connectFrequency(destination) {
-		this.centreFrequencyNode.connect(destination);
-	}
-
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
 	 * {@link Channel} (e.g. by its setFrequency() method) but it can also be useful to
 	 * invoke this method directly for individual operators to create dissonant sounds.
@@ -449,15 +437,18 @@ export default class FMOperator extends Operator {
 		this.oscillator2 = undefined;
 		this.oscillatorConfig = Waveform.SINE;
 
-		const fmModAmp = new GainNode(context, {gain: 0});
-		this.centreFrequencyNode.connect(fmModAmp.gain);
-		fmModAmp.connect(this.frequencyNode.offset);
-		this.fmModAmp = fmModAmp;
+		const fmOut = new GainNode(context, {gain: 0});
+		this.centreFrequencyNode.connect(fmOut.gain);
+		this.envelopeGain.connect(fmOut);
+		this.fmOut = fmOut;
 
-		const vibratoGain = new GainNode(context, {gain: 0});
-		lfo.connect(vibratoGain);
-		vibratoGain.connect(fmModAmp);
-		this.vibratoAmp = vibratoGain.gain;
+		const vibratoDepth = new GainNode(context, {gain: 0});
+		lfo.connect(vibratoDepth);
+		const vibratoAmp = new GainNode(context, {gain: 0});
+		this.centreFrequencyNode.connect(vibratoAmp.gain);
+		vibratoDepth.connect(vibratoAmp);
+		vibratoAmp.connect(this.frequencyNode.offset);
+		this.vibratoDepthControl = vibratoDepth.gain;
 		this.vibratoDepth = 0;
 	}
 
@@ -465,6 +456,22 @@ export default class FMOperator extends Operator {
 		super.copyTo(operator);
 		operator.setVibratoDepth(this.vibratoDepth);
 		operator.oscillatorConfig = this.oscillatorConfig;
+	}
+
+	/**Configures this operator to modulate an external source (usually another operator).
+	 * This method is usually called by the {@link Channel} constructor.
+	 * @param {AudioNode} destination The signal to modulate.
+	 */
+	connectOut(destination) {
+		this.fmOut.connect(destination);
+	}
+
+	connectIn(source) {
+		source.connect(this.frequencyNode.offset);
+	}
+
+	connectFrequency(destination) {
+		this.centreFrequencyNode.connect(destination);
 	}
 
 	newOscillator(context, time) {
@@ -557,12 +564,8 @@ export default class FMOperator extends Operator {
 		this.oscillator2 = undefined;
 	}
 
-	connectIn(source) {
-		source.connect(this.fmModAmp);
-	}
-
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		this.vibratoAmp[method](linearAmount, time);
+		this.vibratoDepthControl[method](linearAmount, time);
 		this.vibratoDepth = linearAmount;
 	}
 

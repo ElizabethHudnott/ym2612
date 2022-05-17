@@ -15,15 +15,15 @@ Changing channel volume while PCM is in use doesn't work (problem?)
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
-Bug: modulation should scale according to modulator frequency, not carrier frequency
-Bug: feedback path shouldn't go through the envelope
+Bug: feedback strength?
 Bug?: slow fade in of vibrato
 
 Split into separate files: envelope, operator, channel, synth
 Change distortion into decibels
 Correct beginLevel when there's a velocity change
-Phase reset (on/off/auto)
-	When on (or auto) then keep phase synchronized (by using the longest dampening time for all operators) when using envelope reset mode? No?
+When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
+	delay stage should happen after dampening
+	add initial phase parameter
 Sustain on/off envelope option (one shot)
 Envelope trigger method (regardless of key currently on or off)
 Add second release stage to envelopes (from -18db, interdependent across operators, see "reverb" in DX11 manual)

@@ -658,6 +658,7 @@ function ratesFree(event) {
 function levelsFree(event) {
 	initialize();
 	const opNum = getOperator(this);
+	const free = this.checked;
 
 	const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
 	const tlBox = document.getElementById('op' + opNum + '-total-level');
@@ -665,7 +666,6 @@ function levelsFree(event) {
 
 	const sustainSlider = document.getElementById('op' + opNum + '-sustain-slider');
 	const sustainBox = document.getElementById('op' + opNum + '-sustain');
-	const free = this.checked;
 	sustainBox.disabled = !free;
 
 	if (free) {

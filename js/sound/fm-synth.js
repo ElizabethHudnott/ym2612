@@ -17,6 +17,7 @@ export default class Synth {
 		// Tuning data
 		this.referencePitch = 220;
 		this.referenceNote = 69;
+		this.feedbackCallibration = 2.5;
 		this.setClockRate(clockRate);
 
 		const channelGain = new GainNode(context, {gain: 1 / numChannels});
