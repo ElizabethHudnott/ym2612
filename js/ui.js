@@ -5,27 +5,39 @@ import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import Recorder from './sound/recorder.js';
 
-function initialize() {
-	if (window.audioContext !== undefined) {
-		return;
-	}
-	const context = new AudioContext();
-	window.audioContext = context;
-	const soundSystem = new GenesisSound(context);
-	window.soundSystem = soundSystem;
-	window.recorder = new Recorder(context);
-	recorder.connectIn(soundSystem.filter);
-	recorder.ondatarecorded = processRecording;
-	window.synth = soundSystem.fm;
-	window.channel = synth.getChannel(1);
-	window.psg = soundSystem.psg;
-	window.ym2612 = new YM2612(soundSystem.fm, context);
-	window.OscillatorConfig = OscillatorConfig;
-	window.PitchBend = PitchBend;
-	window.VolumeAutomation = VolumeAutomation;
+const audioContext = new AudioContext();
+const soundSystem = new GenesisSound(audioContext);
+const recorder = new Recorder(audioContext);
+recorder.connectIn(soundSystem.filter);
+recorder.ondatarecorded = processRecording;
+const synth = soundSystem.fm;
+let channel = synth.getChannel(1);
+const psg = soundSystem.psg;
 
-	soundSystem.start(context.currentTime + 0.02);
-	synth.setChannelGain(6);
+synth.setChannelGain(6);
+channel.useAlgorithm(4);
+disableOperator(3);
+disableOperator(4);
+
+window.audioContext = audioContext;
+window.soundSystem = soundSystem;
+window.recorder = recorder;
+window.synth = synth;
+window.channel = channel;
+window.psg = psg;
+window.ym2612 = new YM2612(soundSystem.fm, audioContext);
+window.OscillatorConfig = OscillatorConfig;
+window.PitchBend = PitchBend;
+window.VolumeAutomation = VolumeAutomation;
+
+let started = false;
+
+function initialize() {
+	if (!started) {
+		audioContext.resume();
+		soundSystem.start(audioContext.currentTime + 0.02);
+		started = true;
+	}
 }
 
 function processRecording(blob) {
@@ -134,7 +146,8 @@ function updateAlgorithmDetails() {
 		}
 	}
 	total *= 1 + Math.abs(channel.getPan());
-	const distortion = Math.trunc(Math.max(total - 1, 0) * 10) / 10;
+	let distortion = 20 * Math.log10(Math.max(total, 1));
+	distortion = Math.trunc(distortion * 10) / 10;
 	document.getElementById('distortion').value = distortion;
 }
 
@@ -148,6 +161,7 @@ function algorithmRadio(event) {
 	}
 	const algorithmNumber = parseInt(this.id.slice(-1));
 	channel.useAlgorithm(algorithmNumber);
+	channel.normalizeLevels();
 	updateAlgorithmDetails();
 }
 
@@ -691,6 +705,7 @@ let domParser = new DOMParser();
 function createOperatorPage(n) {
 	const li = document.createElement('LI');
 	li.className = 'nav-item operator-' + n;
+	li.hidden = n > 2;
 	const anchor = document.createElement('A');
 	anchor.innerHTML = 'Operator ' + n;
 	anchor.className = 'nav-link';
@@ -735,8 +750,7 @@ createOperatorPage(3);
 createOperatorPage(4);
 domParser = undefined;
 
-function enableOperator(event) {
-	const opNum = parseInt(this.id[2]);
+function enableOperator(opNum) {
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = false;
 	}
@@ -744,9 +758,7 @@ function enableOperator(event) {
 	updateAlgorithmDetails();
 }
 
-function disableOperator(event) {
-	initialize();
-	const opNum = parseInt(this.id[2]);
+function disableOperator(opNum) {
 	channel.disableOperator(opNum);
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = true;
@@ -754,7 +766,19 @@ function disableOperator(event) {
 	updateAlgorithmDetails();
 }
 
+function enableOperatorClick(event) {
+	initialize();
+	const opNum = parseInt(this.id.slice(2, 3));
+	enableOperator(opNum);
+}
+
+function disableOperatorClick(event) {
+	initialize();
+	const opNum = parseInt(this.id.slice(2, 3));
+	disableOperator(opNum);
+}
+
 for (let i = 1; i <=4; i++) {
-	document.getElementById('op' + i + '-enabled').addEventListener('input', enableOperator);
-	document.getElementById('op' + i + '-disabled').addEventListener('input', disableOperator);
+	document.getElementById('op' + i + '-enabled').addEventListener('input', enableOperatorClick);
+	document.getElementById('op' + i + '-disabled').addEventListener('input', disableOperatorClick);
 }

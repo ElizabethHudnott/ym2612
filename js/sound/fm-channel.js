@@ -201,7 +201,7 @@ class Channel extends AbstractChannel {
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 
-		this.useAlgorithm(7);
+		this.useAlgorithm(0);
 		this.tuneNotes();
 	}
 
@@ -343,6 +343,7 @@ class Channel extends AbstractChannel {
 	}
 
 	normalizeLevels(distortion = 0) {
+		const maxLevel = 10 ** (distortion / 20);
 		const currentGains = new Array(4);
 		let total = 0;
 		for (let i = 0; i < 4; i++) {
@@ -361,7 +362,7 @@ class Channel extends AbstractChannel {
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];
 			if (!operator.isDisabled()) {
-				const gain = (distortion + 1) * currentGains[i] / total;
+				const gain = maxLevel * currentGains[i] / total;
 				operator.setGain(gain);
 			}
 		}

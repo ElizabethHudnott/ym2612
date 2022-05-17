@@ -71,7 +71,7 @@
 					</div>
 					<div class="row">
 						<div class="col-2 col-md-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="4" id="algorithm-4">
+							<input type="radio" name="algorithm" value="4" checked id="algorithm-4">
 						</div>
 						<label class="col-10 col-md-5 my-4" for="algorithm-4">
 							<img src="img/algorithm-4.png" alt="1&rarr;2 3&rarr;4" class="mw-100 my-4" width="144" height="72">
@@ -91,7 +91,7 @@
 							<img src="img/algorithm-6.png" alt="1&rarr;2" width="144" height="112">
 						</label>
 						<div class="col-1 my-auto text-center">
-							<input type="radio" name="algorithm" value="7" id="algorithm-7" checked>
+							<input type="radio" name="algorithm" value="7" id="algorithm-7">
 						</div>
 						<label class="col-5 my-auto" for="algorithm-7">
 							<img src="img/algorithm-7.png" alt="1, 2, 3 &amp; 4" class="my-4" width="216" height="56">
@@ -140,10 +140,10 @@
 						<div class="col-8 col-md-4 mb-3">
 							<div class="btn-group btn-group-toggle" data-toggle="buttons">
 								<label class="btn btn-dark active">
-									<input type="radio" name="op3-enable" id="op3-enabled" checked>Enabled
+									<input type="radio" name="op3-enable" id="op3-enabled">Enabled
 								</label>
 								<label class="btn btn-dark">
-									<input type="radio" name="op3-enable" id="op3-disabled">Disabled
+									<input type="radio" name="op3-enable" id="op3-disabled" checked>Disabled
 								</label>
 							</div>
 						</div>
@@ -153,10 +153,10 @@
 						<div class="col-8 col-md-4 mb-3">
 							<div class="btn-group btn-group-toggle" data-toggle="buttons">
 								<label class="btn btn-dark active">
-									<input type="radio" name="op4-enable" id="op4-enabled" checked>Enabled
+									<input type="radio" name="op4-enable" id="op4-enabled">Enabled
 								</label>
 								<label class="btn btn-dark">
-									<input type="radio" name="op4-enable" id="op4-disabled">Disabled
+									<input type="radio" name="op4-enable" id="op4-disabled" checked>Disabled
 								</label>
 							</div>
 						</div>
@@ -236,9 +236,16 @@
 							</tr>
 						</table>
 					</div>
-					<div class="align-middle text-center">
+					<div class="align-middle text-center ml-md-5">
 						<label class="my-0" for="distortion">Distortion</label>
-						<input type="number" min="0" value="3" step="0.02" class="form-control led-display mx-2 d-inline" id="distortion" style="max-width: 100px">
+						<div class="d-inline-block mx-2 align-middle">
+							<div class="input-group">
+								<input type="number" min="0" value="0" step="0.2" class="form-control led-display d-inline" id="distortion" style="max-width: 90px">
+								<div class="input-group-append">
+									<span class="input-group-text led-label">dB</span>
+								</div>
+							</div>
+						</div>
 						<button type="button" class="btn btn-info" id="btn-normalize-levels">
 							Normalize
 						</button>
