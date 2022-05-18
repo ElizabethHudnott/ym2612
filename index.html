@@ -28,13 +28,30 @@
 		<div class="tab-content" id="instrument-tabs">
 			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
 				<fieldset class="panel">
-					<h1>Recording</h1>
-					<button type="button" class="btn btn-shaded" id="btn-record">
-						<svg viewBox="0 0 32 32" width="32px">
-							<circle cx="16" cy="16" r="16" fill="#11554f" stroke="#aaeee8">
-						</svg>
-					</button>
-					<audio id="recording" controls></audio>
+					<h1>Tools</h1>
+					<div class="form-row form-group">
+						<div class="col-2">
+							<button type="button" class="btn btn-secondary w-100" id="btn-enable-midi">
+								MIDI
+							</button>
+						</div>
+						<div class="col-auto ml-2">
+							<label for="midi-port" class="col-form-label">Port</label>
+							<select id="midi-port">
+								<option value="none">None</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-row form-group">
+						<div class="col-2 my-auto">
+							<button type="button" class="btn btn-secondary w-100" id="btn-record">
+								Record
+							</button>
+						</div>
+						<div class="col-auto ml-2">
+							<audio id="recording" controls></audio>
+						</div>
+					</div>
 				</fieldset>
 			</div>
 
@@ -246,7 +263,7 @@
 								</div>
 							</div>
 						</div>
-						<button type="button" class="btn btn-info" id="btn-normalize-levels">
+						<button type="button" class="btn btn-secondary" id="btn-normalize-levels">
 							Normalize
 						</button>
 					</div>

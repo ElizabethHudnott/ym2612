@@ -93,10 +93,6 @@ input[type=range]::-moz-range-thumb {
 	font-size:  90%;
 }
 
-.btn-shaded {
-	background: var(--shaded);
-}
-
 .nav-pills .nav-link {
 	border-radius: 0;
 	font-family: Genos, sans-serif;

@@ -3,6 +3,7 @@ import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
+import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
 
 const audioContext = new AudioContext();
@@ -47,6 +48,19 @@ function processRecording(blob) {
 	}
 	player.src = URL.createObjectURL(blob);
 }
+
+document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
+	this.disabled = true;
+	function midiGranted() {
+
+	}
+	function midiRejected(error) {
+		console.error(error);
+		document.getElementById('btn-enable-midi').disabled = false;
+	}
+	MIDI.requestAccess(midiGranted, midiRejected);
+
+});
 
 document.getElementById('btn-record').addEventListener('click', function (event) {
 	initialize();
