@@ -73,3 +73,4 @@ Instrument Editor
 
 Editing
 	Transpose needs to take the musical scale into account?
+	MOD 2 sample

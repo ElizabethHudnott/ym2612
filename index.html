@@ -30,25 +30,30 @@
 				<fieldset class="panel">
 					<h1>Tools</h1>
 					<div class="form-row form-group">
-						<div class="col-2">
+						<div class="col-5 col-md-2 my-2">
 							<button type="button" class="btn btn-secondary w-100" id="btn-enable-midi">
-								MIDI
+								<span id="midi-led" class="led">&#x25CF;</span> MIDI
 							</button>
 						</div>
-						<div class="col-auto ml-2">
-							<label for="midi-port" class="col-form-label">Port</label>
-							<select id="midi-port">
-								<option value="none">None</option>
-							</select>
+						<div class="col-7 col-md-1">
+						</div>
+						<div class="col-12 col-md-6 p-0 my-2 row">
+							<label for="midi-port" class="col-2 col-form-label">
+								Port
+							</label>
+							<div class="col-10 col-md-8">
+								<select id="midi-port" class="form-control led-display led-text">
+								</select>
+							</div>
 						</div>
 					</div>
 					<div class="form-row form-group">
-						<div class="col-2 my-auto">
+						<div class="col-5 col-md-2 my-auto">
 							<button type="button" class="btn btn-secondary w-100" id="btn-record">
-								Record
+								<span id="record-led" class="led">&#x25CF;</span> Record
 							</button>
 						</div>
-						<div class="col-auto ml-2">
+						<div class="col-auto pl-3">
 							<audio id="recording" controls></audio>
 						</div>
 					</div>
@@ -254,7 +259,7 @@
 						</table>
 					</div>
 					<div class="align-middle text-center ml-md-5">
-						<label class="my-0" for="distortion">Distortion</label>
+						<label for="distortion">Distortion</label>
 						<div class="d-inline-block mx-2 align-middle">
 							<div class="input-group">
 								<input type="number" min="0" value="0" step="0.2" class="form-control led-display d-inline" id="distortion" style="max-width: 90px">
@@ -277,7 +282,7 @@
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="6" value="0" class="form-control-range mt-1" id="lfo-rate-slider">
 						</div>
-						<div class="col-5 col-md-3 pr-md-4">
+						<div class="col-6 col-md-3 pr-md-4">
 							<div class="input-group">
 								<input type="number" min="0" max="99.9" step="0.2" value="0" class="form-control led-display" id="lfo-rate" disabled>
 								<div class="input-group-append">
@@ -311,7 +316,7 @@
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="99" value="0" class="form-control-range mt-1" id="lfo-delay-slider">
 						</div>
-						<div class="col-5 col-md-3 pr-md-4">
+						<div class="col-6 col-md-3 pr-md-4">
 							<div class="input-group">
 								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
 								<div class="input-group-append">
@@ -327,7 +332,7 @@
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="99" value="0" class="form-control-range mt-1" id="lfo-fade-slider">
 						</div>
-						<div class="col-5 col-md-3 pr-md-4">
+						<div class="col-6 col-md-3 pr-md-4">
 							<div class="input-group">
 								<input type="number" min="-9.9" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-fade">
 								<div class="input-group-append">
@@ -360,7 +365,7 @@
 						<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 							<input type="range" min="0" max="7" value="0" class="form-control-range mt-1" id="vibrato-slider">
 						</div>
-						<div class="col-5 col-md-3 pr-md-4">
+						<div class="col-6 col-md-3 pr-md-4">
 							<div class="input-group">
 								<input type="number" min="-999.9" max="999.9" step="0.1" value="0" class="form-control led-display" id="vibrato" disabled>
 								<div class="input-group-append">
@@ -401,7 +406,7 @@
 							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
 							</div>
-							<div class="col-5 col-md-3 pr-md-4">
+							<div class="col-6 col-md-3 pr-md-4">
 								<div class="input-group">
 									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
 									<div class="input-group-append">
@@ -417,7 +422,7 @@
 							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
 								<input type="range" min="0" max="12" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
 							</div>
-							<div class="col-5 col-md-3 pr-md-4">
+							<div class="col-6 col-md-3 pr-md-4">
 								<div class="input-group">
 									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
 									<div class="input-group-append">

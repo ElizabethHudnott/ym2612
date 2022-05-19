@@ -115,6 +115,19 @@ input[type=range]::-moz-range-thumb {
 	background-color: hsl(305deg 65% 37%);
 }
 
+.led {
+	vertical-align: 10%;
+	color: black;
+}
+
+.led.on {
+	color: #fbb;
+}
+
+.btn {
+	text-align: left;
+}
+
 .btn-led, .led-display, .led-display:disabled, .led-display:focus {
 	background-color: black;
 	border-radius: 0;
@@ -132,6 +145,12 @@ input[type=range]::-moz-range-thumb {
 	font-size:  110%;
 	text-align: right;
 	min-width:  74px;
+}
+
+.led-display.led-text {
+	font-family: sans-serif;
+	font-size: 100%;
+	text-align: left;
 }
 
 .btn-led {

@@ -14,7 +14,6 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 
 Tweaks
 ------
-Change distortion into decibels
 Use slider to control coarse and fine (detune2) ratios together
 Tabindexes in the custom algorithm section?
 Add "Key On" and "Key Off" annotations to envelope diagram
@@ -38,3 +37,4 @@ OPN presets
 User presets
 Service worker
 WAV output
+graphics

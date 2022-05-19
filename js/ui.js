@@ -50,13 +50,24 @@ function processRecording(blob) {
 }
 
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
-	this.disabled = true;
+	switch (MIDI.status) {
+	case MIDI.Status.UNSUPPORTED:
+		alert('Your browser doesn\'t support MIDI.');
+		return;
+	case MIDI.Status.PENDING:
+		alert('You need to grant the page permission to use MIDI.')
+		return;
+	case MIDI.Status.GRANTED:
+		document.getElementById('midi-led').classList.remove('on');
+		MIDI.close();
+		return;
+	}
 	function midiGranted() {
-
+		document.getElementById('midi-led').classList.add('on');
 	}
 	function midiRejected(error) {
 		console.error(error);
-		document.getElementById('btn-enable-midi').disabled = false;
+		alert('The browser blocked access to MIDI.')
 	}
 	MIDI.requestAccess(midiGranted, midiRejected);
 
