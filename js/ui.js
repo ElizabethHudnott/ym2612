@@ -10,7 +10,7 @@ import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
 
-const audioContext = new AudioContext();
+const audioContext = new AudioContext({latencyHint: 'interactive'});
 const soundSystem = new GenesisSound(audioContext);
 soundSystem.start(audioContext.currentTime + TIMER_IMPRECISION);
 const synth = soundSystem.fm;

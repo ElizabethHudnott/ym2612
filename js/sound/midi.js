@@ -1,3 +1,4 @@
+const notesOn = new Set();
 let access, currentPort;
 let status;	// i.e. the current message type and channel number
 
@@ -8,11 +9,19 @@ function addPort(port) {
 	document.getElementById('midi-port').appendChild(option);
 }
 
-function switchPort() {
+function closePort(timeStamp = performance.now()) {
 	if (currentPort) {
 		currentPort.removeEventListener('midimessage', processMessage);
+		for (let note of notesOn) {
+			MUSIC_INPUT.keyUp(timeStamp, note);
+		}
+		notesOn.clear();
 		currentPort.close();
 	}
+}
+
+function switchPort(timeStamp = performance.now()) {
+	closePort(timeStamp);
 	const id = document.getElementById('midi-port').value;
 	if (id === '') {
 		currentPort = undefined;
@@ -32,15 +41,18 @@ function portChange(event) {
 	if (port.state === 'disconnected') {
 		if (option !== null) {
 			option.remove();
-			switchPort();
+			switchPort(event.timeStamp);
 		}
 	} else if (option === null) {
 		addPort(port);
-		switchPort();
+		if (currentPort === undefined) {
+			switchPort(event.timeStamp);
+		}
 	}
 }
 
 function processMessage(event) {
+	const timeStamp = event.timeStamp;
 	const data = event.data;
 	let messageType, channel, index;
 	if (data[0] & 128) {
@@ -58,6 +70,30 @@ function processMessage(event) {
 		index = 0;
 	}
 
+	let note, velocity;
+
+	switch (messageType) {
+	case 0x80: 	// Note Off
+		note = data[1];
+		MUSIC_INPUT.keyUp(timeStamp, note);
+		notesOn.delete(note);
+		break;
+
+	case 0x90: 	// Note On
+		note = data[1];
+		velocity = data[2];
+		if (velocity === 0) {
+			MUSIC_INPUT.keyUp(timeStamp, note);
+			notesOn.delete(note);
+		} else {
+			if (!MIDI.velocitySensitive) {
+				velocity = 127;
+			}
+			MUSIC_INPUT.keyDown(timeStamp, note, velocity);
+			notesOn.add(note);
+		}
+		break;
+	}
 
 }
 
@@ -104,6 +140,7 @@ function stopMIDI() {
 		document.getElementById('midi-port').removeEventListener('input', switchPort);
 		access.removeEventListener('statechange', portChange);
 		access = undefined;
+		closePort();
 	}
 	MIDI.status = Request.INACTIVE;
 }
@@ -113,6 +150,7 @@ const MIDI = {
 	close: stopMIDI,
 	Status: Request,
 	status: 'requestMIDIAccess' in navigator ? Request.INACTIVE : Request.UNSUPPORTED,
+	velocitySensitive: true,
 }
 
 export default MIDI;

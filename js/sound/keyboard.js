@@ -36,7 +36,7 @@ keymap.set('Digit0', 75);
 keymap.set('KeyP', 76);
 keymap.set('BracketLeft', 77);
 
-let notesOn = new Set();
+const notesOn = new Set();
 let velocity = 127;
 let transpose = 0;
 
@@ -104,11 +104,13 @@ document.body.addEventListener('keyup', function (event) {
 	}
 });
 
-export function allKeysOff() {
+export function allNotesOff(timeStamp = performance.now()) {
 	for (let note of notesOn) {
-		MUSIC_INPUT.keyUp(event.timeStamp, note);
+		MUSIC_INPUT.keyUp(timeStamp, note);
 	}
 	notesOn.clear();
 }
 
-window.addEventListener('blur', allKeysOff);
+window.addEventListener('blur', function (event) {
+	allNotesOff(event.timeStamp);
+});

@@ -32,6 +32,11 @@ class MusicInput {
 	}
 
 	setChannelRange(minChannel, maxChannel, numChannels = this.numChannels) {
+		const time = performance.now();
+		for (let [note, channelIndex] of this.noteToChannel.entries()) {
+			const channelNum = this.#indexToChannelNum(channelIndex);
+			this.noteOff(time, channelNum);
+		}
 		minChannel--;
 		maxChannel--;
 		this.minChannel = minChannel;
