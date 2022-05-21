@@ -1,4 +1,4 @@
-import {VIBRATO_PRESETS, TIMER_IMPRECISION} from './common.js';
+import {VIBRATO_PRESETS, PROCESSING_TIME} from './common.js';
 import {AbstractChannel} from './fm-channel.js';
 
 export default class TwoOperatorChannel extends AbstractChannel {
@@ -371,7 +371,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	keyOnOff(
-		context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION,
+		context, velocity = 127, time = context.currentTime + PROCESSING_TIME,
 		op1 = velocity !== 0, op2 = op1
 	) {
 		const parent = this.parentChannel;
@@ -391,11 +391,11 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		parent.scheduleOscillators();
 	}
 
-	keyOn(context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
 		this.keyOnOff(context, velocity, time);
 	}
 
-	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOff(context, time = context.currentTime) {
 		this.keyOnOff(context, 0, time);
 	}
 

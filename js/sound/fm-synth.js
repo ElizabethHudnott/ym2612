@@ -1,6 +1,6 @@
 import {
 	logToLinear, outputLevelToGain,
-	TIMER_IMPRECISION, ClockRate,
+	PROCESSING_TIME, ClockRate,
 } from './common.js';
 import Channel from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
@@ -145,7 +145,7 @@ export default class Synth {
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
 	}
 
-	setLFORate(context, frequency, time = context.currentTime + TIMER_IMPRECISION, method = 'setValueAtTime') {
+	setLFORate(context, frequency, time = context.currentTime + PROCESSING_TIME, method = 'setValueAtTime') {
 		for (let i = 0; i < this.channels.length; i++) {
 			const channel = this.channels[i];
 			if (!channel.getLFOKeySync()) {
@@ -154,7 +154,7 @@ export default class Synth {
 		}
 	}
 
-	disableLFOKeySync(context, frequency = this.channels[0].getLFORate(), time = context.currentTime + TIMER_IMPRECISION) {
+	disableLFOKeySync(context, frequency = this.channels[0].getLFORate(), time = context.currentTime + PROCESSING_TIME) {
 		const numChannels = this.channels.length;
 		for (let i = 0; i < numChannels; i++) {
 			const channel = this.channels[i];

@@ -1,4 +1,4 @@
-const TIMER_IMPRECISION = 0.002;
+const PROCESSING_TIME = 0.001;
 const NEVER = 8388500;
 
 const ClockRate = {
@@ -279,5 +279,5 @@ export {
 	roundMicrotuning, rotateArray,
 	logToLinear, linearToLog, modulationIndex, outputLevelToGain, gainToOutputLevel,
 	makeMathyWave,
-	TIMER_IMPRECISION, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
+	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
 }

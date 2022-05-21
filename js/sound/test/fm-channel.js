@@ -1,5 +1,4 @@
 import {assert, FMTestSuite} from '../../test.js';
-import {TIMER_IMPRECISION} from '../common.js';
 import Operator from '../operator.js';
 
 const tests = new FMTestSuite();

@@ -86,7 +86,7 @@ class MusicInput {
 			portamentoFrom = prevNote;
 		}
 		const channelNum = this.#indexToChannelNum(channelIndex);
-		this.pitchChange(timeStamp, channelNum, portamentoFrom, note, velocity);
+		this.pitchChange(timeStamp / 1000, channelNum, portamentoFrom, note, velocity);
 		if (numKeysDown >= this.numChannelsInUse) {
 			this.noteToChannel.delete(prevNote);
 		}
@@ -110,6 +110,7 @@ class MusicInput {
 			return;
 		}
 		const channelNum  = this.#indexToChannelNum(channelIndex);
+		timeStamp /= 1000;
 		if (notesStolen) {
 			const newNote = this.keysDown[numKeysDown - this.numChannelsInUse];
 			const fromNote = this.portamento === PortamentoMode.OFF ? undefined : note;

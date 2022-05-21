@@ -1,4 +1,4 @@
-import {outputLevelToGain, gainToOutputLevel, TIMER_IMPRECISION, NEVER} from './common.js';
+import {outputLevelToGain, gainToOutputLevel, PROCESSING_TIME, NEVER} from './common.js';
 import {Waveform} from './waveforms.js';
 import Envelope from './fm-envelope.js';
 import Synth from './fm-synth.js';
@@ -586,7 +586,7 @@ export default class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, oscillatorConfig, time = context.currentTime + TIMER_IMPRECISION) {
+	setWaveform(context, oscillatorConfig, time = context.currentTime + PROCESSING_TIME) {
 		if (oscillatorConfig == undefined) {
 			throw new Error('Parameters: setWaveform(context, oscillatorConfig, ?time');
 		}

@@ -1,4 +1,4 @@
-import {TIMER_IMPRECISION, LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
+import {PROCESSING_TIME, LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
@@ -12,7 +12,7 @@ import Recorder from './sound/recorder.js';
 
 const audioContext = new AudioContext({latencyHint: 'interactive'});
 const soundSystem = new GenesisSound(audioContext);
-soundSystem.start(audioContext.currentTime + TIMER_IMPRECISION);
+soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
 const synth = soundSystem.fm;
 const psg = soundSystem.psg;
 const recorder = new Recorder(audioContext);
@@ -41,7 +41,7 @@ window.VolumeAutomation = VolumeAutomation;
 let portamentoRate = 0;	// in seconds per note
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, fromNote, toNote, velocity) {
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
 	if (fromNote === undefined || portamentoRate === 0) {
@@ -258,6 +258,7 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 });
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const value = parseFloat(this.value);
 	const fast = document.getElementById('fast-lfo').checked;
@@ -268,7 +269,6 @@ document.getElementById('lfo-rate-slider').addEventListener('input', function (e
 	} else {
 		frequency = value === 0 ? 0 : LFO_FREQUENCIES[value - 1] * synth.lfoRateMultiplier;
 	}
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 	document.getElementById('lfo-rate').value = Math.round(frequency * 100) / 100;
 });
@@ -301,6 +301,7 @@ function configureLFOFreqSlider(fast, free) {
 }
 
 document.getElementById('lfo-rate').addEventListener('input', function (event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		const fastCheckbox = document.getElementById('fast-lfo');
@@ -313,12 +314,12 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 			configureLFOFreqSlider(true, true);
 		}
 		document.getElementById('lfo-rate-slider').value = value;
-		const time = audioContext.currentTime + TIMER_IMPRECISION;
 		eachChannel(channel => channel.setLFORate(audioContext, value, time));
 	}
 });
 
 document.getElementById('fast-lfo').addEventListener('input', function (event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
@@ -332,11 +333,11 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	}
 	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[5] * synth.lfoRateMultiplier;
 	box.value = Math.round(frequency * 100) / 100;
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
@@ -363,7 +364,6 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 		}
 		slider.value = presetNum === 8 ? 0 : presetNum + 1;
 		box.value = Math.round(LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier * 100) / 100;
-		const time = audioContext.currentTime + TIMER_IMPRECISION;
 		eachChannel(channel => channel.useLFOPreset(audioContext, presetNum, time));
 	}
 });
@@ -520,6 +520,7 @@ function getOperator(element) {
 }
 
 function waveform(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
@@ -537,7 +538,6 @@ function waveform(event) {
 	}
 	const value = this.value.toUpperCase();
 	const waveform = Waveform[value];
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => {
 		const operator = channel.getOperator(opNum);
 		operator.setWaveform(audioContext, waveform, time);
@@ -545,14 +545,15 @@ function waveform(event) {
 }
 
 function unfixFrequency(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => channel.fixFrequency(opNum, false, time));
 }
 
 function frequencyMultipleSlider(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const opStr = 'op' + opNum;
@@ -565,7 +566,6 @@ function frequencyMultipleSlider(event) {
 	}
 	document.getElementById(opStr + '-freq-unfixed').checked = true;
 	document.getElementById(opStr + '-multiple').value = value;
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => {
 		channel.setFrequencyMultiple(opNum, value, time);
 		channel.fixFrequency(opNum, false, time);
@@ -573,6 +573,7 @@ function frequencyMultipleSlider(event) {
 }
 
 function frequencyMultiple(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	const opNum = getOperator(this);
 	const valueStr = this.value;
 	let numerator = parseFloat(valueStr);
@@ -590,7 +591,6 @@ function frequencyMultiple(event) {
 	const value = numerator / denominator;
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	document.getElementById('op' + opNum + '-multiple-slider').value = value;
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => {
 		channel.setFrequencyMultiple(opNum, value, time);
 		channel.fixFrequency(opNum, false, time);
@@ -598,6 +598,7 @@ function frequencyMultiple(event) {
 }
 
 function frequencyFreeMultiple(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const slider = document.getElementById('op' + opNum + '-multiple-slider');
@@ -622,12 +623,12 @@ function frequencyFreeMultiple(event) {
 	slider.value = value === 0.5 ? 0 : value;	// 0 on the slider represents 0.5.
 	box.value = value;
 	if (document.getElementById('op' + opNum + '-freq-unfixed').checked) {
-		const time = audioContext.currentTime + TIMER_IMPRECISION;
 		eachChannel(channel => channel.setFrequencyMultiple(opNum, value, time));
 	}
 }
 
 function frequency(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-fixed').checked = true;
@@ -636,7 +637,6 @@ function frequency(event) {
 	if (!(freqNum >= 0 && freqNum <= 2047)) {
 		freqNum = channel.getOperator(opNum).getFrequencyNumber();
 	}
-	const time = audioContext.currentTime + TIMER_IMPRECISION;
 	eachChannel(channel => {
 		channel.fixFrequency(opNum, true, 0);
 		channel.setOperatorFrequency(opNum, block, freqNum);

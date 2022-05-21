@@ -1,6 +1,6 @@
 import {
 	modulationIndex, outputLevelToGain, cancelAndHoldAtTime,
-	LFO_FREQUENCIES, VIBRATO_PRESETS, TIMER_IMPRECISION
+	LFO_FREQUENCIES, VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
 
@@ -781,7 +781,7 @@ class Channel extends AbstractChannel {
 	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} for that.
 	 */
 	keyOnOff(
-		context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION,
+		context, velocity = 127, time = context.currentTime + PROCESSING_TIME,
 		op1 = velocity !== 0, op2 = op1, op3 = op1, op4 = op1
 	) {
 		const operators = this.operators;
@@ -808,12 +808,12 @@ class Channel extends AbstractChannel {
 		this.scheduleOscillators();
 	}
 
-	keyOn(context, velocity = 127, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
 		this.triggerLFO(context, time);
 		this.keyOnOff(context, velocity, time);
 	}
 
-	keyOff(context, time = context.currentTime + TIMER_IMPRECISION) {
+	keyOff(context, time = context.currentTime) {
 		this.keyOnOff(context, 0, time);
 	}
 
