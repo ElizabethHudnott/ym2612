@@ -5,6 +5,7 @@ import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import MusicInput from './sound/input.js'
 window.MUSIC_INPUT = new MusicInput(6);
+MUSIC_INPUT.setChannelRange(1, 6);
 import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
@@ -12,14 +13,18 @@ import Recorder from './sound/recorder.js';
 const audioContext = new AudioContext();
 const soundSystem = new GenesisSound(audioContext);
 soundSystem.start(audioContext.currentTime + TIMER_IMPRECISION);
+const synth = soundSystem.fm;
+const psg = soundSystem.psg;
 const recorder = new Recorder(audioContext);
 recorder.connectIn(soundSystem.filter);
-const synth = soundSystem.fm;
-let channel = synth.getChannel(1);
-const psg = soundSystem.psg;
 
-synth.setChannelGain(6);
-channel.useAlgorithm(4);
+const firstChannel = synth.getChannel(1);
+
+function eachChannel(callback) {
+	synth.channels.forEach(callback);
+}
+
+eachChannel(channel => channel.useAlgorithm(4));
 disableOperator(3);
 disableOperator(4);
 
@@ -27,7 +32,6 @@ window.audioContext = audioContext;
 window.soundSystem = soundSystem;
 window.recorder = recorder;
 window.synth = synth;
-window.channel = channel;
 window.psg = psg;
 window.ym2612 = new YM2612(soundSystem.fm, audioContext);
 window.OscillatorConfig = OscillatorConfig;
@@ -161,13 +165,13 @@ document.getElementById('filter-q').addEventListener('input', function (event) {
 function updateAlgorithmDetails() {
 	for (let i = 1; i <= 3; i++) {
 		for (let j = i + 1; j <= 4; j++) {
-			const depth = channel.getModulationDepth(i, j);
+			const depth = firstChannel.getModulationDepth(i, j);
 			document.getElementById('modulation-' + i + '-' + j).value = depth;
 		}
 	}
 	let total = 0;
 	for (let i = 1; i <= 4; i++) {
-		const operator = channel.getOperator(i);
+		const operator = firstChannel.getOperator(i);
 		if (!operator.disabled) {
 			const gain = operator.getGain();
 			total += Math.abs(gain);
@@ -175,7 +179,7 @@ function updateAlgorithmDetails() {
 			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
 		}
 	}
-	total *= 1 + Math.abs(channel.getPan());
+	total *= 1 + Math.abs(firstChannel.getPan());
 	let distortion = 20 * Math.log10(Math.max(total, 1));
 	distortion = Math.trunc(distortion * 10) / 10;
 	document.getElementById('distortion').value = distortion;
@@ -190,8 +194,10 @@ function algorithmRadio(event) {
 		}
 	}
 	const algorithmNumber = parseInt(this.id.slice(-1));
-	channel.useAlgorithm(algorithmNumber);
-	channel.normalizeLevels();
+	eachChannel(channel => {
+		channel.useAlgorithm(algorithmNumber);
+		channel.normalizeLevels()
+	});
 	updateAlgorithmDetails();
 }
 
@@ -205,7 +211,7 @@ function modulationDepth(event) {
 		const id = this.id;
 		const from = parseInt(id.slice(-3));
 		const to = parseInt(id.slice(-1));
-		channel.setModulationDepth(from, to, value);
+		eachChannel(channel => channel.setModulationDepth(from, to, value));
 	}
 }
 
@@ -220,7 +226,7 @@ function outputLevel() {
 	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
 		const opNum = parseInt(this.id.slice(-1));
-		channel.getOperator(opNum).setOutputLevel(value);
+		eachChannel(channel => channel.getOperator(opNum).setOutputLevel(value));
 	}
 	updateAlgorithmDetails();
 }
@@ -231,11 +237,11 @@ for (let i = 1; i <= 4; i++) {
 
 function normalizeLevels(distortion = 0) {
 	audioContext.resume();
-	channel.normalizeLevels(distortion);
+	eachChannel(channel => channel.normalizeLevels(distortion));
 
 	for (let i = 1; i <= 4; i++) {
 		const box = document.getElementById('output-level-' + i);
-		box.value = Math.round(channel.getOperator(i).getOutputLevel() * 2) / 2;
+		box.value = Math.round(firstChannel.getOperator(i).getOutputLevel() * 2) / 2;
 	}
 }
 
@@ -262,7 +268,8 @@ document.getElementById('lfo-rate-slider').addEventListener('input', function (e
 	} else {
 		frequency = value === 0 ? 0 : LFO_FREQUENCIES[value - 1] * synth.lfoRateMultiplier;
 	}
-	channel.setLFORate(audioContext, frequency);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 	document.getElementById('lfo-rate').value = Math.round(frequency * 100) / 100;
 });
 
@@ -306,7 +313,8 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 			configureLFOFreqSlider(true, true);
 		}
 		document.getElementById('lfo-rate-slider').value = value;
-		channel.setLFORate(audioContext, value);
+		const time = audioContext.currentTime + TIMER_IMPRECISION;
+		eachChannel(channel => channel.setLFORate(audioContext, value, time));
 	}
 });
 
@@ -324,14 +332,15 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	}
 	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[5] * synth.lfoRateMultiplier;
 	box.value = Math.round(frequency * 100) / 100;
-	channel.setLFORate(audioContext, frequency);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
 	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
-	const value = channel.getLFORate();
+	const value = firstChannel.getLFORate();
 	const fast = document.getElementById('fast-lfo').checked;
 	const free = this.checked;
 	box.disabled = !free;
@@ -354,7 +363,8 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 		}
 		slider.value = presetNum === 8 ? 0 : presetNum + 1;
 		box.value = Math.round(LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier * 100) / 100;
-		channel.useLFOPreset(audioContext, presetNum);
+		const time = audioContext.currentTime + TIMER_IMPRECISION;
+		eachChannel(channel => channel.useLFOPreset(audioContext, presetNum, time));
 	}
 });
 
@@ -373,7 +383,7 @@ document.getElementById('lfo-delay-slider').addEventListener('input', function (
 	audioContext.resume();
 	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-delay').value = Math.round(time * 100) / 100;
-	channel.setLFODelay(time);
+	eachChannel(channel => channel.setLFODelay(time));
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
@@ -382,7 +392,7 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 	if (time >= 0) {
 		const sliderValue = lfoDelayToYamaha(time * 13 / 7);
 		document.getElementById('lfo-delay-slider').value = sliderValue;
-		channel.setLFODelay(time);
+		eachChannel(channel => channel.setLFODelay(time));
 	}
 });
 
@@ -391,7 +401,7 @@ document.getElementById('lfo-fade-slider').addEventListener('input', function (e
 	const direction = document.getElementById('lfo-fade-in').checked ? 1 : -1;
 	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
-	channel.setLFOFade(time);
+	eachChannel(channel => channel.setLFOFade(time));
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
@@ -405,16 +415,16 @@ document.getElementById('lfo-fade').addEventListener('input', function (event) {
 		} else if (time < 0) {
 			document.getElementById('lfo-fade-out').checked = true;
 		}
-		channel.setLFOFade(time);
+		eachChannel(channel => channel.setLFOFade(time));
 	}
 });
 
 function lfoFadeDirection(event) {
-	const duration = Math.abs(channel.getLFOFade());
+	const duration = Math.abs(firstChannel.getLFOFade());
 	const time = parseInt(this.value) * duration;
 	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
 	document.getElementById('lfo-fade-slider').value = lfoDelayToYamaha(duration * 13 / 6);
-	channel.setLFOFade(time);
+	eachChannel(channel => channel.setLFOFade(time));
 }
 
 document.getElementById('lfo-fade-in').addEventListener('input', lfoFadeDirection);
@@ -452,13 +462,13 @@ document.getElementById('vibrato-slider').addEventListener('input', function (ev
 	const box = document.getElementById('vibrato');
 	let cents;
 	if (free) {
-		const sign = channel.getVibratoDepth() < 0 ? -1 : 1;
+		const sign = firstChannel.getVibratoDepth() < 0 ? -1 : 1;
 		cents = sign * vibratoPresetToCents(value);
 	} else {
 		cents = VIBRATO_PRESETS[value];
 	}
 	box.value = Math.round(cents * 10) / 10;
-	channel.setVibratoDepth(cents);
+	eachChannel(channel => channel.setVibratoDepth(cents));
 });
 
 document.getElementById('vibrato-free').addEventListener('input', function (event) {
@@ -470,7 +480,7 @@ document.getElementById('vibrato-free').addEventListener('input', function (even
 	if (free) {
 		slider.step = 0.02;
 	} else {
-		let cents = Math.abs(channel.getVibratoDepth());
+		let cents = Math.abs(firstChannel.getVibratoDepth());
 		let presetNum = centsToVibratoPreset(cents);
 		const lowerPresetNum = Math.trunc(presetNum);
 		const upperPresetNum = Math.ceil(presetNum);
@@ -488,17 +498,16 @@ document.getElementById('vibrato-free').addEventListener('input', function (even
 		slider.step = 1;
 		slider.value = presetNum;
 		box.value = cents;
-		channel.setVibratoDepth(cents);
+		eachChannel(channel => channel.setVibratoDepth(cents));
 	}
 });
 
 document.getElementById('vibrato').addEventListener('input', function (event) {
 	const cents = parseFloat(this.value);
-	if (!Number.isFinite(cents)) {
-		return;
+	if (Number.isFinite(cents)) {
+		document.getElementById('vibrato-slider').value = centsToVibratoPreset(cents);
+		eachChannel(channel => channel.setVibratoDepth(cents));
 	}
-	document.getElementById('vibrato-slider').value = centsToVibratoPreset(cents);
-	channel.setVibratoDepth(cents);
 });
 
 function getOperator(element) {
@@ -527,16 +536,20 @@ function waveform(event) {
 		dropDownText.innerHTML = option.textContent.trim();
 	}
 	const value = this.value.toUpperCase();
-	const operator = channel.getOperator(opNum);
 	const waveform = Waveform[value];
-	operator.setWaveform(audioContext, waveform, audioContext.currentTime + 0.02);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => {
+		const operator = channel.getOperator(opNum);
+		operator.setWaveform(audioContext, waveform, time);
+	});
 }
 
 function unfixFrequency(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
-	channel.fixFrequency(opNum, false, 0);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => channel.fixFrequency(opNum, false, time));
 }
 
 function frequencyMultipleSlider(event) {
@@ -552,8 +565,11 @@ function frequencyMultipleSlider(event) {
 	}
 	document.getElementById(opStr + '-freq-unfixed').checked = true;
 	document.getElementById(opStr + '-multiple').value = value;
-	channel.setFrequencyMultiple(opNum, value, 0)
-	channel.fixFrequency(opNum, false, 0);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => {
+		channel.setFrequencyMultiple(opNum, value, time);
+		channel.fixFrequency(opNum, false, time);
+	});
 }
 
 function frequencyMultiple(event) {
@@ -574,8 +590,11 @@ function frequencyMultiple(event) {
 	const value = numerator / denominator;
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	document.getElementById('op' + opNum + '-multiple-slider').value = value;
-	channel.setFrequencyMultiple(opNum, value, 0);
-	channel.fixFrequency(opNum, false, 0);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => {
+		channel.setFrequencyMultiple(opNum, value, time);
+		channel.fixFrequency(opNum, false, time);
+	});
 }
 
 function frequencyFreeMultiple(event) {
@@ -583,7 +602,7 @@ function frequencyFreeMultiple(event) {
 	const opNum = getOperator(this);
 	const slider = document.getElementById('op' + opNum + '-multiple-slider');
 	const box = document.getElementById('op' + opNum + '-multiple');
-	let value = channel.getFrequencyMultiple(opNum);
+	let value = firstChannel.getFrequencyMultiple(opNum);
 	box.disabled = !this.checked;
 	if (this.checked) {
 		slider.step = 0.1;
@@ -603,7 +622,8 @@ function frequencyFreeMultiple(event) {
 	slider.value = value === 0.5 ? 0 : value;	// 0 on the slider represents 0.5.
 	box.value = value;
 	if (document.getElementById('op' + opNum + '-freq-unfixed').checked) {
-		channel.setFrequencyMultiple(opNum, value, 0);
+		const time = audioContext.currentTime + TIMER_IMPRECISION;
+		eachChannel(channel => channel.setFrequencyMultiple(opNum, value, time));
 	}
 }
 
@@ -616,8 +636,11 @@ function frequency(event) {
 	if (!(freqNum >= 0 && freqNum <= 2047)) {
 		freqNum = channel.getOperator(opNum).getFrequencyNumber();
 	}
-	channel.fixFrequency(opNum, true, 0);
-	channel.setOperatorFrequency(opNum, block, freqNum);
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	eachChannel(channel => {
+		channel.fixFrequency(opNum, true, 0);
+		channel.setOperatorFrequency(opNum, block, freqNum);
+	});
 }
 
 function rateScaling(event) {
@@ -625,7 +648,7 @@ function rateScaling(event) {
 	const opNum = getOperator(this);
 	const value = parseInt(this.value);
 	document.getElementById('op' + opNum + '-rate-scale').value = value;
-	channel.getOperator(opNum).setRateScaling(value);
+	eachChannel(channel => channel.getOperator(opNum).setRateScaling(value));
 }
 
 function attackSlider(event) {
@@ -633,7 +656,7 @@ function attackSlider(event) {
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-attack').value = value;
-	channel.getOperator(opNum).setAttack(value);
+	eachChannel(channel => channel.getOperator(opNum).setAttack(value));
 }
 
 function decaySlider(event) {
@@ -641,7 +664,7 @@ function decaySlider(event) {
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-decay').value = value;
-	channel.getOperator(opNum).setDecay(value);
+	eachChannel(channel => channel.getOperator(opNum).setDecay(value));
 }
 
 function sustainSlider(event) {
@@ -649,7 +672,7 @@ function sustainSlider(event) {
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-sustain').value = value;
-	channel.getOperator(opNum).setSustain(value);
+	eachChannel(channel => channel.getOperator(opNum).setSustain(value));
 }
 
 function sustain(event) {
@@ -657,7 +680,7 @@ function sustain(event) {
 	const value = parseFloat(this.value);
 	if (value >= 0 && value <= 16) {
 		document.getElementById('op' + opNum + '-sustain-slider').value = value;
-		channel.getOperator(opNum).setSustain(value);
+		eachChannel(channel => channel.getOperator(opNum).setSustain(value));
 	}
 }
 
@@ -666,7 +689,7 @@ function sustainRateSlider(event) {
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-sustain-rate').value = value;
-	channel.getOperator(opNum).setSustainRate(value);
+	eachChannel(channel => channel.getOperator(opNum).setSustainRate(value));
 }
 
 function releaseSlider(event) {
@@ -674,7 +697,7 @@ function releaseSlider(event) {
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-release').value = value;
-	channel.getOperator(opNum).setRelease(value);
+	eachChannel(channel => channel.getOperator(opNum).setRelease(value));
 }
 
 function ratesFree(event) {
@@ -697,7 +720,7 @@ function ratesFree(event) {
 			slider.step = 1;
 			const value = parseInt(slider.value);
 			box.value = value;
-			channel.getOperator(opNum)[methods[i]](value);
+			eachChannel(channel => channel.getOperator(opNum)[methods[i]](value));
 		}
 	}
 }
@@ -719,17 +742,17 @@ function levelsFree(event) {
 		tlSlider.step = 0.5;
 		sustainSlider.step = 1 / 16;
 	} else {
-		const totalLevel = Math.round(channel.getOperator(opNum).getTotalLevel());
+		const totalLevel = Math.round(firstChannel.getOperator(opNum).getTotalLevel());
 		tlSlider.step = 1;
 		tlSlider.value = totalLevel > 127 ? totalLevel - 128 : totalLevel;
 		tlBox.value = totalLevel;
-		channel.getOperator(opNum).setTotalLevel(totalLevel);
+		eachChannel(channel => channel.getOperator(opNum).setTotalLevel(totalLevel));
 
-		const sustain = Math.round(channel.getOperator(opNum).getSustain());
+		const sustain = Math.round(firstChannel.getOperator(opNum).getSustain());
 		sustainSlider.step = 1;
 		sustainSlider.value = sustain;
 		sustainBox.value = sustain;
-		channel.getOperator(opNum).setSustain(sustain);
+		eachChannel(channel => channel.getOperator(opNum).setSustain(sustain));
 	}
 }
 
@@ -787,12 +810,12 @@ function enableOperator(opNum) {
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = false;
 	}
-	channel.enableOperator(opNum);
+	eachChannel(channel => channel.enableOperator(opNum));
 	updateAlgorithmDetails();
 }
 
 function disableOperator(opNum) {
-	channel.disableOperator(opNum);
+	eachChannel(channel => channel.disableOperator(opNum));
 	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
 		elem.hidden = true;
 	}

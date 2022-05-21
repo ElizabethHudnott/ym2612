@@ -104,9 +104,11 @@ document.body.addEventListener('keyup', function (event) {
 	}
 });
 
-window.addEventListener('blur', function (event) {
+export function allKeysOff() {
 	for (let note of notesOn) {
 		MUSIC_INPUT.keyUp(event.timeStamp, note);
 	}
 	notesOn.clear();
-});
+}
+
+window.addEventListener('blur', allKeysOff);

@@ -447,7 +447,7 @@ export default class Envelope {
 	keyOff(operator, time) {
 		let currentValue;
 		if (time < this.beginAttack) {
-			// Continue release
+			// Switch from dampening to release
 			currentValue = this.beginLevel;
 			time = this.beginAttack;
 		} else {

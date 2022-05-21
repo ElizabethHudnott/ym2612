@@ -296,6 +296,8 @@ class Operator {
 
 	soundOff(time = 0) {
 		this.stopOscillator(time);
+		this.oscillator1 = undefined;
+		this.oscillator2 = undefined;
 		this.envelope.soundOff(time);
 		this.keyIsOn = false;
 	}
