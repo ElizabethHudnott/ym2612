@@ -113,8 +113,6 @@ const MIDI = {
 	close: stopMIDI,
 	Status: Request,
 	status: 'requestMIDIAccess' in navigator ? Request.INACTIVE : Request.UNSUPPORTED,
-	noteOn: undefined,
-	noteOff: undefined,
 }
 
 export default MIDI;

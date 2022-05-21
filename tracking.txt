@@ -42,6 +42,7 @@ Modulation
 
 Other Standard Note Effects
 	Set Panning
+	Panning Bend?
 	-----
 	Loop Start (per track)
 	Loop End

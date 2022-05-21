@@ -1,16 +1,19 @@
-import {LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
+import {TIMER_IMPRECISION, LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
+import MusicInput from './sound/input.js'
+window.MUSIC_INPUT = new MusicInput(6);
+import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
 
 const audioContext = new AudioContext();
 const soundSystem = new GenesisSound(audioContext);
+soundSystem.start(audioContext.currentTime + TIMER_IMPRECISION);
 const recorder = new Recorder(audioContext);
 recorder.connectIn(soundSystem.filter);
-recorder.ondatarecorded = processRecording;
 const synth = soundSystem.fm;
 let channel = synth.getChannel(1);
 const psg = soundSystem.psg;
@@ -31,23 +34,29 @@ window.OscillatorConfig = OscillatorConfig;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;
 
-let started = false;
+let portamentoRate = 0;	// in seconds per note
 
-function initialize() {
-	if (!started) {
-		audioContext.resume();
-		soundSystem.start(audioContext.currentTime + 0.02);
-		started = true;
+MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, fromNote, toNote, velocity) {
+	const time = audioContext.currentTime + TIMER_IMPRECISION;
+	audioContext.resume();
+	const channel = synth.getChannel(channelNum);
+	if (fromNote === undefined || portamentoRate === 0) {
+		channel.setMIDINote(toNote);
+	} else if (fromNote !== toNote) {
+		const portamentoTime = Math.abs(toNote - fromNote) * portamentoRate;
+		channel.setMIDINote(fromNote, time);
+		channel.setMIDINote(toNote, time + portamentoTime, 'exponentialRampToValueAtTime');
 	}
-}
+	if (velocity > 0) {
+		channel.keyOn(audioContext, velocity, time);
+		soundSystem.applyFilter();
+	}
+};
 
-function processRecording(blob) {
-	const player = document.getElementById('recording');
-	if (player.src !== '') {
-		URL.revokeObjectURL(player.src);
-	}
-	player.src = URL.createObjectURL(blob);
-}
+MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
+	synth.getChannel(channelNum).keyOff(audioContext);
+};
+
 
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
 	switch (MIDI.status) {
@@ -73,8 +82,17 @@ document.getElementById('btn-enable-midi').addEventListener('click', function (e
 
 });
 
+function processRecording(blob) {
+	const player = document.getElementById('recording');
+	if (player.src !== '') {
+		URL.revokeObjectURL(player.src);
+	}
+	player.src = URL.createObjectURL(blob);
+}
+recorder.ondatarecorded = processRecording;
+
 document.getElementById('btn-record').addEventListener('click', function (event) {
-	initialize();
+	audioContext.resume();
 	switch (recorder.state) {
 	case 'inactive':
 		recorder.start();
@@ -89,23 +107,10 @@ document.getElementById('btn-record').addEventListener('click', function (event)
 	}
 });
 
-document.body.addEventListener('keydown', function (event) {
-	initialize();
-	if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || document.activeElement.type === 'number') {
-		return;
-	}
-	channel.keyOn(audioContext);
-	soundSystem.applyFilter();
-});
-
-document.body.addEventListener('keyup', function (event) {
-	channel.keyOff(audioContext);
-});
-
 let filterFrequency, filterQ;
 
 document.getElementById('filter-enable').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	if (this.checked) {
 		soundSystem.setFilterCutoff(filterFrequency);
 		soundSystem.setFilterResonance(filterQ);
@@ -118,7 +123,7 @@ document.getElementById('filter-enable').addEventListener('input', function (eve
 });
 
 document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	filterFrequency = parseInt(this.value);
 	const box = document.getElementById('filter-cutoff');
 	box.value = filterFrequency;
@@ -126,7 +131,7 @@ document.getElementById('filter-cutoff-slider').addEventListener('input', functi
 });
 
 document.getElementById('filter-cutoff').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		document.getElementById('filter-cutoff-slider').value = value;
@@ -136,7 +141,7 @@ document.getElementById('filter-cutoff').addEventListener('input', function (eve
 });
 
 document.getElementById('filter-q-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	filterQ = parseFloat(this.value);
 	const box = document.getElementById('filter-q');
 	box.value = filterQ;
@@ -144,7 +149,7 @@ document.getElementById('filter-q-slider').addEventListener('input', function (e
 });
 
 document.getElementById('filter-q').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const value = parseFloat(this.value);
 	if (value >= -770.63678 && value <= 770.63678) {
 		document.getElementById('filter-q-slider').value = value;
@@ -177,7 +182,7 @@ function updateAlgorithmDetails() {
 }
 
 function algorithmRadio(event) {
-	initialize();
+	audioContext.resume();
 	for (let i = 1; i <=4; i++) {
 		const checkbox = document.getElementById('op' + i + '-enabled');
 		if (!checkbox.checked) {
@@ -211,7 +216,7 @@ for (let i = 1; i <= 3; i++) {
 }
 
 function outputLevel() {
-	initialize();
+	audioContext.resume();
 	const value = parseFloat(this.value);
 	if (Number.isFinite(value)) {
 		const opNum = parseInt(this.id.slice(-1));
@@ -225,7 +230,7 @@ for (let i = 1; i <= 4; i++) {
 }
 
 function normalizeLevels(distortion = 0) {
-	initialize();
+	audioContext.resume();
 	channel.normalizeLevels(distortion);
 
 	for (let i = 1; i <= 4; i++) {
@@ -247,7 +252,7 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 });
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const value = parseFloat(this.value);
 	const fast = document.getElementById('fast-lfo').checked;
 	const free = document.getElementById('lfo-rate-free').checked;
@@ -306,7 +311,7 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 });
 
 document.getElementById('fast-lfo').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
 	const fast = this.checked;
@@ -323,7 +328,7 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
 	const value = channel.getLFORate();
@@ -353,23 +358,26 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	}
 });
 
+// From the DX21
+const LFO_DELAY_CONSTANT = 25;
+
 function lfoDelayToSeconds(x) {
-	return Math.sign(x) * (2 ** (Math.abs(x) / 25) - 0.5);
+	return Math.sign(x) * (2 ** (Math.abs(x) / LFO_DELAY_CONSTANT) - 0.5);
 }
 
 function lfoDelayToYamaha(time) {
-	return time === 0 ? 0 : Math.log2(time + 0.5) * 25;
+	return time === 0 ? 0 : Math.log2(time + 0.5) * LFO_DELAY_CONSTANT;
 }
 
 document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-delay').value = Math.round(time * 100) / 100;
 	channel.setLFODelay(time);
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const time = parseFloat(this.value);
 	if (time >= 0) {
 		const sliderValue = lfoDelayToYamaha(time * 13 / 7);
@@ -379,7 +387,7 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 });
 
 document.getElementById('lfo-fade-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const direction = document.getElementById('lfo-fade-in').checked ? 1 : -1;
 	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
@@ -387,7 +395,7 @@ document.getElementById('lfo-fade-slider').addEventListener('input', function (e
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const time = parseFloat(this.value);
 	if (Number.isFinite(time)) {
 		const sliderValue = lfoDelayToYamaha(Math.abs(time) * 13 / 6);
@@ -438,7 +446,7 @@ function centsToVibratoPreset(cents) {
 }
 
 document.getElementById('vibrato-slider').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const value = parseFloat(this.value);
 	const free = document.getElementById('vibrato-free').checked;
 	const box = document.getElementById('vibrato');
@@ -454,7 +462,7 @@ document.getElementById('vibrato-slider').addEventListener('input', function (ev
 });
 
 document.getElementById('vibrato-free').addEventListener('input', function (event) {
-	initialize();
+	audioContext.resume();
 	const slider = document.getElementById('vibrato-slider');
 	const box = document.getElementById('vibrato');
 	const free = this.checked;
@@ -503,7 +511,7 @@ function getOperator(element) {
 }
 
 function waveform(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
 	const dropDownImage = dropDown.children[0];
@@ -525,14 +533,14 @@ function waveform(event) {
 }
 
 function unfixFrequency(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	channel.fixFrequency(opNum, false, 0);
 }
 
 function frequencyMultipleSlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const opStr = 'op' + opNum;
 	let value = parseFloat(this.value);
@@ -571,7 +579,7 @@ function frequencyMultiple(event) {
 }
 
 function frequencyFreeMultiple(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const slider = document.getElementById('op' + opNum + '-multiple-slider');
 	const box = document.getElementById('op' + opNum + '-multiple');
@@ -600,7 +608,7 @@ function frequencyFreeMultiple(event) {
 }
 
 function frequency(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-fixed').checked = true;
 	const block = parseInt(document.getElementById('op' + opNum + '-block').value);
@@ -613,7 +621,7 @@ function frequency(event) {
 }
 
 function rateScaling(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseInt(this.value);
 	document.getElementById('op' + opNum + '-rate-scale').value = value;
@@ -621,7 +629,7 @@ function rateScaling(event) {
 }
 
 function attackSlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-attack').value = value;
@@ -629,7 +637,7 @@ function attackSlider(event) {
 }
 
 function decaySlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-decay').value = value;
@@ -637,7 +645,7 @@ function decaySlider(event) {
 }
 
 function sustainSlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-sustain').value = value;
@@ -654,7 +662,7 @@ function sustain(event) {
 }
 
 function sustainRateSlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-sustain-rate').value = value;
@@ -662,7 +670,7 @@ function sustainRateSlider(event) {
 }
 
 function releaseSlider(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
 	document.getElementById('op' + opNum + '-release').value = value;
@@ -670,7 +678,7 @@ function releaseSlider(event) {
 }
 
 function ratesFree(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const idParts = ['attack', 'decay', 'sustain-rate', 'release'];
 	const methods = ['setAttack', 'setDecay', 'setSustainRate', 'setRelease'];
@@ -695,7 +703,7 @@ function ratesFree(event) {
 }
 
 function levelsFree(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = getOperator(this);
 	const free = this.checked;
 
@@ -792,13 +800,13 @@ function disableOperator(opNum) {
 }
 
 function enableOperatorClick(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = parseInt(this.id.slice(2, 3));
 	enableOperator(opNum);
 }
 
 function disableOperatorClick(event) {
-	initialize();
+	audioContext.resume();
 	const opNum = parseInt(this.id.slice(2, 3));
 	disableOperator(opNum);
 }

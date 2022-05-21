@@ -104,12 +104,34 @@ Microtuning
 	step offsets for PSG
 	getMIDINote for PSG
 
+MIDI messages
+	sustain
+	mod wheel
+		assignable to volume, vibrato depth or tremolo depth (any combination, 3 sensitivity controls)
+	foot controller (CC4)
+		assignable to volume, vibrato depth or tremolo depth
+	expression (alters volume) (CC11)
+	portamento on/off (CC65)
+	program change
+
+"Performance Play" (from DX11)?
+	A performance:
+		alternates through instruments in sequence (+detune, transpose, volume, "pan", microtuning on/off) OR
+		splits the keyboard by note number (lower bound, upper bound, modulo arithmetic)
+Chord playing "chord set"? (DX11)
+
+Panning based on LFO, velocity or note number
+
+Series: Yamaha DX11, TX81Z, TQ5, YS200, V50
+
 More Ideas
 	Velocity sensitive detuning
 
-Make the number of operators per channel a constructor argument
+Customizable max detune1? See DX11 manual
+Customizable damping time? DX11
 
 UI
+	Quick edit (DX11 manual p.13)
 	Tabindexes in the custom algorithm section
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI

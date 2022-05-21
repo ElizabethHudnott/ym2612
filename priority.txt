@@ -32,6 +32,7 @@ Use Algorithm 4 at start-up, Operators 3 & 4 (will be 2 & 4) disabled
 AM envelopes
 Refactor operator UI
 Finish UI
+Quick edit (DX11 manual p.13)
 Icon/logo
 OPN presets
 User presets
