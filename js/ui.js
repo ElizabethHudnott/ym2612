@@ -3,9 +3,10 @@ import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
-import MusicInput from './sound/input.js'
-window.MUSIC_INPUT = new MusicInput(6);
-MUSIC_INPUT.setChannelRange(1, 6);
+import MusicInput from './sound/input.js';
+const NUM_CHANNELS = 6;
+window.MUSIC_INPUT = new MusicInput(NUM_CHANNELS);
+MUSIC_INPUT.setChannelRange(1, NUM_CHANNELS);
 import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
@@ -38,19 +39,14 @@ window.OscillatorConfig = OscillatorConfig;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;
 
-let portamentoRate = 0;	// in seconds per note
+let glideRate = 0;
 
-MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, fromNote, toNote, velocity) {
+MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
-	if (fromNote === undefined || portamentoRate === 0) {
-		channel.setMIDINote(toNote);
-	} else if (fromNote !== toNote) {
-		const portamentoTime = Math.abs(toNote - fromNote) * portamentoRate;
-		channel.setMIDINote(fromNote, time);
-		channel.setMIDINote(toNote, time + portamentoTime, 'exponentialRampToValueAtTime');
-	}
+	channel.setMIDINote(note, time, glide ? glideRate : 0);
+
 	if (velocity > 0) {
 		channel.keyOn(audioContext, velocity, time);
 		soundSystem.applyFilter();

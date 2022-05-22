@@ -110,6 +110,7 @@ class Bend {
 					const duration = time[endStep] - time[startStep];
 
 					if (to > from) {
+						// N.B. A negative from value combined with a positive to value is not supported.
 
 						let encodedFrom = this.encodeValue(from, initialValue);
 						if (encodedFrom === 0) {
@@ -118,11 +119,17 @@ class Bend {
 						param.setValueAtTime(encodedFrom, startTime + time[startStep]);
 
 						if (encodedValue === 0) {
-							encodedValue = -this.minNonZero;
-							param.setValueAtTime(encodedValue, startTime + time[endStep]);
-						}
 
-						param. exponentialRampToValueAtTime(encodedValue, startTime + time[endStep]);
+							encodedValue = -this.minNonZero;
+							const endTime = startTime + time[endStep];
+							param. exponentialRampToValueAtTime(encodedValue, endTime);
+							param.setValueAtTime(0, endTime);
+
+						} else {
+
+							param. exponentialRampToValueAtTime(encodedValue, startTime + time[endStep]);
+
+						}
 
 						if (endStep > maxSteps) {
 							const value = encodedFrom * (encodedValue / encodedFrom) **

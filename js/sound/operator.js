@@ -1,4 +1,6 @@
-import {outputLevelToGain, gainToOutputLevel, PROCESSING_TIME, NEVER} from './common.js';
+import {
+	cancelAndHoldAtTime, outputLevelToGain, gainToOutputLevel, PROCESSING_TIME, NEVER
+} from './common.js';
 import {Waveform} from './waveforms.js';
 import Envelope from './fm-envelope.js';
 import Synth from './fm-synth.js';
@@ -48,6 +50,7 @@ class Operator {
 		this.frequency =
 			channel.synth.frequencyStep *
 			channel.componentsToFullFreq(this.freqBlockNumber, this.frequencyNumber);
+
 		// The operator's frequency before FM modulation
 		const centreFrequencyNode = new ConstantSourceNode(context, {offset: this.frequency});
 		// The oscillator's frequency at this precise moment
@@ -81,6 +84,9 @@ class Operator {
 		this.detune = 0;		// Fine detune, YM2612 specific
 		this.detune2 = 0;		// Arbitrary detuning
 		this.keyIsOn = false;
+		this.glideFrom = undefined;
+		this.glideStart = context.currentTime;
+		this.glideTime = 0;
 		this.disabled = false;
 
 		this.tremoloDepth = 0;
@@ -127,11 +133,9 @@ class Operator {
 	 * from the block number and frequency number the result is then multiplied by this
 	 * number. Defaults to 1.
 	 * @param {number} [time] When to change frequency. Defaults to immediately.
-	 * @param {string} [method] How to change from one frequency to another. One of
-	 * 'setValueAtTime', 'linearRampToValueAtTime' or 'exponentialRampToValueAtTime'.
-	 * Defaults to 'setValueAtTime'.
+	 * @param {number} [glideRate] The time taken to glide a distance of one octave.
 	 */
-	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, method = 'setValueAtTime') {
+	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, glideRate = 0) {
 		const keyCode = Synth.keyCode(blockNumber, frequencyNumber);
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
@@ -147,13 +151,40 @@ class Operator {
 			fullFreqNumber += 0x1FFFF;
 		}
 		const frequencyStep = this.channel.synth.frequencyStep;
-		const frequency = fullFreqNumber * frequencyMultiple * frequencyStep;
-		this.frequencyParam[method](frequency, time);
-		this.frequency = frequency;
+		const newFrequency = fullFreqNumber * frequencyMultiple * frequencyStep;
+
+		const glidingFrom = this.glideFrom;
+		const glidingTo = this.frequency;
+		const prevGlideStart = this.glideStart;
+		const prevGlideTime = this.glideTime;
+		let currentFrequency;
+		if (prevGlideTime === 0 || time >= prevGlideStart + prevGlideTime) {
+			currentFrequency = glidingTo;
+		} else {
+			currentFrequency = glidingFrom * (glidingTo / glidingFrom) ** ((time - prevGlideStart) / prevGlideTime);
+		}
+		cancelAndHoldAtTime(this.frequencyParam, currentFrequency, time);
+		if (currentFrequency === 0 || newFrequency === 0 || glidingFrom === undefined) {
+			this.frequencyParam.setValueAtTime(newFrequency, time);
+			this.glideTime = 0;
+		} else {
+			const glideTime = Math.abs(Math.log2(newFrequency / currentFrequency)) * glideRate;
+			this.frequencyParam.exponentialRampToValueAtTime(newFrequency, time + glideTime);
+			this.glideTime = glideTime;
+		}
+		this.glideFrom = currentFrequency;
+		this.frequency = newFrequency;	// AKA the new "glide to"
+		this.glideStart = time;				// Start time for the new glide
+
 		this.freqBlockNumber = blockNumber;
 		this.frequencyNumber = frequencyNumber;
 		this.frequencyMultiple = frequencyMultiple;
 		this.keyCode = keyCode;
+	}
+
+	cancelGlide(time = 0) {
+		cancelAndHoldAtTime(this.frequencyParam, this.frequency, time);
+		this.glideTime = 0;
 	}
 
 
@@ -179,10 +210,10 @@ class Operator {
 	 * setFrequency() is next called.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
-	setDetune(extent, time = undefined, method = 'setValueAtTime') {
+	setDetune(extent, time = undefined) {
 		this.detune = extent;
 		if (time !== undefined) {
-			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 
@@ -194,17 +225,17 @@ class Operator {
 	/**
 	 * Good values: 1/SQRT(2), Golden Ratio
 	 */
-	setDetune2Ratio(ratio, time = undefined, method = 'setValueAtTime') {
+	setDetune2Ratio(ratio, time = undefined) {
 		this.detune2 = Math.sign(ratio) * Math.round((Math.abs(ratio) % 1) * 2 ** 17);
 		if (time !== undefined) {
-			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 
-	setDetune2Cents(cents, time = undefined, method = 'setValueAtTime') {
+	setDetune2Cents(cents, time = undefined) {
 		this.detune2 = Math.sign(cents) * Math.round((2 ** (Math.abs(cents) / 1200) - 1) * 2 ** 17);
 		if (time !== undefined) {
-			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 
@@ -216,10 +247,10 @@ class Operator {
 		return Math.sign(this.detune2) * Math.round(Math.log2(multiplier) * 1200);
 	}
 
-	useDetune2Preset(presetNum, time = undefined, method = 'setValueAtTime') {
+	useDetune2Preset(presetNum, time = undefined) {
 		this.detune2 = Operator.detune2Presets[presetNum];
 		if (time !== undefined) {
-			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time, method);
+			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 

@@ -14,6 +14,8 @@ class MusicInput {
 		this.numChannelsInUse = 1;
 		this.legato = false;
 		this.portamento = PortamentoMode.OFF;
+		this.sustain = false;
+		this.sustainedNotes = new Set();
 		// In the order they were pressed down
 		this.keysDown = [];
 		// The notes playing on each channel (or undefined if no note has been played yet)
@@ -77,18 +79,14 @@ class MusicInput {
 		} else {
 			this.#removeAllocation(channelIndex);
 		}
-		const prevNote = this.channelToNote[channelIndex];
-		let portamentoFrom;
-		if (
-			this.portamento === PortamentoMode.ON ||
-			(this.portamento === PortamentoMode.FINGERED && numKeysDown > 0)
-		) {
-			portamentoFrom = prevNote;
-		}
 		const channelNum = this.#indexToChannelNum(channelIndex);
-		this.pitchChange(timeStamp / 1000, channelNum, portamentoFrom, note, velocity);
+		const glide =  this.portamento === PortamentoMode.ON ||
+			(this.portamento === PortamentoMode.FINGERED && numKeysDown > 0);
+
+		this.pitchChange(timeStamp / 1000, channelNum, note, velocity, glide);
+
 		if (numKeysDown >= this.numChannelsInUse) {
-			this.noteToChannel.delete(prevNote);
+			this.noteToChannel.delete(this.channelToNote[channelIndex]);
 		}
 		this.keysDown.push(note);
 		this.channelToNote[channelIndex] = note;
@@ -99,6 +97,10 @@ class MusicInput {
 	keyUp(timeStamp, note) {
 		const noteIndex = this.keysDown.indexOf(note);
 		if (noteIndex === - 1) {
+			return;
+		}
+		if (this.sustain) {
+			sustainedNotes.add(note);
 			return;
 		}
 		let numKeysDown = this.keysDown.length;
@@ -113,8 +115,8 @@ class MusicInput {
 		timeStamp /= 1000;
 		if (notesStolen) {
 			const newNote = this.keysDown[numKeysDown - this.numChannelsInUse];
-			const fromNote = this.portamento === PortamentoMode.OFF ? undefined : note;
-			this.pitchChange(timeStamp, channelNum, fromNote, newNote, 0);
+			const glide = this.portamento !== PortamentoMode.OFF;
+			this.pitchChange(timeStamp, channelNum, newNote, 0, glide);
 			this.channelToNote[channelIndex] = newNote;
 			this.noteToChannel.set(newNote, channelIndex);
 			this.#removeAllocation(channelIndex);
@@ -144,6 +146,15 @@ class MusicInput {
 	portamentoCC(enabled) {
 		if (this.portamento !== PortamentoMode.FINGERED) {
 			this.portamento = enabled ? PortamentoMode.ON : PortamentoMode.OFF;
+		}
+	}
+
+	sustainCC(timeStamp, enabled) {
+		this.sustain = enabled;
+		if (!enabled) {
+			for (let note of sustainedNotes) {
+
+			}
 		}
 	}
 

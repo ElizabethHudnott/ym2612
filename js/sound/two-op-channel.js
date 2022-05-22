@@ -110,7 +110,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		this.parentChannel.enableOperator(this.operatorOffset + operatorNum);
 	}
 
-	fixFrequency(operatorNum, fixed, time = undefined, method = 'setValueAtTime') {
+	fixFrequency(operatorNum, fixed, time = undefined) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
@@ -126,65 +126,37 @@ export default class TwoOperatorChannel extends AbstractChannel {
 				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
 				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
 			}
-		}
-		parent.fixedFrequency[effectiveOperatorNum - 1] = fixed;
-		if (time !== undefined) {
-			if (fixed) {
-				// Potential change from ratio mode to fixed mode
-				for (let i = 1; i <= 2; i++) {
-					const operator = parent.getOperator(this.operatorOffset + i);
-					let block = operator.getFrequencyBlock();
-					let freqNum = operator.getFrequencyNumber();
-					const multiple = operator.getFrequencyMultiple();
-					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
-					operator.setFrequency(block, freqNum, 1, time, method);
-
-				}
-			} else {
+		} else if (time !== undefined) {
 				// Restore a frequency ratio
 				const operator = parent.getOperator(effectiveOperatorNum);
 				const block = parent.getFrequencyBlock(this.operatorOffset + 2);
 				const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
-				operator.setFrequency(block, freqNum, multiple, time, method);
-			}
+				operator.setFrequency(block, freqNum, multiple, time);
 		}
+		parent.fixedFrequency[effectiveOperatorNum - 1] = fixed;
 	}
 
 	isOperatorFixed(operatorNum) {
 		return this.parentChannel.isOperatorFixed(this.operatorOffset + operatorNum);
 	}
 
-	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
-		const hasFixedFrequency =
-			parent.isOperatorFixed(offset + 1) ||
-			parent.isOperatorFixed(offset + 2);
-
-		if (hasFixedFrequency) {
-			for (let i = 1; i <= 2; i++) {
-				const operatorNum = offset + i;
-				if (!parent.isOperatorFixed(operatorNum)) {
-					const multiple = parent.getFrequencyMultiple(operatorNum);
-					const [operatorBlock, operatorFreqNum] = this.multiplyFreqComponents(
-						blockNumber, frequencyNumber, multiple
-					);
-					parent.getOperator(operatorNum).setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
-				}
-			}
-		} else {
-			for (let i = 1; i <= 2; i++) {
-				const operatorNum = offset + i;
+		for (let i = 1; i <= 2; i++) {
+			const operatorNum = offset + i;
+			if (!parent.isOperatorFixed(operatorNum)) {
+				const operator = parent.getOperator(operatorNum);
 				const multiple = parent.getFrequencyMultiple(operatorNum);
-				parent.getOperator(operatorNum).setFrequency(blockNumber, frequencyNumber, multiple, time, method);
+				operator.setFrequency(blockNumber, frequencyNumber, multiple, time, glideRate);
 			}
 		}
 		parent.freqBlockNumbers[offset + 1] = blockNumber;
 		parent.frequencyNumbers[offset + 1] = frequencyNumber;
 	}
 
-	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
-		this.parentChannel.setOperatorFrequency(this.operatorOffset + operatorNum, blockNumber, frequencyNumber, time, method);
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+		this.parentChannel.setOperatorFrequency(this.operatorOffset + operatorNum, blockNumber, frequencyNumber, time, glideRate);
 	}
 
 	getFrequencyBlock(operatorNum = 2) {
@@ -195,7 +167,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.getFrequencyNumber(this.operatorOffset + operatorNum);
 	}
 
-	setFrequencyMultiple(operatorNum, multiple, time = undefined, method = 'setValueAtTime') {
+	setFrequencyMultiple(operatorNum, multiple, time = undefined) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		const effectiveOperatorNum = offset + operatorNum;
@@ -204,7 +176,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 			const block = parent.getFrequencyBlock(offset + 1);
 			const freqNum = parent.getFrequencyNumber(offset + 1);
 			const operator = parent.getOperator(effectiveOperatorNum);
-			operator.setFrequency(block, freqNum, multiple, time, method);
+			operator.setFrequency(block, freqNum, multiple, time);
 		}
 	}
 
@@ -212,10 +184,10 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
 	}
 
-	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
+	setMIDINote(noteNumber, time = 0, glideRate = 0) {
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
-		this.setFrequency(block, freqNum, time, method);
+		this.setFrequency(block, freqNum, time, glideRate);
 	}
 
 	pitchBend(
@@ -239,13 +211,13 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
+	setOperatorNote(operatorNum, noteNumber, time = 0, glideRate = 0) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
-		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, method);
+		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, glideRate);
 	}
 
 	getMIDINote(operatorNum = 2) {

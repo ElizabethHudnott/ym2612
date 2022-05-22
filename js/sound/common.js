@@ -1,5 +1,5 @@
 const PROCESSING_TIME = 0.001;
-const NEVER = 8388500;
+const NEVER = 8388498;
 
 const ClockRate = {
 	PAL: 	53203424 / 7,

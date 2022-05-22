@@ -70,7 +70,7 @@ function processMessage(event) {
 		index = 0;
 	}
 
-	let note, velocity;
+	let note, velocity, value;
 
 	switch (messageType) {
 	case 0x80: 	// Note Off
@@ -91,6 +91,19 @@ function processMessage(event) {
 			}
 			MUSIC_INPUT.keyDown(timeStamp, note, velocity);
 			notesOn.add(note);
+		}
+		break;
+
+	case 0xB0: // Control Change
+		const controller = data[1];
+		value = data[2];
+		switch (controller) {
+		case 64: // Sustain
+			MUSIC_INPUT.sustainCC(timeStamp, value >= 64);
+			break;
+		case 65: // Sustain
+			MUSIC_INPUT.portamentoCC(value >= 64);
+			break;
 		}
 		break;
 	}

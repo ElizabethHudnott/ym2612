@@ -376,7 +376,7 @@ class Channel extends AbstractChannel {
 		this.operators[operatorNum - 1].enable();
 	}
 
-	fixFrequency(operatorNum, fixed, time = undefined, preserve = true, method = 'setValueAtTime') {
+	fixFrequency(operatorNum, fixed, time = undefined, preserve = true) {
 		const operator = this.operators[operatorNum - 1];
 		const multiple = this.frequencyMultiples[operatorNum - 1];
 		const fixedFrequency = this.fixedFrequency;
@@ -399,58 +399,37 @@ class Channel extends AbstractChannel {
 				// Restore a fixed frequency from a register.
 				const block = this.freqBlockNumbers[operatorNum - 1];
 				const freqNum = this.frequencyNumbers[operatorNum - 1];
-				operator.setFrequency(block, freqNum, 1, time, method);
+				operator.setFrequency(block, freqNum, 1, time);
 			}
-		}
-		fixedFrequency[operatorNum - 1] = fixed;
-		if (time !== undefined) {
-			if (fixed) {
-				// Potential change from ratio mode to fixed mode
-				for (let i = 0; i < 4; i++) {
-					const operator = this.operators[i];
-					let block = operator.getFrequencyBlock();
-					let freqNum = operator.getFrequencyNumber();
-					const multiple = operator.getFrequencyMultiple();
-					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
-					operator.setFrequency(block, freqNum, 1, time, method);
-				}
-			} else {
+		} else if (time !== undefined) {
 				// Restore a frequency ratio
 				const block = this.freqBlockNumbers[3];
 				const freqNum = this.frequencyNumbers[3];
-				operator.setFrequency(block, freqNum, multiple, time, method);
-			}
+				operator.setFrequency(block, freqNum, multiple, time);
 		}
+		fixedFrequency[operatorNum - 1] = fixed;
 	}
 
 	isOperatorFixed(operatorNum) {
 		return this.fixedFrequency[operatorNum - 1];
 	}
 
-	setFrequency(blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
-		const hasFixedFrequency = this.fixedFrequency.indexOf(true) !== -1;
-		if (hasFixedFrequency) {
-			for (let i = 0; i < 4; i++) {
-				if (!this.fixedFrequency[i]) {
-					const [operatorBlock, operatorFreqNum] = this.multiplyFreqComponents(
-						blockNumber, frequencyNumber, this.frequencyMultiples[i]
-					);
-					this.operators[i].setFrequency(operatorBlock, operatorFreqNum, 1, time, method);
-				}
-			}
-		} else {
-			for (let i = 0; i < 4; i++) {
+	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+		for (let i = 0; i < 4; i++) {
+			if (!this.fixedFrequency[i]) {
+				const operator = this.operators[i];
 				const multiple = this.frequencyMultiples[i];
-				this.operators[i].setFrequency(blockNumber, frequencyNumber, multiple, time, method);
+				operator.setFrequency(blockNumber, frequencyNumber, multiple, time, glideRate);
 			}
 		}
 		this.freqBlockNumbers[3] = blockNumber;
 		this.frequencyNumbers[3] = frequencyNumber;
 	}
 
-	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, method = 'setValueAtTime') {
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
 		if (this.fixedFrequency[operatorNum - 1]) {
-			this.operators[operatorNum - 1].setFrequency(blockNumber, frequencyNumber, 1, time, method);
+			const operator = this.operators[operatorNum - 1];
+			operator.setFrequency(blockNumber, frequencyNumber, 1, time, glideRate);
 		}
 		this.freqBlockNumbers[operatorNum - 1] = blockNumber;
 		this.frequencyNumbers[operatorNum - 1] = frequencyNumber;
@@ -464,13 +443,13 @@ class Channel extends AbstractChannel {
 		return this.frequencyNumbers[operatorNum - 1];
 	}
 
-	setFrequencyMultiple(operatorNum, multiple, time = undefined, method = 'setValueAtTime') {
+	setFrequencyMultiple(operatorNum, multiple, time = undefined) {
 		this.frequencyMultiples[operatorNum - 1] = multiple;
 		if (time !== undefined && !this.fixedFrequency[operatorNum - 1]) {
 			const block = this.freqBlockNumbers[3];
 			const freqNum = this.frequencyNumbers[3];
 			const operator = this.operators[operatorNum - 1];
-			operator.setFrequency(block, freqNum, multiple, time, method);
+			operator.setFrequency(block, freqNum, multiple, time);
 		}
 	}
 
@@ -478,10 +457,16 @@ class Channel extends AbstractChannel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
-	setMIDINote(noteNumber, time = 0, method = 'setValueAtTime') {
+	setMIDINote(noteNumber, time = 0, glideRate = 0) {
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
-		this.setFrequency(block, freqNum, time, method);
+		this.setFrequency(block, freqNum, time, glideRate);
+	}
+
+	cancelGlide(time = 0) {
+		for (let i = 0; i < 4; i++) {
+			this.operators[i].cancelGlide(time);
+		}
 	}
 
 	/**
@@ -507,6 +492,7 @@ class Channel extends AbstractChannel {
 		bend, release, startTime, timesPerStep, scaling = 1, operatorMask = undefined,
 		maxSteps = bend.getLength(release)
 	) {
+		this.cancelGlide(startTime);
 		if (operatorMask === undefined) {
 			operatorMask = 0;
 			for (let i = 0; i < 4; i++) {
@@ -524,11 +510,11 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, method = 'setValueAtTime') {
+	setOperatorNote(operatorNum, noteNumber, time = 0, glideRate = 0) {
 		this.fixedFrequency[operatorNum - 1] = true;
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
-		this.setOperatorFrequency(operatorNum, block, freqNum, time, method);
+		this.setOperatorFrequency(operatorNum, block, freqNum, time, glideRate);
 	}
 
 	getMIDINote(operatorNum = 4) {
