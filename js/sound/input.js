@@ -15,8 +15,9 @@ class MusicInput {
 		this.legato = false;
 		this.portamento = PortamentoMode.OFF;
 		this.sustain = false;
+		this.transpose = 0;
 		this.sustainedNotes = new Set();
-		// In the order they were pressed down
+		// In the order they were pressed down, recorded non-transposed
 		this.keysDown = [];
 		// The notes playing on each channel (or undefined if no note has been played yet)
 		this.channelToNote = [undefined];
@@ -64,6 +65,10 @@ class MusicInput {
 	}
 
 	keyDown(timeStamp, note, velocity) {
+		const transposedNote = note + this.transpose;
+		if (transposedNote < 0 || transposedNote > 127) {
+			return;
+		}
 		const keyDownIndex = this.keysDown.indexOf(note);
 		let channelIndex;
 		if (keyDownIndex !== -1) {
@@ -83,7 +88,7 @@ class MusicInput {
 		const glide =  this.portamento === PortamentoMode.ON ||
 			(this.portamento === PortamentoMode.FINGERED && numKeysDown > 0);
 
-		this.pitchChange(timeStamp / 1000, channelNum, note, velocity, glide);
+		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide);
 
 		if (numKeysDown >= this.numChannelsInUse) {
 			this.noteToChannel.delete(this.channelToNote[channelIndex]);
@@ -113,10 +118,11 @@ class MusicInput {
 		}
 		const channelNum  = this.#indexToChannelNum(channelIndex);
 		timeStamp /= 1000;
-		if (notesStolen) {
-			const newNote = this.keysDown[numKeysDown - this.numChannelsInUse];
+		const newNote = this.keysDown[numKeysDown - this.numChannelsInUse];
+		const transposedNewNote = newNote + this.transpose;
+		if (notesStolen && transposedNewNote >= 0 && transposedNewNote <= 127) {
 			const glide = this.portamento !== PortamentoMode.OFF;
-			this.pitchChange(timeStamp, channelNum, newNote, 0, glide);
+			this.pitchChange(timeStamp, channelNum, transposedNewNote, 0, glide);
 			this.channelToNote[channelIndex] = newNote;
 			this.noteToChannel.set(newNote, channelIndex);
 			this.#removeAllocation(channelIndex);
@@ -143,7 +149,7 @@ class MusicInput {
 		console.log(str);
 	}
 
-	portamentoCC(enabled) {
+	portamentoSwitch(enabled) {
 		if (this.portamento !== PortamentoMode.FINGERED) {
 			this.portamento = enabled ? PortamentoMode.ON : PortamentoMode.OFF;
 		}
@@ -164,6 +170,10 @@ class MusicInput {
 
 	noteOff(timeStamp, channelNum) {
 		// To be overridden.
+	}
+
+	controlChange(timeStamp, controller, value) {
+		// To be overridden
 	}
 
 }

@@ -86,9 +86,6 @@ document.body.addEventListener('keydown', function (event) {
 	let note = keymap.get(code);
 	if (note !== undefined) {
 		note += transpose;
-		if (note < 0 || note > 127) {
-			return;
-		}
 		MUSIC_INPUT.keyDown(event.timeStamp, note, velocity);
 		notesOn.add(note);
 	}

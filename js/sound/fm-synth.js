@@ -247,18 +247,16 @@ export default class Synth {
 			numInstances[31]--;
 			maxIndex--;
 		}
-		blocks = blocks.slice(minIndex, maxIndex + 1);
-		freqNums = freqNums.slice(minIndex, maxIndex + 1);
-		keyCodes = keyCodes.slice(minIndex, maxIndex + 1);
 
 		let freqNumThreshold = 2048;
 		let variance, newVariance = Infinity;
 		let thresholdHistory = [2048, 2048];
 		let changes;
 		do {
+			// Compute variance in key code tally
 			variance = newVariance;
-			let minKeyCode = keyCodes[0];
-			let maxKeyCode = keyCodes[keyCodes.length - 1];
+			let minKeyCode = keyCodes[minIndex];
+			let maxKeyCode = keyCodes[maxIndex];
 			let sum = 0;
 			let sumSquares = 0;
 			for (let i = minKeyCode; i <= maxKeyCode; i++) {
@@ -271,9 +269,9 @@ export default class Synth {
 			newVariance = sumSquares / keyCodeRange - mean * mean;
 
 			let newFreqNumThreshold = 0;
-			for (let freqNum of freqNums) {
-				if (freqNum < freqNumThreshold) {
-					newFreqNumThreshold = Math.max(newFreqNumThreshold, freqNum);
+			for (let i = minIndex; i <= maxIndex; i++) {
+				if (freqNums[i] < freqNumThreshold) {
+					newFreqNumThreshold = Math.max(newFreqNumThreshold, freqNums[i]);
 				}
 			}
 			thresholdHistory[0] = thresholdHistory[1];
@@ -281,8 +279,8 @@ export default class Synth {
 			freqNumThreshold = newFreqNumThreshold;
 
 			changes = false;
-			for (let i = 0; i < freqNums.length; i++) {
-				if (freqNums[i] === freqNumThreshold && blocks[i] !== 7) {
+			for (let i = 0; i <= 127; i++) {
+				if (freqNums[i] === freqNumThreshold && blocks[i] < 7) {
 					blocks[i]++;
 					freqNums[i] = Math.round(freqNums[i] / 2);
 					const oldKeyCode = keyCodes[i];

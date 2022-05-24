@@ -24,6 +24,7 @@ const firstChannel = synth.getChannel(1);
 function eachChannel(callback) {
 	synth.channels.forEach(callback);
 }
+window.eachChannel = eachChannel;
 
 eachChannel(channel => channel.useAlgorithm(4));
 disableOperator(3);
@@ -56,6 +57,24 @@ MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide
 MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
 	synth.getChannel(channelNum).keyOff(audioContext);
 };
+
+MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
+	switch (controller) {
+	case 5:	// Portamento time
+		glideRate = value / 12.7;
+		break;
+	case 10:	// Pan
+		const pan = (value - 64) / (value <= 64 ? 64 : 63);
+		eachChannel(channel => channel.setPan(pan));
+		break;
+	case 71:
+		eachChannel(channel => channel.useFeedbackPreset(value * 6 / 127));
+		break;
+	case 92:
+		eachChannel(channel => channel.setTremoloDepth(-value));
+		break;
+	}
+}
 
 
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {

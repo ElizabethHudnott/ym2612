@@ -74,13 +74,13 @@ function processMessage(event) {
 
 	switch (messageType) {
 	case 0x80: 	// Note Off
-		note = data[1];
+		note = data[1] + 12 * MIDI.octaveShift;
 		MUSIC_INPUT.keyUp(timeStamp, note);
 		notesOn.delete(note);
 		break;
 
 	case 0x90: 	// Note On
-		note = data[1];
+		note = data[1] + 12 * MIDI.octaveShift;
 		velocity = data[2];
 		if (velocity === 0) {
 			MUSIC_INPUT.keyUp(timeStamp, note);
@@ -101,9 +101,11 @@ function processMessage(event) {
 		case 64: // Sustain
 			MUSIC_INPUT.sustainCC(timeStamp, value >= 64);
 			break;
-		case 65: // Sustain
-			MUSIC_INPUT.portamentoCC(value >= 64);
+		case 65: // Portamento switch
+			MUSIC_INPUT.portamentoSwitch(value >= 64);
 			break;
+		default:
+			MUSIC_INPUT.controlChange(timeStamp, controller, value);
 		}
 		break;
 	}
@@ -163,6 +165,7 @@ const MIDI = {
 	close: stopMIDI,
 	Status: Request,
 	status: 'requestMIDIAccess' in navigator ? Request.INACTIVE : Request.UNSUPPORTED,
+	octaveShift: 0,
 	velocitySensitive: true,
 }
 
