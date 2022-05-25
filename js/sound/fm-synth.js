@@ -182,13 +182,13 @@ export default class Synth {
 		this.referenceNote = noteNumber;
 	}
 
-	getTuning(detune = 0, interval = 2, divisions = 12, steps = [1]) {
+	equalTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
 		const referencePitch = this.referencePitch;
 		const referenceNote = this.referenceNote;
 		const frequencyData = new Array(128);
 		const numIntervals = steps.length;
 		let noteNumber = 60;
-		let stepIndex = 0;
+		let stepIndex = startIndex;
 		for (let i = 60; i < 128; i++) {
 			const frequency = referencePitch *
 				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
@@ -197,19 +197,53 @@ export default class Synth {
 			stepIndex = (stepIndex + 1) % numIntervals;
 		}
 		noteNumber = 60;
-		stepIndex = numIntervals - 1;
+		stepIndex = startIndex - 1;
 		for (let i = 59; i >= 0; i--) {
+			if (stepIndex < 0) {
+				stepIndex = numIntervals - 1;
+			}
 			noteNumber -= steps[stepIndex];
 			const frequency = referencePitch *
 				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
 			stepIndex--;
-			if (stepIndex < 0) {
-				stepIndex = numIntervals - 1;
+		}
+		return this.#spreadKeyCodes(frequencyData);
+	}
+
+	ratioTuning(ratios, startNote = 0) {
+		const frequencyData = new Array(128);
+		const numRatios = ratios.length - 1;
+		const octaveInterval = ratios[numRatios];
+		let referencePitch = this.referencePitch;
+		let referenceNote = this.referenceNote;
+		referencePitch /= ratios[(referenceNote - startNote) % 12];
+		referenceNote = Math.trunc(referenceNote / 12) * 12 + startNote;
+		let ratioCycles = 0, ratioIndex = 0;
+		for (let i = referenceNote; i < 128; i++) {
+			frequencyData[i] = referencePitch *
+				(octaveInterval ** ratioCycles * ratios[ratioIndex]) / this.frequencyStep;
+			ratioIndex++;
+			if (ratioIndex === numRatios) {
+				ratioCycles++;
+				ratioIndex = 0;
 			}
 		}
+		ratioCycles = -1;
+		ratioIndex = numRatios - 1;
+		for (let i = referenceNote - 1; i >= 0; i--) {
+			frequencyData[i] = referencePitch *
+				(octaveInterval ** ratioCycles * ratios[ratioIndex]) / this.frequencyStep;
+			ratioIndex--;
+			if (ratioIndex === -1) {
+				ratioCycles--;
+				ratioIndex = numRatios - 1;
+			}
+		}
+		return this.#spreadKeyCodes(frequencyData);
+	}
 
-		// Adjustment to spread the key codes evenly
+	#spreadKeyCodes(frequencyData) {
 		let blocks = [], freqNums = [], keyCodes = [];
 		const numInstances = new Array(32);
 		numInstances.fill(0);

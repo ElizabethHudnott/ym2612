@@ -202,7 +202,7 @@ class Channel extends AbstractChannel {
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 
 		this.useAlgorithm(0);
-		this.tuneNotes();
+		this.tuneEqualTemperament();
 	}
 
 	copyOperator(from, to) {
@@ -872,8 +872,8 @@ class Channel extends AbstractChannel {
 	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
 	 * produce unusual scales, such as Wendy Carlos' alpha, beta and gamma scales.
 	 * @param {number} divisions How many notes the chromatic scale should have.
-	 * @param {number} steps A pattern of scale increments used to move from one keyboard key to
-	 * the next. The pattern will be repeated up and down the keyboard from middle C.
+	 * @param {number[]} steps A pattern of scale increments used to move from one keyboard key
+	 * to the next. The pattern will be repeated up and down the keyboard from middle C.
 	 *
 	 * Examples:
 	 * [1] A regular equal tempered scale.
@@ -884,9 +884,24 @@ class Channel extends AbstractChannel {
 	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
 	 * scale.
 	 *
+	 * @param {number} startIndex The point to begin from within the sequence of intervals or
+	 * equivalently, which note to centre the scale on.
 	 */
-	tuneNotes(detune = 0, interval = 2, divisions = 12, steps = [1]) {
-		const tuning = this.synth.getTuning(detune, interval, divisions, steps);
+	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
+		const tuning = this.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
+	/**
+	 * @param {number[]} ratios
+	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
+	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
+	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
+	 */
+	tuneRatios(ratios, startNote = 0) {
+		const tuning = this.synth.ratioTuning(ratios, startNote);
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;

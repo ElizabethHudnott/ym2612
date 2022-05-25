@@ -58,15 +58,6 @@ function roundMicrotuning(steps, gradations = 64) {
 	return newSteps;
 }
 
-function rotateArray(arr, shift) {
-	const length = arr.length;
-	const newArr = new Array(length);
-	for (let i = 0; i < length; i++) {
-		newArr[i] = arr[(i + shift) % length];
-	}
-	return newArr;
-}
-
 /** Approximately -48db converted to base 2.
  *  https://gendev.spritesmind.net/forum/viewtopic.php?f=24&t=386&p=6114&hilit=48db#p6114
  */
@@ -276,7 +267,7 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 
 export {
 	cancelAndHoldAtTime, decibelReductionToAmplitude, amplitudeToDecibels,
-	roundMicrotuning, rotateArray,
+	roundMicrotuning,
 	logToLinear, linearToLog, modulationIndex, outputLevelToGain, gainToOutputLevel,
 	makeMathyWave,
 	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,

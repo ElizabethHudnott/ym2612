@@ -23,8 +23,6 @@ Necessary Improvements
 ----------------------
 testing
 add differentiation of log saw
-Split into separate files: envelope, operator, channel, synth
-Computer keyboard input
 MIDI input
 Portamento
 Renumber operators 2 & 3?

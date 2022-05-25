@@ -340,7 +340,7 @@ class PSG {
 
 	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = ClockRate.PAL, callback = undefined) {
 		this.setClockRate(context, clockRate);
-		this.tuneNotes(440);
+		this.tuneEqualTemperament();
 
 		let frequencyLimit = context.sampleRate / 2;
 		while (frequencyLimit > 24000) {
@@ -445,7 +445,7 @@ class PSG {
 		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
 	}
 
-	tuneNotes(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
+	tuneEqualTemperament(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
 		const clockRate = this.clockRate;
 		const frequencies = new Array(128);
 		const step = interval ** (1 / divisions);

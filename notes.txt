@@ -18,7 +18,6 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 Bug: feedback strength?
 Bug?: slow fade in of vibrato
 
-Split into separate files: envelope, operator, channel, synth
 Change distortion into decibels
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators

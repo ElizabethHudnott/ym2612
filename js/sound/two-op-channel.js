@@ -14,7 +14,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		this.operatorOffset = startingOperator - 1;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
-		this.tuneNotes();
+		this.tuneEqualTemperament();
 	}
 
 	copyOperator(from, to) {
@@ -385,8 +385,15 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		}
 	}
 
-	tuneNotes(detune = 0, interval = 2, divisions = 12, steps = [1]) {
-		const tuning = this.parentChannel.synth.getTuning(detune, interval, divisions, steps);
+	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
+		const tuning = this.parentChannel.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
+	tuneRatios(ratios, startNote = 0) {
+		const tuning = this.parentChannel.synth.ratioTuning(ratios, startNote);
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;

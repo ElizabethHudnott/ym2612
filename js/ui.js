@@ -76,7 +76,6 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 	}
 }
 
-
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
 	switch (MIDI.status) {
 	case MIDI.Status.UNSUPPORTED:
