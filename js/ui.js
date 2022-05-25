@@ -77,6 +77,7 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 }
 
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
+	const midiPanel = this.parentElement.parentElement;
 	switch (MIDI.status) {
 	case MIDI.Status.UNSUPPORTED:
 		alert('Your browser doesn\'t support MIDI.');
@@ -85,12 +86,14 @@ document.getElementById('btn-enable-midi').addEventListener('click', function (e
 		alert('You need to grant the page permission to use MIDI.')
 		return;
 	case MIDI.Status.GRANTED:
+		$(midiPanel).find('.midi-controls').collapse('hide');
 		document.getElementById('midi-led').classList.remove('on');
 		MIDI.close();
 		return;
 	}
 	function midiGranted() {
 		document.getElementById('midi-led').classList.add('on');
+		$(midiPanel).find('.midi-controls').collapse('show');
 	}
 	function midiRejected(error) {
 		console.error(error);
@@ -99,6 +102,13 @@ document.getElementById('btn-enable-midi').addEventListener('click', function (e
 	MIDI.requestAccess(midiGranted, midiRejected);
 
 });
+
+function midiOctaveShift(event) {
+	MIDI.octaveShift += parseInt(this.value);
+}
+
+document.getElementById('btn-midi-octave-down').addEventListener('click', midiOctaveShift);
+document.getElementById('btn-midi-octave-up').addEventListener('click', midiOctaveShift);
 
 function processRecording(blob) {
 	const player = document.getElementById('recording');
@@ -109,7 +119,7 @@ function processRecording(blob) {
 }
 recorder.ondatarecorded = processRecording;
 
-document.getElementById('btn-record').addEventListener('click', function (event) {
+document.getElementById('btn-record-audio').addEventListener('click', function (event) {
 	audioContext.resume();
 	switch (recorder.state) {
 	case 'inactive':

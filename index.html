@@ -15,8 +15,8 @@
 	<form class="container bg-theme-dark" id="instrument-panel">
 		<ul class="nav nav-pills nav-fill mb-1" role="tablist" id="instrument-tablist">
 			<li class="nav-item" role="presentation">
-				<a class="nav-link" id="ym2612-system-tab" data-toggle="tab" href="#ym2612-system" role="tab" aria-controls="ym2612-system">
-					System
+				<a class="nav-link" id="performance-tab" data-toggle="tab" href="#performance" role="tab" aria-controls="performance">
+					Performance
 				</a>
 			</li>
 			<li class="nav-item" role="presentation">
@@ -26,30 +26,41 @@
 			</li>
 		</ul>
 		<div class="tab-content" id="instrument-tabs">
-			<div class="tab-pane fade" id="ym2612-system" role="tabpanel" aria-labelledby="ym2612-system-tab">
+			<div class="tab-pane fade" id="performance" role="tabpanel" aria-labelledby="performance-tab">
 				<fieldset class="panel">
-					<h1>Tools</h1>
+					<h1>MIDI</h1>
 					<div class="form-row form-group">
 						<div class="col-5 col-md-2 my-2">
 							<button type="button" class="btn btn-secondary w-100" id="btn-enable-midi">
 								<span id="midi-led" class="led">&#x25CF;</span> MIDI
 							</button>
 						</div>
-						<div class="col-7 col-md-1">
-						</div>
-						<div class="col-12 col-md-6 p-0 my-2 row">
+						<div class="col-12 col-md-6 p-0 m-0 pl-md-3 my-2 row midi-controls collapse">
 							<label for="midi-port" class="col-2 col-form-label">
 								Port
 							</label>
-							<div class="col-10 col-md-8">
+							<div class="col-10">
 								<select id="midi-port" class="form-control led-display led-text">
 								</select>
 							</div>
 						</div>
+						<div class="col-6 pr-4 col-md-2 pr-md-1 my-2 midi-controls collapse">
+							<button type="button" class="btn btn-secondary w-100 h-100" id="btn-midi-octave-down" value="-1">
+								Octave -
+							</button>
+						</div>
+						<div class="col-6 pl-4 col-md-2 pl-md-1 my-2 midi-controls collapse">
+							<button type="button" class="btn btn-secondary w-100 h-100" id="btn-midi-octave-up" value="1">
+								Octave +
+							</button>
+						</div>
 					</div>
+				</fieldset>
+				<fieldset class="panel">
+					<h1>Audio Recorder</h1>
 					<div class="form-row form-group">
 						<div class="col-5 col-md-2 my-auto">
-							<button type="button" class="btn btn-secondary w-100" id="btn-record">
+							<button type="button" class="btn btn-secondary w-100" id="btn-record-audio">
 								<span id="record-led" class="led">&#x25CF;</span> Record
 							</button>
 						</div>

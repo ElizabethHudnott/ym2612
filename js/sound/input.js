@@ -13,7 +13,7 @@ class MusicInput {
 		this.numChannels = numChannels;
 		this.numChannelsInUse = 1;
 		this.legato = false;
-		this.portamento = PortamentoMode.OFF;
+		this.portamento = PortamentoMode.ON;
 		this.sustain = false;
 		this.transpose = 0;
 		this.sustainedNotes = new Set();
