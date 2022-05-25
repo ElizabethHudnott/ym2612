@@ -9,7 +9,7 @@ Note Track Fields
 		SNN Sustained key on with specified velocity
 		RNN Key on multiple times (retrigger) with specified initial velocity
 			 Retrigger time (in ticks) and optional velocity change (add/subtract/multiple) configured separately
-		R  Release (key off)
+		OFF Release (key off)
 
 	Delay
 		N Number of ticks

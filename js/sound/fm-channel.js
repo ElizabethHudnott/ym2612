@@ -355,9 +355,8 @@ class Channel extends AbstractChannel {
 			}
 		}
 		if (total === 0) {
-			total = 1;
+			return;
 		}
-		total *= 1 + Math.abs(this.pan);
 
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];

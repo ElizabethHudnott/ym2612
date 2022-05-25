@@ -20,7 +20,7 @@ export default class Synth {
 		this.feedbackCallibration = 2.5;
 		this.setClockRate(clockRate);
 
-		const channelGain = new GainNode(context, {gain: 1 / numChannels});
+		const channelGain = new GainNode(context, {gain: 1 / (2 * numChannels)});
 		channelGain.connect(output);
 		this.channelGain = channelGain.gain;
 
@@ -169,7 +169,7 @@ export default class Synth {
 	}
 
 	setChannelGain(level, time = 0, method = 'setValueAtTime') {
-		this.channelGain[method](level / this.channels.length, time);
+		this.channelGain[method](level / (2 * this.channels.length), time);
 	}
 
 	/**
