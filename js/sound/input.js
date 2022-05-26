@@ -7,11 +7,8 @@ const PortamentoMode = Object.freeze({
 
 class MusicInput {
 
-	constructor(numChannels) {
-		this.minChannel = 0;
-		this.maxChannel = 0;
-		this.numChannels = numChannels;
-		this.numChannelsInUse = 1;
+	constructor() {
+		this.armedChannels = [1];
 		this.legato = false;
 		this.portamento = PortamentoMode.ON;
 		this.sustain = false;
@@ -26,42 +23,63 @@ class MusicInput {
 		this.allocationOrder = [0];
 	}
 
-	#indexToChannelNum(index) {
-		return (this.minChannel + index) % this.numChannels + 1;
-	}
-
 	#removeAllocation(channelIndex) {
 		this.allocationOrder.splice(this.allocationOrder.indexOf(channelIndex), 1);
 	}
 
-	setChannelRange(minChannel, maxChannel, numChannels = this.numChannels) {
-		const time = performance.now();
-		for (let [note, channelIndex] of this.noteToChannel.entries()) {
-			const channelNum = this.#indexToChannelNum(channelIndex);
-			this.noteOff(time, channelNum);
+	armChannel(channelNum) {
+		if (this.armedChannels.includes(channelNum)) {
+			return;
 		}
-		minChannel--;
-		maxChannel--;
-		this.minChannel = minChannel;
-		this.maxChannel = maxChannel;
-		this.numChannels = numChannels;
-		this.keysDown = [];
-		let numChannelsInUse;
-		if (maxChannel >= minChannel) {
-			numChannelsInUse = maxChannel - minChannel + 1;
+		this.armedChannels.push(channelNum);
+		this.channelToNote.push(undefined);
+		this.allocationOrder.unshift(this.channelToNote.length - 1);
+	}
+
+	disarmChannel(channelNum) {
+		const channelIndex = this.armedChannels.indexOf(channelNum);
+		if (channelIndex === -1) {
+			return;
+		}
+		const note = this.channelToNote[channelIndex];
+		if (this.noteToChannel.get(note) === channelIndex) {
+			this.noteOff(performance.now(), channelNum);
+			this.noteToChannel.delete(note);
+		}
+		this.armedChannels.splice(channelIndex, 1);
+		this.channelToNote.splice(channelIndex, 1);
+		const numChannelsArmed = this.armedChannels.length;
+		this.#removeAllocation(numChannelsArmed);
+		for (let i = 0; i < numChannelsArmed; i++) {
+			if (this.allocationOrder[i] >= channelIndex) {
+				this.allocationOrder[i]--;
+			}
+		}
+	}
+
+	solo(channelNum) {
+		const channelIndex = this.armedChannels.indexOf(channelNum);
+		const timeStamp = performance.now();
+		for (let i = 0; i < this.channelToNote.length; i++) {
+			if (i !== channelIndex) {
+				const note = this.channelToNote[i];
+				if (this.noteToChannel.get(note) === i) {
+					this.noteOff(timeStamp, this.armedChannels[i]);
+				}
+			}
+		}
+		this.armedChannels = [channelNum];
+		const note = this.channelToNote[channelIndex];
+		this.channelToNote = [note];
+		if (this.noteToChannel.get(note) === channelIndex) {
+			this.keysDown = [note];
+			this.noteToChannel.clear();
+			this.noteToChannel.set(note, 0);
 		} else {
-			numChannelsInUse = numChannels - maxChannel + minChannel + 1;
+			this.keysDown = [];
+			this.noteToChannel.clear();
 		}
-		this.numChannelsInUse = numChannelsInUse;
-		if (numChannelsInUse > 1) {
-			this.legato = false;
-		}
-		this.channelToNote = new Array(numChannelsInUse);
-		this.noteToChannel.clear();
-		this.allocationOrder = new Array(numChannelsInUse);
-		for (let i = 0; i < numChannelsInUse; i++) {
-			this.allocationOrder[i] = i;
-		}
+		this.allocationOrder = [0];
 	}
 
 	keyDown(timeStamp, note, velocity) {
@@ -75,22 +93,23 @@ class MusicInput {
 			this.keysDown.splice(keyDownIndex, 1);
 			channelIndex = this.noteToChannel.get(note);
 		}
+		const numChannelsArmed = this.armedChannels.length;
 		const numKeysDown = this.keysDown.length;
 		if (channelIndex === undefined) {
 			channelIndex = this.allocationOrder.shift();
-			if (numKeysDown > 0 && this.legato) {
+			if (numKeysDown > 0 && numChannelsArmed === 1 && this.legato) {
 				velocity = 0;
 			}
 		} else {
 			this.#removeAllocation(channelIndex);
 		}
-		const channelNum = this.#indexToChannelNum(channelIndex);
+		const channelNum = this.armedChannels[channelIndex];
 		const glide =  this.portamento === PortamentoMode.ON ||
 			(this.portamento === PortamentoMode.FINGERED && numKeysDown > 0);
 
 		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide);
 
-		if (numKeysDown >= this.numChannelsInUse) {
+		if (numKeysDown >= numChannelsArmed) {
 			this.noteToChannel.delete(this.channelToNote[channelIndex]);
 		}
 		this.keysDown.push(note);
@@ -109,16 +128,17 @@ class MusicInput {
 			return;
 		}
 		let numKeysDown = this.keysDown.length;
-		const notesStolen = numKeysDown > this.numChannelsInUse;
+		const numChannelsArmed = this.armedChannels.length;
+		const notesStolen = numKeysDown > numChannelsArmed;
 		this.keysDown.splice(noteIndex, 1);
 		numKeysDown--;
 		const channelIndex = this.noteToChannel.get(note);
 		if (channelIndex === undefined) {
 			return;
 		}
-		const channelNum  = this.#indexToChannelNum(channelIndex);
+		const channelNum  = this.armedChannels[channelIndex];
 		timeStamp /= 1000;
-		const newNote = this.keysDown[numKeysDown - this.numChannelsInUse];
+		const newNote = this.keysDown[numKeysDown - numChannelsArmed];
 		const transposedNewNote = newNote + this.transpose;
 		if (notesStolen && transposedNewNote >= 0 && transposedNewNote <= 127) {
 			const glide = this.portamento !== PortamentoMode.OFF;
@@ -130,7 +150,7 @@ class MusicInput {
 		} else {
 			this.noteOff(timeStamp, channelNum);
 			this.#removeAllocation(channelIndex);
-			const insertIndex = this.numChannelsInUse - numKeysDown - 1;
+			const insertIndex = numChannelsArmed - numKeysDown - 1;
 			this.allocationOrder.splice(insertIndex, 0, channelIndex);
 		}
 		this.noteToChannel.delete(note);

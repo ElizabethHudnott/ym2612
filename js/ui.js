@@ -5,8 +5,10 @@ import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import MusicInput from './sound/input.js';
 const NUM_CHANNELS = 6;
-window.MUSIC_INPUT = new MusicInput(NUM_CHANNELS);
-MUSIC_INPUT.setChannelRange(1, NUM_CHANNELS);
+window.MUSIC_INPUT = new MusicInput();
+for (let i = 2; i <= NUM_CHANNELS; i++) {
+	MUSIC_INPUT.armChannel(i);
+}
 import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import Recorder from './sound/recorder.js';
@@ -24,7 +26,6 @@ const firstChannel = synth.getChannel(1);
 function eachChannel(callback) {
 	synth.channels.forEach(callback);
 }
-window.eachChannel = eachChannel;
 
 eachChannel(channel => channel.useAlgorithm(4));
 disableOperator(3);
@@ -36,6 +37,7 @@ window.recorder = recorder;
 window.synth = synth;
 window.psg = psg;
 window.ym2612 = new YM2612(soundSystem.fm, audioContext);
+window.eachChannel = eachChannel;
 window.OscillatorConfig = OscillatorConfig;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;

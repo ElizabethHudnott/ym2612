@@ -4,12 +4,17 @@ import {
 } from './common.js';
 
 const AMPLITUDES = new Array(31);
-for (let i = 0; i <= 28; i++) {
-	// Support 1/2 step volume levels, mimicked through rapidly alternating values on the real chip.
-	AMPLITUDES[i] = decibelReductionToAmplitude(i);
+AMPLITUDES[0] = 0;
+for (let i = 2; i <= 30; i += 2) {
+	// 2dB per step
+	AMPLITUDES[i] = decibelReductionToAmplitude(30 - i);
 }
-AMPLITUDES[29] = 0.5 * AMPLITUDES[28];
-AMPLITUDES[30] = 0;
+/* Support 1/2 step volume levels, which are created by rapidly alternating values on the real
+ * chip.
+*/
+for (let i = 1; i <= 29; i += 2) {
+	AMPLITUDES[i] = (AMPLITUDES[i - 1] + AMPLITUDES[i + 1]) / 2;
+}
 
 const ClockRate = {
 	PAL: 	3546893,
