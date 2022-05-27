@@ -44,11 +44,19 @@ window.VolumeAutomation = VolumeAutomation;
 
 let glideRate = 0;
 
-MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
+MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide, glideFrom) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
-	channel.setMIDINote(note, time, glide ? glideRate : 0);
+	if (glide) {
+		if (glideFrom !== undefined) {
+			// Polyphonic glide from last overall note, not last note played on the particular channel.
+			channel.setMIDINote(glideFrom, time, 0);
+		}
+		channel.setMIDINote(note, time, glideRate);
+	} else {
+		channel.setMIDINote(note, time, 0);
+	}
 
 	if (velocity > 0) {
 		channel.keyOn(audioContext, velocity, time);
@@ -63,7 +71,7 @@ MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
 MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 	switch (controller) {
 	case 5:	// Portamento time
-		glideRate = value / 12.7;
+		glideRate = Math.min(value, 99);
 		break;
 	case 10:	// Pan
 		const pan = (value - 64) / (value <= 64 ? 64 : 63);
@@ -174,7 +182,7 @@ document.getElementById('filter-q-slider').addEventListener('input', function (e
 	audioContext.resume();
 	filterQ = parseFloat(this.value);
 	const box = document.getElementById('filter-q');
-	box.value = filterQ;
+	box.value = filterQ.toFixed(1);
 	soundSystem.setFilterResonance(filterQ);
 });
 
@@ -287,16 +295,16 @@ document.getElementById('lfo-rate-slider').addEventListener('input', function (e
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const value = parseFloat(this.value);
-	const fast = document.getElementById('fast-lfo').checked;
 	const free = document.getElementById('lfo-rate-free').checked;
 	let frequency;
 	if (free) {
 		frequency = value;
 	} else {
-		frequency = value === 0 ? 0 : LFO_FREQUENCIES[value - 1] * synth.lfoRateMultiplier;
+		frequency = LFO_FREQUENCIES[value] * synth.lfoRateMultiplier;
 	}
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
-	document.getElementById('lfo-rate').value = Math.round(frequency * 100) / 100;
+	const precision = document.getElementById('fast-lfo').checked ? 1 : 2;
+	document.getElementById('lfo-rate').value = frequency.toFixed(precision);
 });
 
 function configureLFOFreqSlider(fast, free) {
@@ -304,8 +312,8 @@ function configureLFOFreqSlider(fast, free) {
 	if (fast) {
 		// Enable faster rates
 		if (free) {
-			slider.min = Math.ceil(LFO_FREQUENCIES[5] * synth.lfoRateMultiplier * 10) / 10;
-			slider.max = Math.ceil(LFO_FREQUENCIES[7] * synth.lfoRateMultiplier * 10) / 10;
+			slider.min = Math.round(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 10) / 10;
+			slider.max = Math.round(LFO_FREQUENCIES[8] * synth.lfoRateMultiplier * 10) / 10;
 			slider.step = 0.1;
 		} else {
 			slider.min = 6;
@@ -316,7 +324,7 @@ function configureLFOFreqSlider(fast, free) {
 		// Slower rates
 		if (free) {
 			slider.min = 0;
-			slider.max = Math.ceil(LFO_FREQUENCIES[5] * synth.lfoRateMultiplier * 10) / 10;
+			slider.max = Math.round(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 100) / 100;
 			slider.step = 0.01;
 		} else {
 			slider.min = 0;
@@ -331,7 +339,7 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		const fastCheckbox = document.getElementById('fast-lfo');
-		const fastThreshold = Math.ceil(LFO_FREQUENCIES[5] * synth.lfoRateMultiplier * 10) / 10;
+		const fastThreshold = Math.ceil(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 10) / 10;
 		if (fastCheckbox.checked && value < fastThreshold) {
 			fastCheckbox.checked = false;
 			configureLFOFreqSlider(false, true);
@@ -352,13 +360,16 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	const fast = this.checked;
 	const free = document.getElementById('lfo-rate-free').checked;
 	configureLFOFreqSlider(fast, free);
+	let precision;
 	if (fast) {
 		slider.value = slider.min;
+		precision = 1;
 	} else {
 		slider.value = slider.max;
+		precision = 2;
 	}
-	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[5] * synth.lfoRateMultiplier;
-	box.value = Math.round(frequency * 100) / 100;
+	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[6] * synth.lfoRateMultiplier;
+	box.value = frequency.toFixed(precision);
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 });
 
@@ -375,9 +386,9 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	if (free) {
 		slider.value = value;
 	} else {
-		let delta = value;
-		let presetNum = 8;
-		for (let i = 7; i >= 0; i--) {
+		let delta = Number.MAX_VALUE;
+		let presetNum;
+		for (let i = 8; i >= 0; i--) {
 			const presetValue = LFO_FREQUENCIES[i] * synth.lfoRateMultiplier;
 			const thisDelta = Math.abs(value - presetValue);
 			if (thisDelta < delta) {
@@ -388,27 +399,33 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 				break;
 			}
 		}
-		slider.value = presetNum === 8 ? 0 : presetNum + 1;
-		box.value = Math.round(LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier * 100) / 100;
-		eachChannel(channel => channel.useLFOPreset(audioContext, presetNum, time));
+		slider.value = presetNum;
+		const frequency = LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier;
+		const precision = fast ? 1 : 2;
+		box.value = frequency.toFixed(precision);
+		eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 	}
 });
 
-// From the DX21
-const LFO_DELAY_CONSTANT = 25;
-
+/**The DX21 manual says that a value of 99 results in a delay of "approximately 15 seconds" and
+ * a value of 70 takes 6.5 seconds. The rest is a leap of conjecture based on the fact that
+ * non-linear relationships in Yamaha synths generally rely on exponentiation of 2 and some bit
+ * shifting. An exponent of x/25 fits perfectly and 99/25 is very close to 127/32. I'm unsure
+ * how the scale 1..99 gets mapped onto an internal scale of 1..127 in this case though. It
+ * seems different from the calculation used for the operator output levels.
+ */
 function lfoDelayToSeconds(x) {
-	return Math.sign(x) * (2 ** (Math.abs(x) / LFO_DELAY_CONSTANT) - 0.5);
+	return Math.sign(x) * (2 ** (Math.abs(x) / 32) - 0.5);
 }
 
 function lfoDelayToYamaha(time) {
-	return time === 0 ? 0 : Math.log2(time + 0.5) * LFO_DELAY_CONSTANT;
+	return time === 0 ? 0 : Math.log2(time + 0.5) * 32;
 }
 
 document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
 	audioContext.resume();
 	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
-	document.getElementById('lfo-delay').value = Math.round(time * 100) / 100;
+	document.getElementById('lfo-delay').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFODelay(time));
 });
 
@@ -426,7 +443,7 @@ document.getElementById('lfo-fade-slider').addEventListener('input', function (e
 	audioContext.resume();
 	const direction = document.getElementById('lfo-fade-in').checked ? 1 : -1;
 	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
-	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
+	document.getElementById('lfo-fade').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFOFade(time));
 });
 
@@ -448,8 +465,7 @@ document.getElementById('lfo-fade').addEventListener('input', function (event) {
 function lfoFadeDirection(event) {
 	const duration = Math.abs(firstChannel.getLFOFade());
 	const time = parseInt(this.value) * duration;
-	document.getElementById('lfo-fade').value = Math.round(time * 100) / 100;
-	document.getElementById('lfo-fade-slider').value = lfoDelayToYamaha(duration * 13 / 6);
+	document.getElementById('lfo-fade').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFOFade(time));
 }
 
@@ -490,10 +506,11 @@ document.getElementById('vibrato-slider').addEventListener('input', function (ev
 	if (free) {
 		const sign = firstChannel.getVibratoDepth() < 0 ? -1 : 1;
 		cents = sign * vibratoPresetToCents(value);
+		box.value = Math.round(cents);
 	} else {
 		cents = VIBRATO_PRESETS[value];
+		box.value = Math.round(cents * 10) / 10;
 	}
-	box.value = Math.round(cents * 10) / 10;
 	eachChannel(channel => channel.setVibratoDepth(cents));
 });
 
@@ -681,7 +698,8 @@ function attackSlider(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
-	document.getElementById('op' + opNum + '-attack').value = value;
+	const precision = document.getElementById('op' + opNum + '-rates-free').checked ? 1 : 0;
+	document.getElementById('op' + opNum + '-attack').value = value.toFixed(precision);
 	eachChannel(channel => channel.getOperator(opNum).setAttack(value));
 }
 
@@ -689,7 +707,8 @@ function decaySlider(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
-	document.getElementById('op' + opNum + '-decay').value = value;
+	const precision = document.getElementById('op' + opNum + '-rates-free').checked ? 1 : 0;
+	document.getElementById('op' + opNum + '-decay').value = value.toFixed(precision);
 	eachChannel(channel => channel.getOperator(opNum).setDecay(value));
 }
 
@@ -714,7 +733,8 @@ function sustainRateSlider(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
-	document.getElementById('op' + opNum + '-sustain-rate').value = value;
+	const precision = document.getElementById('op' + opNum + '-rates-free').checked ? 1 : 0;
+	document.getElementById('op' + opNum + '-sustain-rate').value = value.toFixed(precision);
 	eachChannel(channel => channel.getOperator(opNum).setSustainRate(value));
 }
 
@@ -722,7 +742,8 @@ function releaseSlider(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const value = parseFloat(this.value);
-	document.getElementById('op' + opNum + '-release').value = value;
+	const precision = document.getElementById('op' + opNum + '-rates-free').checked ? 2 : 0;
+	document.getElementById('op' + opNum + '-release').value = value.toFixed(precision);
 	eachChannel(channel => channel.getOperator(opNum).setRelease(value));
 }
 

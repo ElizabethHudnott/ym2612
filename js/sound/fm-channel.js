@@ -9,6 +9,19 @@ class AbstractChannel {
 	// 0db, 1.4db, 5.9db, 11.8db
 	static tremoloPresets = [0, -15, -63, -126].map(x => x / 1023);
 
+	static glideRates = [0].concat([
+		     254, 243, 232, 211, 202, 193, 185, 178, 171,
+		165, 159, 153, 147, 141, 135, 130, 125, 120, 115,
+		110, 106, 102,  98,  94,  91,  88,  85,  82,  79,
+		 76,  74,  72,  70,  68,  66,  64,  62,  60,  58,
+		 56,  54,  53,  51,  49,  47,  46,  44,  42,  41,
+		 39,  38,  37,  36,  34,  33,  31,  30,  28,  27,
+		 26,  25,  24,  23,  22,  21,  20,  19,  18,  17.5,
+		 17,  16, 15.5, 15,  14, 13.5, 13, 12.5, 12,  11.5,
+		 11, 10.5, 10, 9.5,   9,  8.5,  8,  7.5,  7,   6.5,
+		  6,  5.5,  5, 4.5,   4,  3.5,  3,  2.5,  2,   1
+	].map(x => 10 / x));
+
 	frequencyToNote(block, frequencyNum) {
 		let lb = 0;
 		let ub = 127;
@@ -414,6 +427,7 @@ class Channel extends AbstractChannel {
 	}
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+		glideRate = AbstractChannel.glideRates[glideRate];
 		for (let i = 0; i < 4; i++) {
 			if (!this.fixedFrequency[i]) {
 				const operator = this.operators[i];
@@ -428,6 +442,7 @@ class Channel extends AbstractChannel {
 	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
 		if (this.fixedFrequency[operatorNum - 1]) {
 			const operator = this.operators[operatorNum - 1];
+			glideRate = AbstractChannel.glideRates[glideRate];
 			operator.setFrequency(blockNumber, frequencyNumber, 1, time, glideRate);
 		}
 		this.freqBlockNumbers[operatorNum - 1] = blockNumber;

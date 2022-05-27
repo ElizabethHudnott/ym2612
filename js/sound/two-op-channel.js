@@ -141,6 +141,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+		glideRate = AbstractChannel.glideRates[glideRate];
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
@@ -156,6 +157,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+		glideRate = AbstractChannel.glideRates[glideRate];
 		this.parentChannel.setOperatorFrequency(this.operatorOffset + operatorNum, blockNumber, frequencyNumber, time, glideRate);
 	}
 

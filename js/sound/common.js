@@ -6,7 +6,7 @@ const ClockRate = {
 	NTSC: 53693175 / 7
 }
 
-const LFO_FREQUENCIES = [3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
+const LFO_FREQUENCIES = [0, 3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
 
 const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 

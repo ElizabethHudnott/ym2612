@@ -102,7 +102,7 @@ function processMessage(event) {
 			MUSIC_INPUT.sustainCC(timeStamp, value >= 64);
 			break;
 		case 65: // Portamento switch
-			MUSIC_INPUT.portamentoSwitch(value >= 64);
+			MUSIC_INPUT.portamentoSwitch = value >= 64;
 			break;
 		default:
 			MUSIC_INPUT.controlChange(timeStamp, controller, value);

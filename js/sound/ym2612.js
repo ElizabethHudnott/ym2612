@@ -36,7 +36,7 @@ write[0x22] = (chip, preset, t) => {
 	if (preset & 8) {
 		preset &= 7;
 		for (let i = 1; i <= 6; i++) {
-			chip.synth.getChannel(i).useLFOPreset(chip.context, preset, t);
+			chip.synth.getChannel(i).useLFOPreset(chip.context, preset + 1, t);
 		}
 	} else {
 		for (let i = 1; i <= 6; i++) {
