@@ -66,6 +66,9 @@ Master Control Effects
 
 Not an effect but the list of patterns to play includes starting offsets.
 
+Implementation Details
+	Turn sound off (dampen) when simultaneously changing instrument and keying on
+
 ProTracker notes
 	Nested loops using different columns
 	Note cut using effect can be revived using volume commands

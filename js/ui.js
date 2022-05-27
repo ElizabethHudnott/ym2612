@@ -241,7 +241,7 @@ for (let i = 0; i <= 8; i++) {
 
 function modulationDepth(event) {
 	const value = parseFloat(this.value);
-	if (Number.isFinite(value)) {
+	if (Math.abs(value) <= 158.5) {
 		const id = this.id;
 		const from = parseInt(id.slice(-3));
 		const to = parseInt(id.slice(-1));
@@ -678,7 +678,7 @@ function frequency(event) {
 	const block = parseInt(document.getElementById('op' + opNum + '-block').value);
 	let freqNum = parseInt(document.getElementById('op' + opNum + '-freq-num').value);
 	if (!(freqNum >= 0 && freqNum <= 2047)) {
-		freqNum = channel.getOperator(opNum).getFrequencyNumber();
+		freqNum = firstChannel.getOperator(opNum).getFrequencyNumber();
 	}
 	eachChannel(channel => {
 		channel.fixFrequency(opNum, true, 0);

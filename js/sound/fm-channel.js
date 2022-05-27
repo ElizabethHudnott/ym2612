@@ -271,13 +271,13 @@ class Channel extends AbstractChannel {
 		return this.operators[operatorNum - 1];
 	}
 
-	/**Switches out of two operator mode and back into four operator mode. You'll still
-	 * need to reinitialize the channel with a new instrument patch and frequency setting
-	 * before the normal four operator behaviour is completely restored.
-	 * Things not covered here: algorithm, frequency, tremolo, vibrato, DAC/PCM remains disabled
-	 */
-	activate(context, time = 0) {
-		this.setVolume(this.outputLevel, time, method);
+	splitChannel(split, time = 0) {
+		if (split) {
+			this.setVolume(this.outputLevel / 2, time);
+			this.applyLFO(time);
+		} else {
+			this.setVolume(this.outputLevel, time);
+		}
 	}
 
 	setAlgorithm(modulations, outputLevels, time = 0, method = 'setValueAtTime') {

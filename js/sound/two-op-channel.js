@@ -57,19 +57,6 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.getOperator(this.operatorOffset + operatorNum);
 	}
 
-	/**Switches into two operator mode. A fixed panning setting for the pair of two
-	 * operator channels needs to be configured on the parent channel.
-	 */
-	activate(context, time = 0) {
-		const parent = this.parentChannel;
-		parent.setGain(0.5, time);	// Reserve half the output level for the other 2 op channel.
-		// Disable features that don't apply to 2 op channels.
-		parent.setLFOShape(context, 'triangle', time);	// Fixed LFO shape
-		parent.setLFOKeySync(context, false);
-		parent.applyLFO(time);	// No LFO envelope
-		parent.mute(false, time);
-	}
-
 	setAlgorithm(modulationDepth, outputLevels, time = 0, method = 'setValueAtTime') {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;

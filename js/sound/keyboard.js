@@ -50,11 +50,16 @@ document.body.addEventListener('keydown', function (event) {
 
 	const htmlInputType = document.activeElement.type;
 
-	if (
-		htmlInputType === 'number' &&
-		(code.slice(0, 5) === 'Digit' || code.slice(0, 6) === 'Numpad' || code === 'Minus' || code === 'Period')
-	) {
-		return;
+	if (htmlInputType === 'number') {
+		if (
+			code.slice(0, 5) === 'Digit' ||
+			code.slice(0, 6) === 'Numpad' ||
+			code === 'Minus' || code === 'Period'
+		) {
+			return;
+		} else if (code === 'KeyE') {
+			event.preventDefault();
+		}
 	}
 
 	if (code === 'Minus' || code === 'NumpadSubtract') {
@@ -69,6 +74,7 @@ document.body.addEventListener('keydown', function (event) {
 	}
 
 	if (code === 'Equal' || code === 'NumpadAdd') {
+		event.preventDefault();	// + character in number inputs
 		if (shift) {
 			if (transpose < 60 && notesOn.size === 0) {
 				transpose += 12;

@@ -19,7 +19,6 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 Bug: feedback strength (when n=7)?
 Bug?: slow fade in of vibrato
 
-Change distortion into decibels
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening
@@ -46,8 +45,6 @@ Level scaling (per operator)
 	Left and right curves (+linear, -linear, +exponential, -exponential, +stepped (OPL style), -stepped)
 	Can be applied to filter resonance too
 
-glide
-
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 	hard sync effect. Like Casio CZ?
 SSG loop should include attack phase (modes 0 and 4)
@@ -68,6 +65,9 @@ OPL2/3-like features
 
 One operator channels
 
+Setting to let LFO track note frequency at low-ish speeds (pseudo 5th operator)?
+	Settings: octave(?) and detune
+
 Amplitude Bend
 	How will it work with 2-op channels?
 	Repeating via SSG
@@ -78,8 +78,7 @@ Filter envelope (paraphonic) triggered either by every note on or only after all
 	Velocity can affect attack rate
 	Input gain (can be -ve to avoid overloading due to resonance)?
 
-Feedback amount envelope (or bend?)
-	Looping bends?
+Looping bends?
 
 Delay/Chorus unit
 
@@ -101,6 +100,7 @@ makeBasicWaveform
 	trapezoid option (as fraction that is flat, increase sine/tri frequency as needed)
 
 Microtuning
+	Indian and Arabic systems?
 	randomization/analog?
 	step offsets for PSG
 	getMIDINote for PSG
@@ -112,7 +112,6 @@ MIDI messages
 	foot controller (CC4)
 		assignable to volume, vibrato depth or tremolo depth
 	expression (alters volume) (CC11)
-	portamento on/off (CC65)
 	program change
 
 "Performance Play" (from DX11)?
@@ -128,8 +127,7 @@ Series: Yamaha DX11, TX81Z, TQ5, YS200, V50
 More Ideas
 	Velocity sensitive detuning
 
-Customizable max detune1? See DX11 manual
-Customizable damping time? DX11
+Customizable damping time?
 
 UI
 	Quick edit (DX11 manual p.13)
