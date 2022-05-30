@@ -42,6 +42,9 @@ window.OscillatorConfig = OscillatorConfig;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;
 
+const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
+let vibratoRange = 100;
+let tremoloRangeNum = 1;
 let glideRate = 0;
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide, glideFrom) {
@@ -69,6 +72,7 @@ MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
 };
 
 MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
+	let computedValue;
 	switch (controller) {
 	case 5:	// Portamento time
 		glideRate = Math.min(value, 99);
@@ -81,7 +85,8 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 		eachChannel(channel => channel.useFeedbackPreset(value * 6 / 127));
 		break;
 	case 92:
-		eachChannel(channel => channel.setTremoloDepth(-value));
+		computedValue = -value * (1 << (tremoloRangeNum - 1));
+		eachChannel(channel => channel.setTremoloDepth(computedValue));
 		break;
 	}
 }
@@ -472,44 +477,20 @@ function lfoFadeDirection(event) {
 document.getElementById('lfo-fade-in').addEventListener('input', lfoFadeDirection);
 document.getElementById('lfo-fade-out').addEventListener('input', lfoFadeDirection);
 
-function vibratoPresetToCents(x) {
-	if (x === 0) {
-		return 0;
-	} else if (x <= 3) {
-		return 3.3 * x + 0.1;
-	} else if (x < 5) {
-		return 10 * 2 ** ((x - 3) / 2);
-	} else {
-		return 10 * 2 ** (x - 4);
-	}
-}
-
-function centsToVibratoPreset(cents) {
-	cents = Math.abs(cents);
-	if (cents <= 0.1) {
-		return 0;
-	} else if (cents <= 10) {
-		return (cents - 0.1) / 3.3;
-	} else if (cents < 20) {
-		return Math.log2(cents / 10) * 2 + 3;
-	} else {
-		return Math.log2(cents / 10) + 4;
-	}
-}
-
 document.getElementById('vibrato-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	const value = parseFloat(this.value);
+	const value = parseInt(this.value);
 	const free = document.getElementById('vibrato-free').checked;
 	const box = document.getElementById('vibrato');
 	let cents;
 	if (free) {
 		const sign = firstChannel.getVibratoDepth() < 0 ? -1 : 1;
-		cents = sign * vibratoPresetToCents(value);
-		box.value = Math.round(cents);
+		cents = sign * value / 127 * vibratoRange;
+		const precision = vibratoRange < 20 ? 1 : 0;
+		box.value = cents.toFixed(precision);
 	} else {
 		cents = VIBRATO_PRESETS[value];
-		box.value = Math.round(cents * 10) / 10;
+		box.value = cents;
 	}
 	eachChannel(channel => channel.setVibratoDepth(cents));
 });
@@ -519,37 +500,79 @@ document.getElementById('vibrato-free').addEventListener('input', function (even
 	const slider = document.getElementById('vibrato-slider');
 	const box = document.getElementById('vibrato');
 	const free = this.checked;
+	const rangeSlider = document.getElementById('vibrato-range');
+	const label = document.getElementById('vibrato-max');
 	box.disabled = !free;
 	if (free) {
-		slider.step = 0.02;
+		const cents = VIBRATO_PRESETS[parseInt(slider.value)];
+		let rangeNum;
+		if (cents === 0) {
+			rangeNum = 4;
+		} else {
+			rangeNum = -1;
+			do {
+				rangeNum++;
+				vibratoRange = VIBRATO_RANGES[rangeNum];
+			} while (vibratoRange <= cents);
+		}
+		slider.max = 127;
+		slider.value = cents / vibratoRange * 127;
+		rangeSlider.value = rangeNum + 1;
+		label.innerHTML = vibratoRange;
+		rangeSlider.parentElement.classList.add('show');
+		label.parentElement.classList.add('show');
 	} else {
 		let cents = Math.abs(firstChannel.getVibratoDepth());
-		let presetNum = centsToVibratoPreset(cents);
-		const lowerPresetNum = Math.trunc(presetNum);
-		const upperPresetNum = Math.ceil(presetNum);
-		const lowerCents = VIBRATO_PRESETS[lowerPresetNum];
-		const upperCents = VIBRATO_PRESETS[upperPresetNum];
-		const lowerDelta = cents - lowerCents;
-		const upperDelta = upperCents - cents;
-		if (upperDelta <= lowerDelta) {
-			presetNum = upperPresetNum;
-			cents = upperCents;
-		} else {
-			presetNum = lowerPresetNum;
-			cents = lowerCents;
+		let presetNum = -1, presetValue;
+		do {
+			presetNum++;
+			presetValue = VIBRATO_PRESETS[presetNum];
+		} while (cents > presetValue && presetNum < VIBRATO_PRESETS.length - 1);
+		if (presetNum > 0) {
+			const lowerCents = VIBRATO_PRESETS[presetNum - 1];
+			const upperCents = VIBRATO_PRESETS[presetNum];
+			if (cents - lowerCents < upperCents - cents) {
+				presetNum--;
+			}
 		}
-		slider.step = 1;
+		cents = VIBRATO_PRESETS[presetNum];
+		slider.max = VIBRATO_PRESETS.length - 1;
 		slider.value = presetNum;
 		box.value = cents;
+		rangeSlider.parentElement.classList.remove('show');
+		label.parentElement.classList.remove('show');
 		eachChannel(channel => channel.setVibratoDepth(cents));
+		vibratoRange = 100;
 	}
 });
 
 document.getElementById('vibrato').addEventListener('input', function (event) {
 	const cents = parseFloat(this.value);
 	if (Number.isFinite(cents)) {
-		document.getElementById('vibrato-slider').value = centsToVibratoPreset(cents);
+		const absCents = Math.abs(cents);
+		let rangeNum = -1;
+		do {
+			rangeNum++;
+			vibratoRange = VIBRATO_RANGES[rangeNum];
+		} while (vibratoRange <= absCents);
+		document.getElementById('vibrato-slider').value = absCents / vibratoRange * 127;
+		document.getElementById('vibrato-range').value = rangeNum + 1
 		eachChannel(channel => channel.setVibratoDepth(cents));
+	}
+});
+
+document.getElementById('vibrato-range').addEventListener('input', function (event) {
+	let cents = firstChannel.getVibratoDepth();
+	vibratoRange = VIBRATO_RANGES[parseInt(this.value) - 1];
+	document.getElementById('vibrato-max').innerHTML = vibratoRange;
+	const slider = document.getElementById('vibrato-slider');
+	if (Math.abs(cents) > vibratoRange) {
+		slider.value = 127;
+		cents = Math.sign(cents) * vibratoRange;
+		document.getElementById('vibrato').value = cents;
+		eachChannel(channel => channel.setVibratoDepth(cents));
+	} else {
+		slider.value = cents / vibratoRange * 127;
 	}
 });
 

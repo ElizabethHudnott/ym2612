@@ -65,8 +65,9 @@ OPL2/3-like features
 
 One operator channels
 
-Setting to let LFO track note frequency at low-ish speeds (pseudo 5th operator)?
+Setting to let LFO track note frequency at low-ish speeds (pseudo 5th operator)? Why only low?
 	Settings: octave(?) and detune
+	Montage OS v3 goes up to 1356.59Hz
 
 Amplitude Bend
 	How will it work with 2-op channels?

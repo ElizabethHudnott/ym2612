@@ -208,7 +208,6 @@ class Operator {
 	 * the pitch a little, 6 lowers it moderately, 7 lowers it a lot.
 	 * @param {number} [time] When to alter the detuning. Defaults to whenever
 	 * setFrequency() is next called.
-	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
 	setDetune(extent, time = undefined) {
 		this.detune = extent;
@@ -264,15 +263,15 @@ class Operator {
 	 * methods to configure amplitude modulation for the operators. However, if you wish then
 	 * you can manually initiate amplitude modulation by invoking this method directly. This
 	 * allows different operators to have differing levels of amplitude modulation.
-	 * @param {number} linearAmount The amount of amplitude modulation to apply between 0
+	 * @param {number} scaledDepth The amount of amplitude modulation to apply between 0
 	 * and 1.
 	 * @param {number} [time] When to change the amplitude modulation depth. Defaults to immediately.
 	 * @param {string} [method] Apply the change instantaneously (default), linearly or exponentially.
 	 */
-	setTremoloDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		this.tremoloAmp[method](linearAmount, time);
-		this.tremolo[method](1 - Math.abs(linearAmount), time);
-		this.tremoloDepth = linearAmount;
+	setTremoloDepth(scaledDepth, time = 0, method = 'setValueAtTime') {
+		this.tremoloAmp[method](scaledDepth, time);
+		this.tremolo[method](1 - Math.abs(scaledDepth), time);
+		this.tremoloDepth = scaledDepth;
 	}
 
 	/**Gets the amount of amplitude modulation being applied to the operator on a 0..1 linear scale. */

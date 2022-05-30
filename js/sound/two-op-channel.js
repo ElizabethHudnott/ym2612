@@ -234,37 +234,37 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
-		const linearAmount = (1020 * depth / 384) / 1023;
+		const scaledDepth = depth * 2 / 1023;
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
 			const operatorNum = offset + i;
 			if (parent.isTremoloEnabled(operatorNum)) {
-				parent.getOperator(operatorNum).setTremoloDepth(linearAmount, time, method);
+				parent.getOperator(operatorNum).setTremoloDepth(scaledDepth, time, method);
 			}
 		}
-		this.tremoloDepth = linearAmount;
+		this.tremoloDepth = scaledDepth;
 	}
 
 	getTremoloDepth() {
-		return Math.round(this.tremoloDepth * 1023 / 1020 * 384);
+		return Math.round(this.tremoloDepth * 1023 / 2);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
-		const linearAmount = TREMOLO_PRESETS[presetNum];
+		const scaledDepth = TREMOLO_PRESETS[presetNum];
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
 		for (let i = 1; i <= 2; i++) {
 			const operatorNum = offset + i;
 			if (parent.isTremoloEnabled(operatorNum)) {
-				parent.getOperator(operatorNum).setTremoloDepth(linearAmount, time, method);
+				parent.getOperator(operatorNum).setTremoloDepth(scaledDepth, time, method);
 			}
 		}
-		this.tremoloDepth = linearAmount;
+		this.tremoloDepth = scaledDepth;
 	}
 
 	getTremoloPreset() {
-		const depth = Math.round(this.tremoloDepth * 1023);
+		const depth = Math.round(this.tremoloDepth * 1023 / 2);
 		return TREMOLO_PRESETS.indexOf(depth);
 	}
 
