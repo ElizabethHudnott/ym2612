@@ -93,7 +93,7 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 
 function compoundTremoloDepth(depth) {
 	let scaledDepth = depth;
-	if (scaledDepth > 0 && tremoloRangeNum < 3) {
+	if (scaledDepth > 0 && tremoloRangeNum > 0) {
 		scaledDepth += 0.5;
 	}
 	scaledDepth *= 2 ** (tremoloRangeNum - 1);
