@@ -85,10 +85,20 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 		eachChannel(channel => channel.useFeedbackPreset(value * 6 / 127));
 		break;
 	case 92:
-		computedValue = -value * (1 << (tremoloRangeNum - 1));
+		computedValue = compoundTremoloDepth(value);
 		eachChannel(channel => channel.setTremoloDepth(computedValue));
 		break;
 	}
+}
+
+function compoundTremoloDepth(depth) {
+	let scaledDepth = depth;
+	if (scaledDepth > 0 && tremoloRangeNum < 3) {
+		scaledDepth += 0.5;
+	}
+	scaledDepth *= 2 ** (tremoloRangeNum - 1);
+	scaledDepth = -scaledDepth;
+	return scaledDepth;
 }
 
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
