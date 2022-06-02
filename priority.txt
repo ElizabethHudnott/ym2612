@@ -1,6 +1,7 @@
 Bugs
 ----
 polyphonic glide doesn't work if previous glide hasn't completed
+tremolo polarity
 feedback strength (when n=7)?
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
@@ -15,6 +16,7 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 
 Tweaks
 ------
+Change panning implementation
 Use slider to control coarse and fine (detune2) ratios together
 Tabindexes in the custom algorithm section?
 Add "Key On" and "Key Off" annotations to envelope diagram

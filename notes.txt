@@ -16,6 +16,8 @@ Changing channel volume while PCM is in use doesn't work (problem?)
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
+Change panning implementation
+tremolo polarity
 Bug: feedback strength (when n=7)?
 Bug?: slow fade in of vibrato
 
@@ -114,6 +116,15 @@ MIDI messages
 		assignable to volume, vibrato depth or tremolo depth
 	expression (alters volume) (CC11)
 	program change
+
+			Volume Slider
+			Pitch Bend
+			Mod Wheel	Aftertouch	Foot	Breath
+Volume		X							X
+Vibrato		X				X			X			X
+Tremolo		X				X			X			X
+Pitch			X				X						X
+EG Bias						X						X
 
 "Performance Play" (from DX11)?
 	A performance:

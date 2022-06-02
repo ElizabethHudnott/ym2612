@@ -7,7 +7,7 @@ import Operator from './operator.js';
 class AbstractChannel {
 
 	// 0db, 1.4db, 5.9db, 11.8db
-	static tremoloPresets = [0, -15, -63, -126].map(x => x / 1023);
+	static tremoloPresets = [0, 15, 63, 126].map(x => x / 1023);
 
 	static glideRates = [0].concat([
 		     254, 243, 232, 211, 202, 193, 185, 178, 171,
