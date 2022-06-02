@@ -163,7 +163,7 @@ input[type=range]::-moz-range-thumb {
 	border-width: 2px;
 	font-size:  110%;
 	text-align: right;
-	min-width:  74px;
+	min-width:  74px;	/* For responsive modulation matrix */
 }
 
 .led-display.led-text {

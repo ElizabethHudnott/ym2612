@@ -559,7 +559,7 @@ document.getElementById('tremolo-slider').addEventListener('input', function (ev
 	if (free) {
 		const depth = compoundTremoloDepth(value);
 		percentage = 2 * depth / 1023 * 100;
-		precision = tremoloRangeNum === 2 ? 0 : 1;
+		precision = tremoloRangeNum > 0 ? 0 : 1;
 		eachChannel(channel => channel.setTremoloDepth(depth));
 	} else {
 		const scaledDepth = AbstractChannel.tremoloPresets[value];
@@ -584,7 +584,7 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 		slider.max = 127;
 		slider.value = 2 * depth;
 		rangeSlider.value = 0;
-		label.innerHTML = (TREMOLO_RANGES[0] / 1023 * 100).toFixed(1);
+		label.innerHTML = (2 * TREMOLO_RANGES[0] / 1023 * 100).toFixed(0);
 		rangeSlider.parentElement.classList.add('show');
 		label.parentElement.classList.add('show');
 	} else {
@@ -628,7 +628,7 @@ document.getElementById('tremolo').addEventListener('input', function (event) {
 		}
 		document.getElementById('tremolo-slider').value = tremoloSliderValue(depth);
 		document.getElementById('tremolo-range').value = tremoloRangeNum;
-		document.getElementById('tremolo-max').innerHTML = (tremoloRange / 511.5 * 100).toFixed(1);
+		document.getElementById('tremolo-max').innerHTML = (tremoloRange / 511.5 * 100).toFixed(0);
 		eachChannel(channel => channel.setTremoloDepth(depth));
 	}
 });
@@ -638,11 +638,12 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	tremoloRangeNum = parseInt(this.value);
 	const tremoloRange = TREMOLO_RANGES[tremoloRangeNum];
 	const scaledTremoloRange = 2 * tremoloRange / 1023 * 100;
-	document.getElementById('tremolo-max').innerHTML = scaledTremoloRange.toFixed(1);
+	document.getElementById('tremolo-max').innerHTML = scaledTremoloRange.toFixed(0);
 	const slider = document.getElementById('tremolo-slider');
 	if (depth > tremoloRange) {
 		slider.value = 127;
-		document.getElementById('tremolo').value = scaledTremoloRange.toFixed(1);
+		const precision = tremoloRangeNum > 0 ? 0 : 1;
+		document.getElementById('tremolo').value = scaledTremoloRange.toFixed(precision);
 		eachChannel(channel => channel.setTremoloDepth(tremoloRange));
 	} else {
 		slider.value = tremoloSliderValue(depth);
