@@ -54,6 +54,8 @@ envelope shift
 Add panning to PSG (like Sega Game Gear?)
 White noise as a modulator? (through filter + resonance?)
 
+LFO centering (only up / only down / bipolar)?
+
 PSG
 	glide
 	reciprocal node?

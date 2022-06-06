@@ -1,77 +1,95 @@
 N Any hexadecimal digit
 
 Note Track Fields
+	Note Delay (in ticks)
+
 	Pitch
+		Note & octave: change pitch
+		Empty: preserve previous pitch
 
 	Dynamics
-		 00 Slur
-		 NN Key on with specified velocity, no sustain
-		SNN Sustained key on with specified velocity
-		RNN Key on multiple times (retrigger) with specified initial velocity
-			 Retrigger time (in ticks) and optional velocity change (add/subtract/multiple) configured separately
-		OFF Release (key off)
-
-	Delay
-		N Number of ticks
+		  00 Slur/Legato
+		  NN Key on with specified velocity
+		REST
 
 	Instrument
 		00 Continue using the previously selected instrument
-		NN Select a new instrument and reset the volume control to maximum
+		NN Select a new instrument and reset volume control to maximum unless otherwise specified
 
 	Effects
 
 Master Control Track Fields
 	Effects
 
-Pitch Effects
+P = Pitch Effects
 	Portamento
-	Arpeggio offsets (one or more of them, repeating pattern, 1 note every tick)
+		with optional speed change (or reuse previous)
+	Arpeggio
+		Note offsets (one or more of them, scale degrees + sharp/flat) and optional speed (or reuse previous)
+		Can't be present in the same cell as pitch bend
 	Pitch Bend
-	-----
-	Vibrato Depth
+		Can't be present in the same cell as arpeggio
 
-Amplitude Effects
+V = Volume Effects (max 1 per cell)
 	Volume Bend
 	Set Volume (with optional delay)
-	-----
-	Tremolo Depth
 
-Modulation
+P = Panning Effects (max 1 per cell)
+	Panning Bend
+	Set Panning
+
+M = Modulation (any number of)
 	LFO Rate
 	LFO Shape
+	LFO Sync
+	Vibrato Depth
+	Tremolo Depth
 
-Other Standard Note Effects
-	Set Panning
-	Panning Bend?
-	-----
-	Operator 1 Feedback
-	Loop Start (per track)
-	Loop End
+A = Articulation (any number of)
+	Change Articulation
+		i.e. the fraction of time notes are held for prior to release before to next note
+	Retrigger note
+		with a retrigger time in ticks and optional velocity change (add/subtract/multiple)
+		ignores line boundaries if successive rows contain a retrigger effect with the same retrigger time
+		reuses previous pitch if a new one is not specified
+
+Other Standard Effects
+	Set ticks per line
+
+Sample Effects
 	Sample Offset
 	Sample Fine-Tune
 	Funk Loop
 
 Other Note Effects
-	Operator Modulation Depth Bend (custom envelope)
+	Set scale (for transposing, arpeggios)
+	Operator Modulation Depth Bend (effectively a custom envelope)
+	Feedback
 
 Macros
 	Operator ratio
 
-
 Master Control Effects
 	Pattern Delay (extra time for effects to run)
 	Set Tempo (absolute or relative)
-	Set ticks per line
 	Groove
+	Loop Start
+	Loop End
 
-Not an effect but the list of patterns to play includes starting offsets.
+Not an effect but the pattern list data includes
+	starting offset (so fragments of longer phrases can be placed inside shorter patterns)
+	loop on/off and loop start point (so shorter phrases can be repeated inside longer patterns)
+	transposition
+	velocity adjustment
+	initial instrument
+	direction (forward/reverse)?
+	...?
 
 Implementation Details
 	Turn sound off (dampen) when simultaneously changing instrument and keying on
 
 ProTracker notes
 	Nested loops using different columns
-	Note cut using effect can be revived using volume commands
 
 Instrument Editor
 	Option to disable transposing (for percussion)
@@ -79,3 +97,15 @@ Instrument Editor
 Editing
 	Transpose needs to take the musical scale into account?
 	MOD 2 sample
+
+Ideas from Stave Notation
+	Named sections
+
+Defaults
+Value	Space			Dotted
+1		16 lines
+1/2	 8 lines		12 lines
+1/4	 4 lines		6 lines
+1/8	 2 lines		3 lines
+1/16	 1 line		1 line + 3 ticks
+1/32	 3 ticks

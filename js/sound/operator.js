@@ -136,6 +136,7 @@ class Operator {
 	 * @param {number} [glideRate] The time taken to glide a distance of one octave.
 	 */
 	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, glideRate = 0) {
+		const currentFrequency = this.cancelGlide(time);
 		const keyCode = Synth.keyCode(blockNumber, frequencyNumber);
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
@@ -153,20 +154,8 @@ class Operator {
 		const frequencyStep = this.channel.synth.frequencyStep;
 		const newFrequency = fullFreqNumber * frequencyMultiple * frequencyStep;
 
-		const glidingFrom = this.glideFrom;
-		const glidingTo = this.frequency;
-		const prevGlideStart = this.glideStart;
-		const prevGlideTime = this.glideTime;
-		let currentFrequency;
-		if (prevGlideTime === 0 || time >= prevGlideStart + prevGlideTime) {
-			currentFrequency = glidingTo;
-		} else {
-			currentFrequency = glidingFrom * (glidingTo / glidingFrom) ** ((time - prevGlideStart) / prevGlideTime);
-		}
-		cancelAndHoldAtTime(this.frequencyParam, currentFrequency, time);
-		if (currentFrequency === 0 || newFrequency === 0 || glidingFrom === undefined) {
+		if (currentFrequency === 0 || newFrequency === 0 || this.glideFrom === undefined) {
 			this.frequencyParam.setValueAtTime(newFrequency, time);
-			this.glideTime = 0;
 		} else {
 			const glideTime = Math.abs(Math.log2(newFrequency / currentFrequency)) * glideRate;
 			this.frequencyParam.exponentialRampToValueAtTime(newFrequency, time + glideTime);
@@ -182,9 +171,20 @@ class Operator {
 		this.keyCode = keyCode;
 	}
 
-	cancelGlide(time = 0) {
-		cancelAndHoldAtTime(this.frequencyParam, this.frequency, time);
+	cancelGlide(time) {
+		const glidingFrom = this.glideFrom;
+		const glidingTo = this.frequency;
+		const prevGlideStart = this.glideStart;
+		const prevGlideTime = this.glideTime;
+		let currentFrequency;
+		if (prevGlideTime === 0 || time >= prevGlideStart + prevGlideTime) {
+			currentFrequency = glidingTo;
+		} else {
+			currentFrequency = glidingFrom * (glidingTo / glidingFrom) ** ((time - prevGlideStart) / prevGlideTime);
+		}
+		cancelAndHoldAtTime(this.frequencyParam, currentFrequency, time);
 		this.glideTime = 0;
+		return currentFrequency;
 	}
 
 

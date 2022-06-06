@@ -1002,18 +1002,16 @@ createOperatorPage(4);
 domParser = undefined;
 
 function enableOperator(opNum) {
-	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
-		elem.hidden = false;
-	}
+	const rule = document.getElementById('disabled-operator-styles').sheet.cssRules[opNum - 1];
+	rule.style.removeProperty('display');
 	eachChannel(channel => channel.enableOperator(opNum));
 	updateAlgorithmDetails();
 }
 
 function disableOperator(opNum) {
+	const rule = document.getElementById('disabled-operator-styles').sheet.cssRules[opNum - 1];
+	rule.style.setProperty('display', 'none');
 	eachChannel(channel => channel.disableOperator(opNum));
-	for (let elem of document.getElementsByClassName('operator-' + opNum)) {
-		elem.hidden = true;
-	}
 	updateAlgorithmDetails();
 }
 

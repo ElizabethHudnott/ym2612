@@ -477,7 +477,7 @@ class Channel extends AbstractChannel {
 		this.setFrequency(block, freqNum, time, glideRate);
 	}
 
-	cancelGlide(time = 0) {
+	cancelGlide(time) {
 		for (let i = 0; i < 4; i++) {
 			this.operators[i].cancelGlide(time);
 		}

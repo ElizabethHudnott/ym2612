@@ -27,7 +27,6 @@ Necessary Improvements
 testing
 add differentiation of log saw
 MIDI input
-Portamento
 Renumber operators 2 & 3?
 Use Algorithm 4 at start-up, Operators 3 & 4 (will be 2 & 4) disabled
 AM envelopes
