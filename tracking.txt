@@ -8,9 +8,9 @@ Note Track Fields
 		Empty: preserve previous pitch
 
 	Dynamics
-		  00 Slur/Legato
-		  NN Key on with specified velocity
-		REST
+		00 Slur/Legato
+		NN Key on with specified velocity
+		-1	Rest (displayed as REST in the pitch column)
 
 	Instrument
 		00 Continue using the previously selected instrument
@@ -25,7 +25,9 @@ P = Pitch Effects
 	Portamento
 		with optional speed change (or reuse previous)
 	Arpeggio
-		Note offsets (one or more of them, scale degrees + sharp/flat) and optional speed (or reuse previous)
+		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
+		One pitch change per tick
+		Turns on note retrigger (on every tick) by default
 		Can't be present in the same cell as pitch bend
 	Pitch Bend
 		Can't be present in the same cell as arpeggio
@@ -72,17 +74,17 @@ Macros
 Master Control Effects
 	Pattern Delay (extra time for effects to run)
 	Set Tempo (absolute or relative)
-	Groove
 	Loop Start
 	Loop End
 
 Not an effect but the pattern list data includes
+	groove (optional)
 	starting offset (so fragments of longer phrases can be placed inside shorter patterns)
 	loop on/off and loop start point (so shorter phrases can be repeated inside longer patterns)
 	transposition
 	velocity adjustment
 	initial instrument
-	direction (forward/reverse)?
+	direction (forward/reverse)
 	...?
 
 Implementation Details

@@ -12,6 +12,7 @@ for (let i = 2; i <= NUM_CHANNELS; i++) {
 }
 import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
+import {Phrase, Transform, Pattern, Player} from './sound/sequencer.js';
 import Recorder from './sound/recorder.js';
 
 const audioContext = new AudioContext({latencyHint: 'interactive'});
@@ -47,6 +48,10 @@ window.eachChannel = eachChannel;
 window.OscillatorConfig = OscillatorConfig;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;
+window.Phrase = Phrase;
+window.Transform = Transform;
+window.Pattern = Pattern;
+window.Player = Player;
 
 const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
 let vibratoRange = 100;

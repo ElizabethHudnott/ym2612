@@ -54,6 +54,10 @@ export default class Synth {
 		this.pcmLevel = 0;
 	}
 
+	get numberOfChannels() {
+		return this.channels.length;
+	}
+
 	enablePCMRegister(context) {
 		const dacRegister = new ConstantSourceNode(context, {offset: 0});
 		dacRegister.connect(this.pcmAmp);
