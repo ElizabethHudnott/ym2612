@@ -59,15 +59,11 @@ const TREMOLO_RANGES = [63.5, 127.5, 255, 510];
 let tremoloRangeNum = 0;
 let glideRate = 0;
 
-MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide, glideFrom) {
+MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
 	if (glide) {
-		if (glideFrom !== undefined) {
-			// Polyphonic glide from last overall note, not last note played on the particular channel.
-			channel.setMIDINote(glideFrom, time, 0);
-		}
 		channel.setMIDINote(note, time, glideRate);
 	} else {
 		channel.setMIDINote(note, time, 0);

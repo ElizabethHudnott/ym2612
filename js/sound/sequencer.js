@@ -187,6 +187,11 @@ class Pattern {
 					continue;
 				}
 				const onset = time + tick / numTicks * rowDuration;
+
+				if (cell.note !== undefined) {
+					channel.setMIDINote(cell.note, onset);
+				}
+
 				if (cell.velocity > 0) {
 					channel.keyOn(context, cell.velocity, onset);
 					let duration = rowDuration * (numTicks - tick) / numTicks;

@@ -1,6 +1,5 @@
 Bugs
 ----
-polyphonic glide doesn't work if previous glide hasn't completed
 tremolo polarity
 feedback strength (when n=7)?
 Correct beginLevel when there's a velocity change
@@ -39,3 +38,5 @@ User presets
 Service worker
 WAV output
 graphics
+basic(!) sequencer
+MIDI file input

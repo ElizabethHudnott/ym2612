@@ -12,8 +12,6 @@ export default class MusicInput {
 		this.armedChannels = [1];
 		this.sustain = false;
 
-		this.lastNote = undefined	// Stored regardless of whether any keys are currently pressed
-
 		// All notes in the follow fields are stored untransposed.
 		this.sustainedNotes = new Set();
 		// In the order they were pressed down, recorded non-transposed
@@ -112,16 +110,11 @@ export default class MusicInput {
 		} else {
 			glide = this.portamentoSwitch;
 		}
-		let glideFrom;
-		if (numChannelsArmed > 1) {
-			glideFrom = this.lastNote;
-		}
-		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide, glideFrom);
+		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide);
 
 		if (numKeysDown >= numChannelsArmed) {
 			this.noteToChannel.delete(this.channelToNote[channelIndex]);
 		}
-		this.lastNote = transposedNote;
 		this.keysDown.push(note);
 		this.channelToNote[channelIndex] = note;
 		this.noteToChannel.set(note, channelIndex);
@@ -152,12 +145,7 @@ export default class MusicInput {
 		const transposedNewNote = newNote + this.transpose;
 		if (notesStolen && transposedNewNote >= 0 && transposedNewNote <= 127) {
 			const glide = this.portamentoSwitch || this.fingeredPortamento;
-			let glideFrom;
-			if (numChannelsArmed > 1) {
-				glideFrom = this.lastNote;
-			}
-			this.pitchChange(timeStamp, channelNum, transposedNewNote, 0, glide, glideFrom);
-			this.lastNote = transposedNewNote;
+			this.pitchChange(timeStamp, channelNum, transposedNewNote, 0, glide);
 			this.channelToNote[channelIndex] = newNote;
 			this.noteToChannel.set(newNote, channelIndex);
 			this.#removeAllocation(channelIndex);
@@ -193,7 +181,7 @@ export default class MusicInput {
 		}
 	}
 
-	pitchChange(timeStamp, channelNum, note, velocity, glide, glideFrom) {
+	pitchChange(timeStamp, channelNum, note, velocity, glide) {
 		// To be overridden.
 	}
 
