@@ -1,0 +1,18 @@
+First byte
+Bits
+7	 Cell contains a pitch change
+6	 Cell contains a velocity change
+5	 Cell contains an instrument change
+4	 Cell contains effect commands
+0-3 Delay in ticks (0-15)
+
+Second byte (optional)
+7	 Reserved
+6-0 MIDI note number
+
+Third byte (optional)
+7	 Reserved
+0-6 MIDI velocity (1-127), 0 = rest
+
+Forth byte (optional)
+0-7 Instrument number

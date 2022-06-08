@@ -4,10 +4,15 @@ class Cell {
 	static EMPTY = Object.freeze(new Cell());
 
 	constructor() {
-		this.delay = 0;			// in ticks
-		this.note = undefined	// MIDI note number. undefined = no pitch change
-		this.velocity = 0			// 0 = slur/legato, -1 rest
-		this.instrument = 0		// 0 = no change
+		// Delay in ticks
+		this.delay = 0;
+		// MIDI note number or undefined for no change in pitch
+		this.note = undefined;
+		// 0 indicates a rest, 1-127 triggers a note with the specified velocity,
+		// undefined = no action
+		this.velocity = undefined;
+		// Instrument number or undefined for no change of instrument
+		this.instrument = undefined;
 	}
 
 	clone() {
@@ -114,7 +119,7 @@ class TrackState {
 
 	constructor(ticksPerRow = 6) {
 		this.ticksPerRow = 6;
-		this.articulation = 0.75;
+		this.articulation = 0.5;
 	}
 
 }
@@ -199,7 +204,7 @@ class Pattern {
 						basicRowDuration, numTicks, groove, cells, rowNum
 					);
 					duration *= trackState.articulation;
-					channel.keyOff(context, time + duration);
+					channel.keyOff(context, onset + duration);
 				}
 			}
 			time += rowDuration;
@@ -212,7 +217,7 @@ class Pattern {
 		const grooveLength = groove.length;
 		let duration = 0;
 		let cell = cells[rowNum];
-		while (rowNum < numRows && cell.velocity !== 0) {
+		while (rowNum < numRows && cell.velocity !== undefined) {
 			duration += basicRowDuration * groove[rowNum % grooveLength];
 			rowNum++;
 			cell = cells[rowNum];

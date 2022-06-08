@@ -146,13 +146,16 @@ class Operator {
 		let fullFreqNumber =
 			this.channel.componentsToFullFreq(blockNumber, frequencyNumber) +
 			detuneSteps +
-			Math.trunc(this.detune2 * 2 ** (blockNumber - 7));	// Use floating point to support blockNumber > 7
+			(this.detune2 >> (7 - blockNumber));
 
 		if (fullFreqNumber < 0) {
-			fullFreqNumber += 0x1FFFF;
+			fullFreqNumber += 0x20000; // underflowing, 17 bits
 		}
+
+		fullFreqNumber = (fullFreqNumber * frequencyMultiple) & 0xFFFFF; // 20 bit output
+
 		const frequencyStep = this.channel.synth.frequencyStep;
-		const newFrequency = fullFreqNumber * frequencyMultiple * frequencyStep;
+		const newFrequency = fullFreqNumber * frequencyStep;
 
 		if (currentFrequency === 0 || newFrequency === 0 || this.glideFrom === undefined) {
 			this.frequencyParam.setValueAtTime(newFrequency, time);

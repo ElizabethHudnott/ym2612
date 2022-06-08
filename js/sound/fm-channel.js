@@ -45,7 +45,7 @@ class AbstractChannel {
 	}
 
 	componentsToFullFreq(blockNumber, frequencyNumber) {
-		return Math.trunc(0.5 * (frequencyNumber * 2 ** blockNumber));
+		return Math.trunc(frequencyNumber * 2 ** (blockNumber - 1));
 	}
 
 	fullFreqToComponents(fullFrequencyNumber) {
@@ -457,6 +457,12 @@ class Channel extends AbstractChannel {
 		return this.frequencyNumbers[operatorNum - 1];
 	}
 
+	/**
+	 * @param {number} multiple Fractions in 1/16 resolution are supported on OPZ via the "fine"
+	 * ratio parameter. These combine with detune2 to effectively create even more ratios. OPM,
+	 * OPN and OPL only support integers and the value 0.5. OPN and OPL don't support detune2
+	 * either. The DX7 supports 1/100 resolution (without detune2).
+	 */
 	setFrequencyMultiple(operatorNum, multiple, time = undefined) {
 		this.frequencyMultiples[operatorNum - 1] = multiple;
 		if (time !== undefined && !this.fixedFrequency[operatorNum - 1]) {
