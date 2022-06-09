@@ -126,7 +126,7 @@ class TrackState {
 
 class Player {
 
-	constructor(context, synth, rowsPerMinute = 480, ticksPerRow = 6, groove = [1]) {
+	constructor(context, synth, rowsPerMinute = 240, ticksPerRow = 6, groove = [1]) {
 		this.context = context;
 		this.synth = synth;
 		const numChannels = synth.numberOfChannels;

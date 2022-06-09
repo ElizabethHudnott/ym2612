@@ -14,12 +14,14 @@ import './sound/keyboard.js';
 import MIDI from './sound/midi.js';
 import {Phrase, Transform, Pattern, Player} from './sound/sequencer.js';
 import Recorder from './sound/recorder.js';
+import {parsePattern} from './storage/csv.js';
 
 const audioContext = new AudioContext({latencyHint: 'interactive'});
 const soundSystem = new GenesisSound(audioContext);
 soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
 const synth = soundSystem.fm;
 const psg = soundSystem.psg;
+const player = new Player(audioContext, synth);
 const recorder = new Recorder(audioContext);
 recorder.connectIn(soundSystem.filter);
 
@@ -40,6 +42,7 @@ disableOperator(4);
 
 window.audioContext = audioContext;
 window.soundSystem = soundSystem;
+window.player = player;
 window.recorder = recorder;
 window.synth = synth;
 window.psg = psg;
@@ -173,6 +176,13 @@ document.getElementById('btn-record-audio').addEventListener('click', function (
 		recorder.resume();
 		break;
 	}
+});
+
+document.getElementById('upload').addEventListener('input', async function (event) {
+	audioContext.resume();
+	const file = this.files[0];
+	const content = await file.text();
+	window.pattern = parsePattern('', content, NUM_CHANNELS);
 });
 
 function updateAlgorithmDetails() {

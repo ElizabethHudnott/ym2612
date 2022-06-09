@@ -61,6 +61,7 @@ Other Standard Effects
 Sample Effects
 	Sample Offset
 	Sample Fine-Tune
+	Reverse
 	Funk Loop
 
 Other Note Effects
@@ -73,7 +74,7 @@ Macros
 
 Master Control Effects
 	Pattern Delay (extra time for effects to run)
-	Set Tempo (absolute or relative)
+	Set Tempo (absolute or relative +/- or relative multiple or reciprocal of multiple)
 	Loop Start
 	Loop End
 
