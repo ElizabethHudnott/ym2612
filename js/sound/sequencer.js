@@ -217,7 +217,7 @@ class Pattern {
 		const grooveLength = groove.length;
 		let duration = 0;
 		let cell = cells[rowNum];
-		while (rowNum < numRows && cell.velocity !== undefined) {
+		while (rowNum < numRows && cell.velocity === undefined) {
 			duration += basicRowDuration * groove[rowNum % grooveLength];
 			rowNum++;
 			cell = cells[rowNum];

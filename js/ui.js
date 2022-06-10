@@ -967,7 +967,6 @@ let domParser = new DOMParser();
 function createOperatorPage(n) {
 	const li = document.createElement('LI');
 	li.className = 'nav-item operator-' + n;
-	li.hidden = n > 2;
 	const anchor = document.createElement('A');
 	anchor.innerHTML = 'Operator ' + n;
 	anchor.className = 'nav-link';
