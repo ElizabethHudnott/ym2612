@@ -1,4 +1,4 @@
-import {PROCESSING_TIME, LFO_FREQUENCIES, VIBRATO_PRESETS} from './sound/common.js';
+import {PROCESSING_TIME, LFO_FREQUENCIES, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {AbstractChannel} from './sound/fm-channel.js';
@@ -56,7 +56,6 @@ window.Transform = Transform;
 window.Pattern = Pattern;
 window.Player = Player;
 
-const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
 let vibratoRange = 100;
 const TREMOLO_RANGES = [63.5, 127.5, 255, 510];
 let tremoloRangeNum = 0;

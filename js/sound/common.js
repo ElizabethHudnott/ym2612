@@ -8,6 +8,8 @@ const ClockRate = {
 
 const LFO_FREQUENCIES = [0, 3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
 
+const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
+
 const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 
 function cancelAndHoldAtTime(param, holdValue, time) {
@@ -270,5 +272,6 @@ export {
 	roundMicrotuning,
 	logToLinear, linearToLog, modulationIndex, outputLevelToGain, gainToOutputLevel,
 	makeMathyWave,
-	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS, MICRO_TUNINGS,
+	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_RANGES, VIBRATO_PRESETS,
+	MICRO_TUNINGS,
 }

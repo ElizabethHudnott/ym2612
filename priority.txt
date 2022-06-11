@@ -24,6 +24,7 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 Necessary Improvements
 ----------------------
 testing
+on screen keyboard
 add differentiation of log saw
 MIDI input
 Renumber operators 2 & 3?
@@ -39,4 +40,3 @@ Service worker
 WAV output
 graphics
 basic(!) sequencer
-MIDI file input

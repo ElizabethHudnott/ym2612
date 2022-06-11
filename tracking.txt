@@ -79,7 +79,7 @@ Master Control Effects
 	Loop End
 
 Not an effect but the pattern list data includes
-	groove (optional)
+	groove (optional, not per track)
 	starting offset (so fragments of longer phrases can be placed inside shorter patterns)
 	loop on/off and loop start point (so shorter phrases can be repeated inside longer patterns)
 	transposition

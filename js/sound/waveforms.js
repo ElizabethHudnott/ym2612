@@ -213,5 +213,11 @@ Waveform[4] = Waveform.ODD_SINE;
 Waveform[5] = Waveform.ABS_ODD_SINE;
 Waveform[6] = Waveform.SQUARE;
 Waveform[7] = Waveform.LOG_SAW;
+// Differentiated versions at n + 8
+Waveform[8] = Waveform.COSINE;
+Waveform[9] = Waveform.HALF_COSINE;
+Waveform[10] = Waveform.CO_ABS_SINE;
+Waveform[11] = Waveform.QUARTER_COSINE;
+Waveform[12] = Waveform.ODD_COSINE;
 
 export {OscillatorConfig, Waveform};

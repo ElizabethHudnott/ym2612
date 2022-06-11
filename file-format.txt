@@ -4,7 +4,7 @@ Bits
 6	 Cell contains a velocity change
 5	 Cell contains an instrument change
 4	 Cell contains effect commands
-0-3 Delay in ticks (0-15)
+0-3 Delay in ticks (0-15) (up to 16 ticks exist in a row)
 
 Second byte (optional)
 7	 Reserved

@@ -13,14 +13,26 @@ class Cell {
 		this.velocity = undefined;
 		// Instrument number or undefined for no change of instrument
 		this.instrument = undefined;
+		// Effect command objects
+		this.effects = [];
 	}
 
-	clone() {
+	clone(deep) {
 		const newCell = new Cell();
 		newCell.delay = this.delay;
 		newCell.note = this.note;
 		newCell.velocity = this.velocity;
 		newCell.instrument = this.instrument;
+		const numEffects = this.effects.length;
+		if (deep) {
+			const effects = new Array(numEffects);
+			for (let i = 0; i < numEffects; i++) {
+				effects[i] = this.effects[i].clone();
+			}
+			newCell.effects = effects;
+		} else {
+			newCell.effects = this.effects;
+		}
 		return newCell;
 	}
 }
@@ -96,7 +108,7 @@ class Transform {
 				(cell.velocity > 0 && velocityAdjust !== 1) ||
 				(firstNote && this.initialInstrument !== 0)
 			) {
-				cell = cell.clone();
+				cell = cell.clone(false);
 				if (cell.velocity > 0) {
 					cell.velocity = Math.min(cell.velocity * velocityAdjust, 127);
 					if (firstNote) {
@@ -206,6 +218,11 @@ class Pattern {
 					duration *= trackState.articulation;
 					channel.keyOff(context, onset + duration);
 				}
+
+				for (let effect of cell.effects) {
+					effect.apply(channel, onset);
+				}
+
 			}
 			time += rowDuration;
 		}

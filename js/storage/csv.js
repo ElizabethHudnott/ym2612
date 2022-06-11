@@ -1,4 +1,5 @@
 import {Phrase, Pattern} from '../sound/sequencer.js';
+import Effects from '../sound/effect-commands.js';
 
 function parseCSV(text) {
 	const fieldRE = /"([^"]*(?:""[^"]*)*)"|([^",\t\r\n]*)/gu;
@@ -49,6 +50,7 @@ class ColumnMap {
 		this.note = undefined;
 		this.velocity = undefined;
 		this.instrument = undefined;
+		this.effect = undefined;
 	}
 
 }
@@ -71,6 +73,7 @@ function parseHeader(row, maxChannels) {
 			break;
 		case 'velocity':
 		case 'instrument':
+		case 'effect':
 			if (columns[heading] !== undefined) {
 				tracks.push(columns);
 				columns = new ColumnMap();
@@ -119,6 +122,7 @@ function parsePattern(name, text, maxChannels) {
 					}
 				}
 			}
+
 			let columnNum = trackMap.note;
 			if (columnNum !== undefined) {
 				const str = row[columnNum].trim().toUpperCase();
@@ -152,6 +156,37 @@ function parsePattern(name, text, maxChannels) {
 					}
 				}
 			} // end if new note
+
+			columnNum = trackMap.effect;
+			if (columnNum !== undefined) {
+
+				const strings = row[columnNum].split(',');
+				for (let string of strings) {
+					string = string.trim();
+					if (string === '') {
+						continue;
+					}
+					const name = string[0];
+					const effectClass = Effects[name];
+					if (effectClass === undefined) {
+						throw new Error(
+							'CSV file contains an error on row ' + i + ', column ' +	String(columnNum + 1) +
+							'. Unknown effect ' + name
+						);
+					}
+					const valueStr = string.slice(1);
+					const value = parseFloat(valueStr);
+					if (Number.isNaN(value)) {
+						throw new Error(
+							'CSV file contains an error on row ' + i + ', column ' +	String(columnNum + 1) +
+							'. Invalid effect value ' + valueStr
+						);
+					}
+					const effect = new effectClass();
+					effect.set(value);
+					cell.effects.push(effect);
+				}
+			}
 		} // end for each track
 	} // end for each row
 	return pattern;
