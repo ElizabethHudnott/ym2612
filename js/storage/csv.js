@@ -1,6 +1,10 @@
 import {Phrase, Pattern} from '../sound/sequencer.js';
 import Effects from '../sound/effect-commands.js';
 
+// This needs to remain synchronized with effect-commands.js
+const EFFECT_GROUPS = new Map();
+EFFECT_GROUPS.set('m', 0x30);
+
 function parseCSV(text) {
 	const fieldRE = /"([^"]*(?:""[^"]*)*)"|([^",\t\r\n]*)/gu;
 	const separatorRE = /(,|\t)|(\r?\n)|$/gu;
@@ -160,21 +164,22 @@ function parsePattern(name, text, maxChannels) {
 			columnNum = trackMap.effect;
 			if (columnNum !== undefined) {
 
-				const strings = row[columnNum].split(',');
+				const strings = row[columnNum].toLowerCase().split(',');
 				for (let string of strings) {
 					string = string.trim();
 					if (string === '') {
 						continue;
 					}
-					const name = string[0];
-					const effectClass = Effects[name];
+					const group = EFFECT_GROUPS.get(string[0]);
+					const effectNum = group + parseInt(string[1], 16);
+					const effectClass = Effects[effectNum];
 					if (effectClass === undefined) {
 						throw new Error(
 							'CSV file contains an error on row ' + i + ', column ' +	String(columnNum + 1) +
-							'. Unknown effect ' + name
+							'. Unknown effect ' + string.slice(0, 2)
 						);
 					}
-					const valueStr = string.slice(1);
+					const valueStr = string.slice(2);
 					const value = parseFloat(valueStr);
 					if (Number.isNaN(value)) {
 						throw new Error(

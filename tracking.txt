@@ -26,22 +26,22 @@ Master Control Track Fields
 P = Pitch Effects
 	Portamento
 		with optional speed change (or reuse previous)
+	Pitch Bend
+		Can't be present in the same cell as arpeggio
 	Arpeggio
 		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
 		One pitch change per tick
 		Turns on note retrigger (on every tick) by default
 		Can't be present in the same cell as pitch bend
-	Pitch Bend
-		Can't be present in the same cell as arpeggio
 
 V = Volume Effects (max 1 per cell)
-	Volume Bend
 	Set Volume (with optional delay)
 	Fade Volume
+	Volume Bend
 
 P = Panning Effects (max 1 per cell)
-	Panning Bend
 	Set Panning
+	Panning Bend
 
 M = Modulation (any number of)
 	LFO Rate
@@ -51,7 +51,7 @@ M = Modulation (any number of)
 	Tremolo Depth
 
 A = Articulation (any number of)
-	Change Articulation
+	Gate Length / Change Articulation
 		i.e. the fraction of time notes are held for prior to release before to next note
 	Retrigger note
 		with a retrigger time in ticks and optional velocity change (add/subtract/multiple)
@@ -62,13 +62,13 @@ Other Standard Effects
 	Set ticks per line
 
 Sample Effects
+	New Note Action (cut or continue) (samples only)
 	Sample Offset
 	Sample Fine-Tune
 	Reverse
 	Funk Loop
 
 Other Note Effects
-	New Note Action (cut or continue) (samples only)
 	Set scale (for transposing, arpeggios)
 	Operator Modulation Depth Bend (effectively a custom envelope)
 	Feedback
@@ -78,7 +78,8 @@ Macros
 	Operator ratio
 
 Master Control Effects
-	Pattern Delay (extra time for effects to run)
+	Dynamic range compression
+	Pattern Delay (extra time for effects to run, whole repeats + extra ticks)
 	Set Tempo (absolute or relative +/- or relative multiple or reciprocal of multiple)
 	Loop Start
 	Loop End
@@ -87,6 +88,7 @@ Master Control Effects
 Not an effect but the pattern list data includes
 	time stretching
 	transposition
+	crescendo/decrescendo?
 	direction (forward/reverse/forward then back/back then forward/random)
 	...?
 

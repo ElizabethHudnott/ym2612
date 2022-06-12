@@ -56,8 +56,13 @@ class Vibrato {
 
 }
 
-const Effects = {
-	v: Vibrato
-}
+const Effects = {};
+// 0x0n	Pitch
+// 0x1n	Volume
+// 0x2n	Pan
+// 0x3n	Modulation
+Effects[0x33] = Vibrato;
+// 0x4n	Articulation
+// 0x5n	Samples
 
 export default Effects;
