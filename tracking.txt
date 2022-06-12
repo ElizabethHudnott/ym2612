@@ -1,5 +1,4 @@
 * Support negative note delays
-* Support accent/note contrast transform parameter
 
 N Any hexadecimal digit
 
@@ -85,12 +84,8 @@ Master Control Effects
 	Chance?
 
 Not an effect but the pattern list data includes
-	groove (optional, not per track)
-	starting offset (so fragments of longer phrases can be placed inside shorter patterns)
-	loop on/off and loop start point (so shorter phrases can be repeated inside longer patterns)
+	time stretching
 	transposition
-	velocity adjustment
-	initial instrument
 	direction (forward/reverse/forward then back/back then forward/random)
 	...?
 

@@ -70,7 +70,8 @@ class Transform {
 		this.offset = 0;	// starting offset. negative values create empty cells
 		this.loop = false;
 		this.loopStart = 0;
-		this.velocityAdjust = 1;		// multiplier
+		this.intensity = 1;	// multiplier
+		this.accent = 1;		// between 0 (no velocity variation) and 1 (maximum/normal)
 		this.initialInstrument = 0;	// 0 = don't change instrument
 		this.step = 1	// default to forward direction, one cell at a time
 	}
@@ -81,7 +82,8 @@ class Transform {
 		const step = this.step;
 		const loopStart = this.loopStart;
 		const loopLength = step >= 0 ? phraseLength - loopStart : loopStart + 1;
-		const velocityAdjust = this.velocityAdjust;
+		const intensity = this.intensity;
+		const accent = this.accent;
 
 		const outputCells = new Array(length);
 		let firstNote = true;
@@ -105,12 +107,13 @@ class Transform {
 			let cell = phrase.cells[position];
 
 			if (
-				(cell.velocity > 0 && velocityAdjust !== 1) ||
+				(cell.velocity > 0 && (intensity !== 1 || accent < 1)) ||
 				(firstNote && this.initialInstrument !== 0)
 			) {
 				cell = cell.clone(false);
 				if (cell.velocity > 0) {
-					cell.velocity = Math.min(cell.velocity * velocityAdjust, 127);
+					const velocity = intensity * cell.velocity * accent + intensity * (1 - accent);
+					cell.velocity = Math.min(velocity, 127);
 					if (firstNote) {
 						cell.instrument = this.initialInstrument;
 						firstNote = false;
