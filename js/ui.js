@@ -935,24 +935,13 @@ function levelsFree(event) {
 	const opNum = getOperator(this);
 	const free = this.checked;
 
-	const tlSlider = document.getElementById('op' + opNum + '-total-level-slider');
-	const tlBox = document.getElementById('op' + opNum + '-total-level');
-	tlBox.disabled = !free;
-
 	const sustainSlider = document.getElementById('op' + opNum + '-sustain-slider');
 	const sustainBox = document.getElementById('op' + opNum + '-sustain');
 	sustainBox.disabled = !free;
 
 	if (free) {
-		tlSlider.step = 0.5;
 		sustainSlider.step = 1 / 16;
 	} else {
-		const totalLevel = Math.round(firstChannel.getOperator(opNum).getTotalLevel());
-		tlSlider.step = 1;
-		tlSlider.value = totalLevel > 127 ? totalLevel - 128 : totalLevel;
-		tlBox.value = totalLevel;
-		eachChannel(channel => channel.getOperator(opNum).setTotalLevel(totalLevel));
-
 		const sustain = Math.round(firstChannel.getOperator(opNum).getSustain());
 		sustainSlider.step = 1;
 		sustainSlider.value = sustain;

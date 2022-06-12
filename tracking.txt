@@ -1,3 +1,6 @@
+* Support negative note delays
+* Support accent/note contrast transform parameter
+
 N Any hexadecimal digit
 
 Note Track Fields
@@ -65,9 +68,11 @@ Sample Effects
 	Funk Loop
 
 Other Note Effects
+	New Note Action (cut or continue) (samples only)
 	Set scale (for transposing, arpeggios)
 	Operator Modulation Depth Bend (effectively a custom envelope)
 	Feedback
+	Chance?
 
 Macros
 	Operator ratio
@@ -77,6 +82,7 @@ Master Control Effects
 	Set Tempo (absolute or relative +/- or relative multiple or reciprocal of multiple)
 	Loop Start
 	Loop End
+	Chance?
 
 Not an effect but the pattern list data includes
 	groove (optional, not per track)
@@ -85,7 +91,7 @@ Not an effect but the pattern list data includes
 	transposition
 	velocity adjustment
 	initial instrument
-	direction (forward/reverse)
+	direction (forward/reverse/forward then back/back then forward/random)
 	...?
 
 Implementation Details
