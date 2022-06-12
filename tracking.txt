@@ -37,6 +37,7 @@ P = Pitch Effects
 V = Volume Effects (max 1 per cell)
 	Volume Bend
 	Set Volume (with optional delay)
+	Fade Volume
 
 P = Panning Effects (max 1 per cell)
 	Panning Bend

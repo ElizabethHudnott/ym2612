@@ -136,7 +136,8 @@ class Operator {
 	 * @param {number} [glideRate] The time taken to glide a distance of one octave.
 	 */
 	setFrequency(blockNumber, frequencyNumber, frequencyMultiple = 1, time = 0, glideRate = 0) {
-		const currentFrequency = this.cancelGlide(time);
+		this.cancelGlide(time);
+		const currentFrequency = this.frequency;
 		const keyCode = Synth.keyCode(blockNumber, frequencyNumber);
 		const detuneSetting = this.detune;
 		const detuneTableOffset = (detuneSetting & 3) << 5;
@@ -186,8 +187,8 @@ class Operator {
 			currentFrequency = glidingFrom * (glidingTo / glidingFrom) ** ((time - prevGlideStart) / prevGlideTime);
 		}
 		cancelAndHoldAtTime(this.frequencyParam, currentFrequency, time);
+		this.frequency = currentFrequency;
 		this.glideTime = 0;
-		return currentFrequency;
 	}
 
 
