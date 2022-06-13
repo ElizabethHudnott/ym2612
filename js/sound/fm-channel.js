@@ -495,10 +495,15 @@ class Channel extends AbstractChannel {
 	 * @param {boolean} release True to apply the note off portion of the bend, or false to
 	 * apply the note on portion.
 	 * @param {number} time The time to begin pitch bending from.
-	 * @param {Array<number>} timesPerStep Either the duration of a tracker line (fine changes, i.e.
-	 * slower) or the duration of a tick, in seconds, or an absolute value if you don't want the
-	 * effect tempo synced. Use multiple values to account for a groove or a tempo change and
-	 * the system will rotate through them.
+	 * @param {Array<number>} timesPerStep Any array formed using:
+	 * a) the durations of tracker lines in seconds (for finer changes, i.e. slower changes)
+	 * b) durations of ticks in seconds (for faster changes)
+	 * c) for ornamentations time the steps so that the bend stretches or compresses to fill the
+	 * duration of the note (and reinterpret the articulation so that you're positioning the
+	 * release point between the penultimate pitch change and the end of the interval)
+	 * d) use an absolute value in seconds if you don't want the effect tempo synced
+	 * Use multiple values to account for a groove (or a tempo change) and the system will
+	 * rotate through them.
 	 * @param {number} [scaling=1] Scales the bend's values before applying them. Useful for
 	 * making the effect velocity sensitive. Negative values are also supported, in case you
 	 * need to force the bend to head in particular direction without knowing which direction

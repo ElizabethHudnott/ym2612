@@ -7,12 +7,6 @@ class Point {
 	}
 }
 
-const IntervalType = Object.freeze({
-	SMOOTH: 0,		// A smooth transition
-	GLISSANDO: 1,	// A sequence of jumps within one or more pitch bend steps
-	JUMP: 2,			// A single jump
-});
-
 class Bend {
 
 	static NUM_TIME_CONSTANTS = 4;
@@ -20,7 +14,7 @@ class Bend {
 
 	constructor(initialValue, stepResolutionOption = 0) {
 		this.points = [ new Point(0, initialValue) ];
-		this.intervalTypes = [];
+		this.isJump = [];
 		// For the GUI only.
 		this.stepsPerInteger = this.stepOptions[stepResolutionOption];
 		this.releasePoint = Infinity;		// Note on bend only.
@@ -85,18 +79,18 @@ class Bend {
 			let to = points[i].value * scaling;
 			let endStep = points[i].time;
 			let encodedValue;
-			switch (this.intervalTypes[i - 1]) {
 
-			case IntervalType.JUMP:
+			if (this.isJump[i - 1]) {
 				// Jumps occur at the beginning of the step. Smooth transitions flow till the end.
 				endStep--;
 				if (endStep > maxSteps) {
 					return;
 				}
-				param.setValueAtTime(this.encodeValue(to, initialValue), startTime + time[endStep]);
-				break;
+				if (from !== to) {
+					param.setValueAtTime(this.encodeValue(to, initialValue), startTime + time[endStep]);
+				}
 
-			case IntervalType.SMOOTH:
+			} else {
 
 				// Smooth transition
 				encodedValue = this.encodeValue(to, initialValue);
@@ -169,36 +163,27 @@ class Bend {
 					}
 
 				}
-				break;
-
-			default:
-
-				// Glissando
-				if (startStep >= maxSteps) {
-					return;
-				}
-
-				const gradient = (to - from) / (endStep - startStep);
-				endStep = Math.min(endStep, maxSteps);
-				encodedValue = this.encodeValue(from, initialValue);
-				const round = to >= from ? Math.trunc : Math.ceil;
-				let prevIntValue = round(from);
-				to = from;
-				for (let j = startStep + 1; j <= endStep; j++) {
-					const intValue = round(from + (j - startStep) * gradient);
-					if (prevIntValue !== intValue) {
-						encodedValue = this.encodeValue(intValue, initialValue);
-						param.setValueAtTime(encodedValue, startTime + time[j]);
-						to = intValue;
-						prevIntValue = intValue;
-					}
-				}
-				param.setValueAtTime(encodedValue, startTime + time[endStep]);
 
 			}
 
 			from = to;
 			startStep = endStep;
+		}
+	}
+
+	addPoint(value, duration = 1, isJump = false) {
+		const points = this.points;
+		const lastPoint = points[points.length - 1];
+		const point = new Point(lastPoint + duration, value);
+		this.points.push(point);
+		this.isJump.push(isJump);
+	}
+
+	removePoint(index) {
+		this.points.splice(index, 1);
+		this.isJump.splice(index, 1);
+		if (index < this.releasePoint) {
+			this.releasePoint--;
 		}
 	}
 
@@ -225,14 +210,6 @@ class Bend {
 		return true;
 	}
 
-	get allowSmmoth() {
-		return true;
-	}
-
-	get allowStepped() {
-		return false;
-	}
-
 	get stepOptions() {
 		return Bend.STEP_OPTIONS;
 	}
@@ -241,7 +218,7 @@ class Bend {
 
 class PitchBend extends Bend {
 
-	static STEP_OPTIONS = [1, 4, 16, 100];
+	static STEP_OPTIONS = [1, 16, 100];
 
 	constructor() {
 		super(0, 2);	// Default to 1/16 semitone increments
@@ -259,10 +236,6 @@ class PitchBend extends Bend {
 
 	get stepOptions() {
 		return PitchBend.STEP_OPTIONS;
-	}
-
-	get allowStepped() {
-		return true;
 	}
 
 	encodeValue(semitones, startFrequency) {

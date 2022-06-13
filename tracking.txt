@@ -26,13 +26,24 @@ Master Control Track Fields
 P = Pitch Effects
 	Portamento
 		with optional speed change (or reuse previous)
-	Pitch Bend
+	Ornamentation
+		Run a table of:
+			Pitch offsets expressed as scale degrees + sharp/flat
+			Trigger (yes/on)
+			Effect (glissando/frequency ramp/none)
+			Table is stretched or compressed to fit the note length
 		Can't be present in the same cell as arpeggio
+	Pitch Bend
 	Arpeggio
 		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
-		One pitch change per tick
-		Turns on note retrigger (on every tick) by default
-		Can't be present in the same cell as pitch bend
+		Implies retrigger effect
+		One pitch change per retrigger
+		Randomization options
+			Random order (on/off)
+			Random number of repeats
+				Max repeats or off
+		Swing
+		Can't be present in the same cell as ornamentation
 
 V = Volume Effects (max 1 per cell)
 	Set Volume (with optional delay)
