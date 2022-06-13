@@ -215,10 +215,9 @@ class Pattern {
 				if (cell.velocity > 0) {
 					channel.keyOn(context, cell.velocity, onset);
 					let duration = rowDuration * (numTicks - tick) / numTicks;
-					duration += Pattern.findExtendedNoteDuration(
-						basicRowDuration, numTicks, groove, cells, rowNum
+					duration = Pattern.findNoteDuration(
+						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.articulation
 					);
-					duration *= trackState.articulation;
 					channel.keyOff(context, onset + duration);
 				}
 
@@ -231,13 +230,17 @@ class Pattern {
 		}
 	}
 
-	static findExtendedNoteDuration(basicRowDuration, numTicks, groove, cells, rowNum) {
+	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, articulation) {
+		let lastNoteOffset = 0;
 		rowNum++;
 		const numRows = cells.length;
 		const grooveLength = groove.length;
-		let duration = 0;
+		let duration = initialDuration;
 		let cell = cells[rowNum];
 		while (rowNum < numRows && cell.velocity === undefined) {
+			if (cell.note !== undefined) {
+				lastNoteOffset = duration;
+			}
 			duration += basicRowDuration * groove[rowNum % grooveLength];
 			rowNum++;
 			cell = cells[rowNum];
@@ -247,7 +250,7 @@ class Pattern {
 			const extraTicks = Math.min(cell.delay, numTicks);
 			duration += basicRowDuration * extraTicks / numTicks;
 		}
-		return duration;
+		return lastNoteOffset + (duration - lastNoteOffset) * articulation;
 	}
 }
 
