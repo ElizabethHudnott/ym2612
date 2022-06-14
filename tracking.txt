@@ -32,8 +32,9 @@ P = Pitch Effects
 			Trigger (yes/on)
 			Effect (glissando/frequency ramp/none)
 			Table is stretched or compressed to fit the note length
-		Can't be present in the same cell as arpeggio
+		Can't be present in the same cell as pitch bend or arpeggio
 	Pitch Bend
+		Can't be present in the same cell as ornamentation or arpeggio
 	Arpeggio
 		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
 		Implies retrigger effect
@@ -43,7 +44,7 @@ P = Pitch Effects
 			Random number of repeats
 				Max repeats or off
 		Swing
-		Can't be present in the same cell as ornamentation
+		Can't be present in the same cell as pitch bend or ornamentation
 
 V = Volume Effects (max 1 per cell)
 	Set Volume (with optional delay)
@@ -83,7 +84,7 @@ Other Note Effects
 	Set scale (for transposing, arpeggios)
 	Operator Modulation Depth Bend (effectively a custom envelope)
 	Feedback
-	Chance?
+	Fill?
 
 Macros
 	Operator ratio
@@ -94,14 +95,25 @@ Master Control Effects
 	Set Tempo (absolute or relative +/- or relative multiple or reciprocal of multiple)
 	Loop Start
 	Loop End
-	Chance?
 
 Not an effect but the pattern list data includes
+	random velocity changes
 	time stretching
 	transposition
-	crescendo/decrescendo?
+	crescendo/decrescendo
 	direction (forward/reverse/forward then back/back then forward/random)
 	...?
+
+Song Structure
+	Chains
+	Multiple phrases per track of each pattern, with one chosen during playback based on
+		External variables (horizontal resequencing)
+			Switches at the beginning of the next bar
+		Randomization
+			E.g. play phrase A, D or E
+			Re-randomize each time the phrase loops (on/off)
+		Empty phrase can also be an option (vertical re-orchestration)
+			Option to fade in, fade out, both or neither when going to / from the empty phrase?
 
 Implementation Details
 	Turn sound off (dampen) when simultaneously changing instrument and keying on
@@ -120,10 +132,10 @@ Ideas from Stave Notation
 	Named sections
 
 Defaults
-Value	Space			Dotted
-1		16 lines
-1/2	 8 lines		12 lines
-1/4	 4 lines		6 lines
-1/8	 2 lines		3 lines
-1/16	 1 line		1 line + 3 ticks
-1/32	 3 ticks
+								Triplet
+					Total						Each
+ 1/2	8 lines	16 lines	= 96 ticks	32 ticks		S + L6.T2 + L11.T4
+ 1/4	4 lines	8 lines	= 48 ticks	16 ticks		S + L3.T4 + L6.T2
+ 1/8	2 lines	4 lines	= 24 ticks	 8 ticks		S + L2.T2 + L3.T4
+1/16	1 lines	2 lines	= 12 ticks	 4 ticks		S +    T4 + L2.T2
+1/32	3 ticks	1 line	=  6 ticks	 2 ticks		S +    T4 +    T4

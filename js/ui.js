@@ -660,6 +660,15 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	}
 });
 
+document.getElementById('glide-slider').addEventListener('input', function (event) {
+	glideRate = parseInt(this.value);
+	document.getElementById('glide').value = glideRate;
+});
+
+document.getElementById('fingered-glide').addEventListener('input', function (event) {
+	MUSIC_INPUT.fingeredPortamento = this.checked;
+});
+
 let filterFrequency, filterQ;
 
 document.getElementById('filter-enable').addEventListener('input', function (event) {

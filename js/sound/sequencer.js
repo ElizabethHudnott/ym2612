@@ -67,10 +67,12 @@ class Transform {
 	static IDENTITY = Object.freeze(new Transform());
 
 	constructor() {
-		this.offset = 0;	// starting offset. negative values create empty cells
+		/* Starting offset. Negative values create empty cells for tracks to come in later.
+		 * Positive values permit reusing the tail end of a phrase. */
+		this.offset = 0;
 		this.loop = false;
 		this.loopStart = 0;
-		this.intensity = 1;	// multiplier
+		this.intensity = 1;	// velocity multiplier
 		this.accent = 1;		// between 0 (no velocity variation) and 1 (maximum/normal)
 		this.initialInstrument = 0;	// 0 = don't change instrument
 		this.step = 1	// default to forward direction, one cell at a time
