@@ -197,11 +197,15 @@ class Channel extends AbstractChannel {
 			op3To4.gain
 		];
 		this.modulationDepths = new Array(this.gains.length);
+		// Initialize feedback registers
+		this.modulationDepths[0] = 0;
+		this.modulationDepths[1] = 0;
 
 		this.freqBlockNumbers = [3, 3, 3, 3];
 		this.frequencyNumbers = [1093, 1093, 1093, 1093];
 		this.frequencyMultiples = [1, 1, 1, 1];
 		this.fixedFrequency = [false, false, false, false];
+		this.glideRate = 0;
 
 		this.outputLevel = 99;
 		this.tremoloDepth = 0;	// linear scale
@@ -388,6 +392,18 @@ class Channel extends AbstractChannel {
 		this.operators[operatorNum - 1].enable();
 	}
 
+	setGlideRate(glideRate) {
+		this.glideRate = AbstractChannel.glideRates[glideRate];
+	}
+
+	getGlideRate() {
+		const glideRate = this.glideRate;
+		if (glideRate === 0) {
+			return 0;
+		}
+		return Math.round(10 / this.glideRate);
+	}
+
 	fixFrequency(operatorNum, fixed, time = undefined, preserve = true) {
 		const operator = this.operators[operatorNum - 1];
 		const multiple = this.frequencyMultiples[operatorNum - 1];
@@ -426,8 +442,8 @@ class Channel extends AbstractChannel {
 		return this.fixedFrequency[operatorNum - 1];
 	}
 
-	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
-		glideRate = AbstractChannel.glideRates[glideRate];
+	setFrequency(blockNumber, frequencyNumber, time = 0, glide = true) {
+		const glideRate = glide ? this.glideRate : 0;
 		for (let i = 0; i < 4; i++) {
 			if (!this.fixedFrequency[i]) {
 				const operator = this.operators[i];
@@ -439,10 +455,10 @@ class Channel extends AbstractChannel {
 		this.frequencyNumbers[3] = frequencyNumber;
 	}
 
-	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glide = true) {
 		if (this.fixedFrequency[operatorNum - 1]) {
 			const operator = this.operators[operatorNum - 1];
-			glideRate = AbstractChannel.glideRates[glideRate];
+			const glideRate = glide ? this.glideRate : 0;
 			operator.setFrequency(blockNumber, frequencyNumber, 1, time, glideRate);
 		}
 		this.freqBlockNumbers[operatorNum - 1] = blockNumber;
@@ -477,9 +493,10 @@ class Channel extends AbstractChannel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
-	setMIDINote(noteNumber, time = 0, glideRate = 0) {
+	setMIDINote(noteNumber, time = 0, glide = true) {
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		const glideRate = glide ? this.glideRate : 0;
 		this.setFrequency(block, freqNum, time, glideRate);
 	}
 
@@ -535,10 +552,11 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, glideRate = 0) {
+	setOperatorNote(operatorNum, noteNumber, time = 0, glide = true) {
 		this.fixedFrequency[operatorNum - 1] = true;
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		const glideRate = glide ? this.glideRate : 0;
 		this.setOperatorFrequency(operatorNum, block, freqNum, time, glideRate);
 	}
 
@@ -567,9 +585,12 @@ class Channel extends AbstractChannel {
 		const amount = this.getFeedback(operatorNum);
 		if (amount === 0) {
 			return 0;
-		} else {
-			return Math.round(Math.log2(amount / -this.synth.feedbackCallibration) + 6);
 		}
+		let logAmount;
+		logAmount = Math.log2(amount / -this.synth.feedbackCallibration) + 6;
+		// Convert to a precision comparable to the output level.
+		logAmount = Math.round(logAmount * 28) / 28;
+		return logAmount;
 	}
 
 	/**

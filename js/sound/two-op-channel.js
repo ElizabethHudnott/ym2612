@@ -12,6 +12,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		super();
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
+		this.glideRate = 0;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
 		this.tuneEqualTemperament();
@@ -97,6 +98,18 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		this.parentChannel.enableOperator(this.operatorOffset + operatorNum);
 	}
 
+	setGlideRate(glideRate) {
+		this.glideRate = AbstractChannel.glideRates[glideRate];
+	}
+
+	getGlideRate() {
+		const glideRate = this.glideRate;
+		if (glideRate === 0) {
+			return 0;
+		}
+		return Math.round(10 / this.glideRate);
+	}
+
 	fixFrequency(operatorNum, fixed, time = undefined) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
@@ -127,10 +140,10 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.isOperatorFixed(this.operatorOffset + operatorNum);
 	}
 
-	setFrequency(blockNumber, frequencyNumber, time = 0, glideRate = 0) {
-		glideRate = AbstractChannel.glideRates[glideRate];
+	setFrequency(blockNumber, frequencyNumber, time = 0, glide = true) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
+		const glideRate = glide ? this.glideRate : 0;
 		for (let i = 1; i <= 2; i++) {
 			const operatorNum = offset + i;
 			if (!parent.isOperatorFixed(operatorNum)) {
@@ -143,8 +156,8 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		parent.frequencyNumbers[offset + 1] = frequencyNumber;
 	}
 
-	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glideRate = 0) {
-		glideRate = AbstractChannel.glideRates[glideRate];
+	setOperatorFrequency(operatorNum, blockNumber, frequencyNumber, time = 0, glide = true) {
+		const glideRate = glide ? this.glideRate : 0;
 		this.parentChannel.setOperatorFrequency(this.operatorOffset + operatorNum, blockNumber, frequencyNumber, time, glideRate);
 	}
 
@@ -173,9 +186,10 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.getFrequencyMultiple(this.operatorOffset + operatorNum);
 	}
 
-	setMIDINote(noteNumber, time = 0, glideRate = 0) {
+	setMIDINote(noteNumber, time = 0, glide = true) {
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		const glideRate = glide ? this.glideRate : 0;
 		this.setFrequency(block, freqNum, time, glideRate);
 	}
 
@@ -200,12 +214,13 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, glideRate = 0) {
+	setOperatorNote(operatorNum, noteNumber, time = 0, glide = true) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		const glideRate = glide ? this.glideRate : 0;
 		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, glideRate);
 	}
 

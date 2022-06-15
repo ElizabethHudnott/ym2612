@@ -59,17 +59,12 @@ window.Player = Player;
 let vibratoRange = 100;
 const TREMOLO_RANGES = [63.5, 127.5, 255, 510];
 let tremoloRangeNum = 0;
-let glideRate = 0;
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
-	if (glide) {
-		channel.setMIDINote(note, time, glideRate);
-	} else {
-		channel.setMIDINote(note, time, 0);
-	}
+	channel.setMIDINote(note, time, glide);
 
 	if (velocity > 0) {
 		channel.keyOn(audioContext, velocity, time);
@@ -82,21 +77,36 @@ MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
 };
 
 MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
-	let computedValue;
+	let amount, freeCheckbox, precision;
 	switch (controller) {
 	case 5:	// Portamento time
-		glideRate = Math.min(value, 99);
+		amount = Math.min(value, 99);
+		eachChannel(channel => channel.setGlideRate(amount));
+		document.getElementById('glide-slider').value = amount;
+		document.getElementById('glide').value = amount;
 		break;
 	case 10:	// Pan
 		const pan = (value - 64) / (value <= 64 ? 64 : 63);
 		eachChannel(channel => channel.setPan(pan));
 		break;
 	case 71:
-		eachChannel(channel => channel.useFeedbackPreset(value * 6 / 127));
+		amount = value * 7 / 127;
+		eachChannel(channel => channel.useFeedbackPreset(amount));
+		document.getElementById('modulation-1-1').value = Math.round(amount * 140) / 10;
 		break;
 	case 92:
-		computedValue = compoundTremoloDepth(value);
-		eachChannel(channel => channel.setTremoloDepth(computedValue));
+		amount = compoundTremoloDepth(value);
+		eachChannel(channel => channel.setTremoloDepth(amount));
+		freeCheckbox = document.getElementById('tremolo-free');
+		if (!freeCheckbox.checked) {
+			freeCheckbox.checked = true;
+			document.getElementById('tremolo-slider').max = 127;
+			document.getElementById('tremolo-range').parentElement.classList.add('show');
+			document.getElementById('tremolo-max').parentElement.classList.add('show');
+		}
+		precision = tremoloRangeNum === 0 ? 1 : 0;
+		document.getElementById('tremolo').value = (amount / 511.5 * 100).toFixed(precision);
+		document.getElementById('tremolo-slider').value = value;
 		break;
 	}
 }
@@ -242,6 +252,19 @@ for (let i = 1; i <= 3; i++) {
 		document.getElementById('modulation-' + i + '-' + j).addEventListener('input', modulationDepth);
 	}
 }
+
+function feedback(event) {
+	const opNum = parseInt(this.id.slice(-1));
+	const value = parseFloat(this.value);
+	if (Number.isFinite(value)) {
+		// 0	1	2	3	4	5	6	7
+		// 0	14	28	42	56	70	84	98
+		eachChannel(channel => channel.useFeedbackPreset(value / 14));
+	}
+}
+
+document.getElementById('modulation-1-1').addEventListener('input', feedback);
+document.getElementById('modulation-3-3').addEventListener('input', feedback);
 
 function outputLevel() {
 	audioContext.resume();
@@ -661,8 +684,9 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 });
 
 document.getElementById('glide-slider').addEventListener('input', function (event) {
-	glideRate = parseInt(this.value);
+	const glideRate = parseInt(this.value);
 	document.getElementById('glide').value = glideRate;
+	eachChannel(channel => channel.setGlideRate(glideRate));
 });
 
 document.getElementById('fingered-glide').addEventListener('input', function (event) {
