@@ -1,6 +1,6 @@
 import {
 	decibelReductionToAmplitude, amplitudeToDecibels,
-	ClockRate as OPNClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS,
+	ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS,
 } from './common.js';
 
 const AMPLITUDES = new Array(31);
@@ -15,13 +15,6 @@ for (let i = 2; i <= 30; i += 2) {
 for (let i = 1; i <= 29; i += 2) {
 	AMPLITUDES[i] = (AMPLITUDES[i - 1] + AMPLITUDES[i + 1]) / 2;
 }
-
-const ClockRate = {
-	PAL: 	3546893,
-	NTSC: 	3579545
-}
-
-const CLOCK_RATIO = OPNClockRate.NTSC / ClockRate.NTSC;
 
 const TREMOLO_PRESETS = [0, 1, 3, 6];
 
@@ -343,8 +336,8 @@ class ToneChannel {
 
 class PSG {
 
-	constructor(context, output = context.destination, numWaveChannels = 3, clockRate = ClockRate.PAL, callback = undefined) {
-		this.setClockRate(context, clockRate);
+	constructor(context, numToneChannels = 3, output = context.destination, clockRate = ClockRate.PAL / 15) {
+		this.setClockRate(context, clockRate, 1);
 		this.tuneEqualTemperament();
 
 		let frequencyLimit = context.sampleRate / 2;
@@ -368,23 +361,24 @@ class PSG {
 		const lfo2 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
 		this.lfo2 = lfo2;
 
-		const channelGain = new GainNode(context, {gain: 1 / (numWaveChannels + 1)});
+		const channelGain = new GainNode(context, {gain: 1 / (numToneChannels + 1)});
 		channelGain.connect(context.destination);
 		const channels = [];
-		for (let i = 0; i < numWaveChannels; i++) {
+		for (let i = 0; i < numToneChannels; i++) {
 			const channel = new ToneChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
 			channels[i] = channel;
 		}
 		const noiseChannel = new NoiseChannel(context, lfo1, channelGain, clockRate);
 		noiseChannel.connectIn(channels[2].frequencyNode);
-		channels[numWaveChannels] = noiseChannel;
+		channels[numToneChannels] = noiseChannel;
 		this.noiseChannel = noiseChannel;
 		this.channels = channels;
 	}
 
-	setClockRate(context, clockRate) {
+	setClockRate(context, clockRate, divider = 15) {
+		clockRate /= divider
 		this.clockRate = clockRate;
-		const opnClock = clockRate * CLOCK_RATIO;
+		const opnClock = clockRate * 15 / 7;
 		this.lfoRateMultiplier = opnClock / 8000000;
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
 		/* Incorporate the upper 4 bits of an OPN style frequency number into the key code
@@ -510,5 +504,5 @@ class PSG {
 
 export {
 	PSG, NoiseChannel, ToneChannel,
-	TREMOLO_PRESETS, ClockRate, CLOCK_RATIO
+	TREMOLO_PRESETS
 }

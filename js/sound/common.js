@@ -1,10 +1,7 @@
 const PROCESSING_TIME = 0.001;
 const NEVER = 8388498;
 
-const ClockRate = {
-	PAL: 	53203424 / 7,
-	NTSC: 53693175 / 7
-}
+const ClockRate = {PAL: 53203424, NTSC: 53693175};
 
 const LFO_FREQUENCIES = [0, 3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
 

@@ -5,7 +5,7 @@ import {AbstractChannel} from './sound/fm-channel.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import MusicInput from './sound/input.js';
-const NUM_CHANNELS = 6;
+const NUM_CHANNELS = 8;
 window.MUSIC_INPUT = new MusicInput();
 for (let i = 2; i <= NUM_CHANNELS; i++) {
 	MUSIC_INPUT.armChannel(i);
@@ -17,7 +17,7 @@ import Recorder from './sound/recorder.js';
 import {parsePattern} from './storage/csv.js';
 
 const audioContext = new AudioContext({latencyHint: 'interactive'});
-const soundSystem = new GenesisSound(audioContext);
+const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS);
 soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
 const synth = soundSystem.fm;
 const psg = soundSystem.psg;

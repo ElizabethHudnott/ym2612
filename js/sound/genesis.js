@@ -1,17 +1,21 @@
 import {ClockRate} from './common.js';
 import Synth from './fm-synth.js';
-import {PSG, CLOCK_RATIO} from './psg.js';
+import {PSG} from './psg.js';
 
 export default class GenesisSound {
 
-	constructor(context, output = context.destination, ymClockRate = ClockRate.PAL, psgClockRate = ymClockRate / CLOCK_RATIO) {
+	constructor(context, numFMChannels = 6, numPulseChannels = 3, masterClockRate = ClockRate.PAL, psgClockRate = undefined, output = context.destination) {
 		this.cutoff = 4000;
 		this.resonance = 0;
 		const filter = new BiquadFilterNode(context, {frequency: this.cutoff, Q: this.resonance});
 		filter.connect(output);
 		this.filter = filter;
-		this.fm = new Synth(context, filter, 6, ymClockRate);
-		this.psg = new PSG(context, filter, 3, psgClockRate);
+
+		if (psgClockRate === undefined) {
+			psgClockRate = masterClockRate / 15;
+		}
+		this.fm = new Synth(context, numFMChannels, filter, masterClockRate / 7);
+		this.psg = new PSG(context, numPulseChannels, filter, psgClockRate);
 	}
 
 	start(time) {

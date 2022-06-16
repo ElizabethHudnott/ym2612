@@ -1,7 +1,4 @@
-import {
-	logToLinear, outputLevelToGain,
-	PROCESSING_TIME, ClockRate,
-} from './common.js';
+import {logToLinear, outputLevelToGain, PROCESSING_TIME, ClockRate} from './common.js';
 import Channel from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
 
@@ -13,12 +10,12 @@ export default class Synth {
 		return (blockNumber << 2) + (f11 << 1) + lsb;
 	}
 
-	constructor(context, output = context.destination, numChannels = 6, clockRate = ClockRate.PAL) {
+	constructor(context, numChannels = 8, output = context.destination, clockRate = ClockRate.PAL / 7) {
 		// Tuning data
 		this.referencePitch = 220;
 		this.referenceNote = 69;
 		this.feedbackCallibration = 2.5;
-		this.setClockRate(clockRate);
+		this.setClockRate(clockRate, 1);
 
 		const channelGain = new GainNode(context, {gain: 1 / (2 * numChannels)});
 		channelGain.connect(output);
@@ -68,7 +65,8 @@ export default class Synth {
 	/**Configures internal timings, etc. to match the real chip's behaviour in different
 	 * settings such as PAL versus NTSC game consoles.
 	 */
-	setClockRate(clockRate) {
+	setClockRate(clockRate, divider = 7) {
+		clockRate /= divider;
 		this.envelopeTick = 72 * 6 / clockRate;
 		this.lfoRateMultiplier = clockRate / 8000000;
 		this.frequencyStep = clockRate / (144 * 2 ** 20);
