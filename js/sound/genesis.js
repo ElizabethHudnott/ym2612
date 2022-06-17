@@ -8,14 +8,24 @@ export default class GenesisSound {
 		this.cutoff = 4000;
 		this.resonance = 0;
 		const filter = new BiquadFilterNode(context, {frequency: this.cutoff, Q: this.resonance});
-		filter.connect(output);
 		this.filter = filter;
+
+		this.compressRelease = 250;
+		const compressor = new DynamicsCompressorNode(context, {
+			attack: 0,
+			knee: 0,
+			release: this.compressRelease / 1000
+		});
+		this.compressor = compressor;
+		filter.connect(compressor);
+		compressor.connect(output);
 
 		if (psgClockRate === undefined) {
 			psgClockRate = masterClockRate / 15;
 		}
 		this.fm = new Synth(context, numFMChannels, filter, masterClockRate / 7);
 		this.psg = new PSG(context, numPulseChannels, filter, psgClockRate);
+		this.setCompression(4, 10);
 	}
 
 	start(time) {
@@ -48,6 +58,34 @@ export default class GenesisSound {
 
 	getFilterResonance() {
 		return this.resonance;
+	}
+
+	setCompression(preGain, ratio = 20, time = 0) {
+		const compressor = this.compressor;
+		const maxDB = 20 * Math.log10(preGain);
+		const threshold = -maxDB / (ratio - 1);
+		this.fm.setChannelGain(preGain, time);
+		compressor.ratio.setValueAtTime(ratio, time);
+		compressor.threshold.setValueAtTime(threshold, time);
+		this.preGain = preGain;
+		this.compressRatio = ratio;
+	}
+
+	getPreGain() {
+		return this.preGain;
+	}
+
+	getCompressorRatio() {
+		return this.compressRatio;
+	}
+
+	setCompressorRelease(milliseconds, time = 0) {
+		this.compressor.release.setValueAtTime(milliseconds / 1000);
+		this.compressRelease = milliseconds;
+	}
+
+	getCompressorRelease() {
+		return this.compressRelease;
 	}
 
 }

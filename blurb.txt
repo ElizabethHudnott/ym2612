@@ -1,22 +1,23 @@
 
-A powerful FM synthesizer that's accessible for beginners and runs on the web, with a retro design inspired by the Sega Mega Drive (Genesis), Sound Blaster Pro 2 and Yamaha synthesizers from the 80s.
+A powerful FM synthesizer that's accessible for beginners and runs on the web, with a retro design inspired by the Sega Mega Drive (Genesis), Sound Blaster Pro 2, arcade boards and synthesizers from the 80s.
 
 * Modern technology refresh with crystal clear 32 bit audio.
 * 8 oscillators per voice, 4 FM operators and 4 ring modulators
 * 12 prebuilt algorithms plus user-defined ones
-* Choose between 6 voices with 8 operators (4+4) or up to 12 voices with 4 operators (2+2)
+* Choose between 8 voices with 8 operators (4+4) or up to 16 voices with 4 operators (2+2)
 * 6 stage envelopes
 * 9 basic waveforms
+	<<insert images>>
 * Looping envelopes
 * Hard sync
-* 3 FM modes: ratio (coarse and fine), fixed frequency & ratio with offset
-* Low frequency modulation of amplitude, pitch and timbre
+* Supports coarse and fine ratios and fixed frequency operators
+* LFO modulation of pitch, amplitude and timbre
 * Low pass filter
 * Velocity sensitivity options
 * Stereo panning
 * Delay, chorus and flanger effects
 * Microtuning
-* Portamento
+* Portamento / Glide
 
 
 A programmable sound generator, for adding some classic chip tune spice to your sounds.
