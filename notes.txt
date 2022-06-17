@@ -33,6 +33,8 @@ Operator ratio bend
 Operator frequency offset? (in frequency numbers) (can be combined with a ratio)
 Fixed operator with partial key tracking ("frequency key scaling") (as 0..99 centred on C3) (FS1R)
 add differentiation of log saw
+compressor doesn't support soft knee
+compressor doesn't work with pre-gain higher than 4
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance (FS1R))

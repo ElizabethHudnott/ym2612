@@ -11,11 +11,7 @@ export default class GenesisSound {
 		this.filter = filter;
 
 		this.compressRelease = 250;
-		const compressor = new DynamicsCompressorNode(context, {
-			attack: 0,
-			knee: 0,
-			release: this.compressRelease / 1000
-		});
+		const compressor = new DynamicsCompressorNode(context, {attack: 0, knee: 0});
 		this.compressor = compressor;
 		filter.connect(compressor);
 		compressor.connect(output);
@@ -80,7 +76,7 @@ export default class GenesisSound {
 	}
 
 	setCompressorRelease(milliseconds, time = 0) {
-		this.compressor.release.setValueAtTime(milliseconds / 1000);
+		this.compressor.release.setValueAtTime(milliseconds / 1000, time);
 		this.compressRelease = milliseconds;
 	}
 

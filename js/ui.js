@@ -128,6 +128,92 @@ function tremoloSliderValue(depth) {
 	return sliderValue;
 }
 
+document.getElementById('pregain-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const preGain = parseFloat(this.value);
+	document.getElementById('pregain').value = preGain.toFixed(1);
+	soundSystem.setCompression(preGain, soundSystem.getCompressorRatio());
+});
+
+document.getElementById('pregain').addEventListener('input', function (event) {
+	audioContext.resume();
+	const preGain = parseFloat(this.value);
+	if (preGain >= 1 && preGain <= 4) {
+		document.getElementById('pregain-slider').value = preGain;
+		soundSystem.setCompression(preGain, soundSystem.getCompressorRatio());
+	}
+});
+
+document.getElementById('compress-ratio-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const ratio = parseFloat(this.value);
+	document.getElementById('compress-ratio').value = ratio;
+	soundSystem.setCompression(soundSystem.getPreGain(), ratio);
+});
+
+document.getElementById('compress-ratio').addEventListener('input', function (event) {
+	audioContext.resume();
+	const ratio = parseFloat(this.value);
+	if (ratio > 1 && ratio <= 20) {
+		document.getElementById('compress-ratio-slider').value = ratio;
+		soundSystem.setCompression(soundSystem.getpreGain(), ratio);
+	}
+});
+
+document.getElementById('compress-release-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	document.getElementById('compress-release').value = value;
+	soundSystem.setCompressorRelease(value);
+});
+
+document.getElementById('compress-release').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	if (value >= 0 && value <= 1000) {
+		const slider = document.getElementById('compress-release-slider');
+		const checkbox = document.getElementById('long-compress-release');
+		if (value > 100) {
+			slider.min = 100;
+			slider.max = 1000;
+			slider.step = 5;
+			this.step = 10;
+			checkbox.checked = true;
+		} else {
+			slider.min = 0;
+			slider.max = 100;
+			slider.step = 1;
+			this.step = 2;
+			checkbox.checked = false;
+		}
+		slider.value = value;
+		soundSystem.setCompressorRelease(value);
+	}
+});
+
+document.getElementById('long-compress-release').addEventListener('input', function (event) {
+	const slider = document.getElementById('compress-release-slider');
+	const box = document.getElementById('compress-release');
+	let release = soundSystem.getCompressorRelease();
+
+	if (this.checked) {
+		release = Math.max(release, 100);
+		slider.min = 100;
+		slider.max = 1000;
+		slider.step = 5;
+		box.step = 10;
+	} else {
+		release = Math.min(release, 100);
+		slider.min = 0;
+		slider.max = 100;
+		slider.step = 1;
+		box.step = 2;
+	}
+	slider.value = release;
+	box.value = release;
+	soundSystem.setCompressorRelease(release);
+});
+
 document.getElementById('btn-enable-midi').addEventListener('click', function (event) {
 	const midiPanel = this.parentElement.parentElement;
 	switch (MIDI.status) {
