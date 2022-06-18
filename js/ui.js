@@ -294,10 +294,9 @@ function updateAlgorithmDetails() {
 			const gain = operator.getGain();
 			total += Math.abs(gain);
 			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
+			box.value = Math.round(operator.getOutputLevel() * 100) / 100;
 		}
 	}
-	total *= 1 + Math.abs(firstChannel.getPan());
 	let distortion = 20 * Math.log10(Math.max(total, 1));
 	distortion = Math.trunc(distortion * 10) / 10;
 	document.getElementById('distortion').value = distortion;

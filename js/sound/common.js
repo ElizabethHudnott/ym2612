@@ -90,7 +90,12 @@ const DX_TO_SY_LEVEL = [
 
 function dxToSYLevel(outputLevel) {
 	if (outputLevel < 20) {
-		return DX_TO_SY_LEVEL[Math.round(outputLevel)]
+		const lowerIndex = Math.trunc(outputLevel);
+		const upperAmount = outputLevel - lowerIndex;
+		const syLevel =
+			DX_TO_SY_LEVEL[lowerIndex] * (1 - upperAmount) +
+			DX_TO_SY_LEVEL[lowerIndex + 1] * upperAmount;
+		return syLevel;
 	} else {
 		return outputLevel + 28;
 	}
@@ -101,8 +106,10 @@ function syToDXLevel(level) {
 		return level - 28;
 	} else {
 		for (let i = 19; i >= 0; i--) {
-			if (level >= DX_TO_SY_LEVEL[i]) {
-				return i;
+			const compareLevel = DX_TO_SY_LEVEL[i];
+			if (level >= compareLevel) {
+				const diff = DX_TO_SY_LEVEL[i + 1] - compareLevel;
+				return i + (level - compareLevel) / diff;
 			}
 		}
 	}
@@ -267,7 +274,8 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 export {
 	cancelAndHoldAtTime, decibelReductionToAmplitude, amplitudeToDecibels,
 	roundMicrotuning,
-	logToLinear, linearToLog, modulationIndex, outputLevelToGain, gainToOutputLevel,
+	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
+	gainToOutputLevel,
 	makeMathyWave,
 	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_RANGES, VIBRATO_PRESETS,
 	MICRO_TUNINGS,
