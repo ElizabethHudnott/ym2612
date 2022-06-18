@@ -76,20 +76,25 @@ class Transform {
 		this.accent = 1;		// between 0 (no velocity variation) and 1 (maximum/normal)
 		this.initialInstrument = 0;	// 0 = don't change instrument
 		this.step = 1	// default to forward direction, one cell at a time
+		this.stretch = 1	// higher values insert blank rows between source rows
 	}
 
 	apply(phrase, length = 64) {
-		let position = this.offset;
 		const phraseLength = phrase.length;
 		const step = this.step;
 		const loopStart = this.loopStart;
 		const loopLength = step >= 0 ? phraseLength - loopStart : loopStart + 1;
 		const intensity = this.intensity;
 		const accent = this.accent;
+		let position = this.offset;
+		if (step < 0) {
+			position = phraseLength - 1 - position;
+		}
 
 		const outputCells = new Array(length);
 		let firstNote = true;
-		for (let i = 0; i < length; i++) {
+		let inputStepsTaken = -1;	// incremented before use
+		for (let outputRowNum = 0; outputRowNum < length; outputRowNum++) {
 
 			if (this.loop) {
 				if (step >= 0) {
@@ -102,7 +107,13 @@ class Transform {
 			}
 
 			if (position < 0 || position >= phraseLength) {
-				outputCells[i] = Cell.EMPTY;
+				outputCells[outputRowNum] = Cell.EMPTY;
+				continue;
+			}
+
+			inputStepsTaken++;
+			if (inputStepsTaken % this.stretch !== 0) {
+				outputCells[outputRowNum] = Cell.EMPTY;
 				continue;
 			}
 
@@ -123,7 +134,7 @@ class Transform {
 				}
 			}
 
-			outputCells[i] = cell;
+			outputCells[outputRowNum] = cell;
 			position += step;
 		}
 
@@ -178,6 +189,10 @@ class Pattern {
 		this.phrases.push(phrase);
 		this.transforms.push(transform);
 		this.cachedCells.push(transform.apply(phrase, this.length));
+	}
+
+	invalidateCache(trackNum) {
+		this.cachedCells[trackNum] = undefined;
 	}
 
 	play(player, time = player.context.currentTime + PROCESSING_TIME) {
