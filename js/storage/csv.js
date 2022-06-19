@@ -73,7 +73,9 @@ function parseHeader(row, maxChannels) {
 				columns = new ColumnMap();
 			}
 			columns[heading] = i;
-			isEmpty = false;
+			if (heading === 'note') {
+				isEmpty = false;
+			}
 			break;
 		case 'velocity':
 		case 'instrument':

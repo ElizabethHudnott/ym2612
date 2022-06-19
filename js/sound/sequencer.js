@@ -120,10 +120,14 @@ class Transform {
 			let cell = phrase.cells[position];
 
 			if (
+				(step < 0 && cell.delay !== 0) ||
 				(cell.velocity > 0 && (intensity !== 1 || accent < 1)) ||
 				(firstNote && this.initialInstrument !== 0)
 			) {
 				cell = cell.clone(false);
+				if (step < 0) {
+					cell.delay = -cell.delay;
+				}
 				if (cell.velocity > 0) {
 					const velocity = intensity * cell.velocity * accent + intensity * (1 - accent);
 					cell.velocity = Math.min(velocity, 127);
@@ -210,20 +214,37 @@ class Pattern {
 			}
 		}
 
+		let basicRowDuration = player.rowTime;
+		let prevRowDuration = basicRowDuration * groove[grooveLength - 1];
 		for (let rowNum = 0; rowNum < numRows; rowNum++) {
-			const basicRowDuration = player.rowTime;
 			const rowDuration = basicRowDuration * groove[rowNum % grooveLength];
 			for (let trackNum = 0; trackNum < numTracks; trackNum++) {
 				const channel = synth.getChannel(trackNum + 1);
 				const cells = this.cachedCells[trackNum];
 				const cell = cells[rowNum];
 				const trackState = player.trackState[trackNum];
+
 				let numTicks = trackState.ticksPerRow;
+				let extendedDuration = rowDuration;
+				let extraTicks = 0;
 				let tick = cell.delay;
-				if (tick >= numTicks) {
-					continue;
+				let onset = time;
+
+				if (tick >= 0) {
+					if (tick >= numTicks) {
+						continue;
+					}
+					onset += tick / numTicks * rowDuration;
+				} else {
+					if (tick <= -numTicks) {
+						continue;
+					}
+					const timeExtension = -tick / numTicks * prevRowDuration;
+					extendedDuration += timeExtension;
+					onset -= timeExtension;
+					extraTicks = -tick;
+					tick = 0;
 				}
-				const onset = time + tick / numTicks * rowDuration;
 
 				if (cell.note !== undefined) {
 					channel.setMIDINote(cell.note, onset);
@@ -231,7 +252,7 @@ class Pattern {
 
 				if (cell.velocity > 0) {
 					channel.keyOn(context, cell.velocity, onset);
-					let duration = rowDuration * (numTicks - tick) / numTicks;
+					let duration = extendedDuration * (numTicks - tick) / numTicks;
 					duration = Pattern.findNoteDuration(
 						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.articulation
 					);
@@ -244,28 +265,36 @@ class Pattern {
 
 			}
 			time += rowDuration;
+			prevRowDuration = rowDuration;
 		}
 	}
 
 	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, articulation) {
-		let lastNoteOffset = 0;
-		rowNum++;
 		const numRows = cells.length;
 		const grooveLength = groove.length;
+		let rowDuration = basicRowDuration * groove[rowNum % grooveLength];
 		let duration = initialDuration;
+		let lastNoteOffset = 0;
+		rowNum++;
 		let cell = cells[rowNum];
+
 		while (rowNum < numRows && cell.velocity === undefined) {
 			if (cell.note !== undefined) {
 				lastNoteOffset = duration;
 			}
-			duration += basicRowDuration * groove[rowNum % grooveLength];
+			rowDuration = basicRowDuration * groove[rowNum % grooveLength];
+			duration += rowDuration;
 			rowNum++;
 			cell = cells[rowNum];
 		}
 		if (cell !== undefined) {
 			const lastRowDuration = basicRowDuration * groove[rowNum % grooveLength];
-			const extraTicks = Math.min(cell.delay, numTicks);
-			duration += basicRowDuration * extraTicks / numTicks;
+			let extraTicks = cell.delay;
+			if (extraTicks >= 0) {
+				duration += lastRowDuration * Math.min(extraTicks, numTicks) / numTicks;
+			} else {
+				duration -= rowDuration * Math.min(-extraTicks, numTicks) / numTicks;
+			}
 		}
 		return lastNoteOffset + (duration - lastNoteOffset) * articulation;
 	}
