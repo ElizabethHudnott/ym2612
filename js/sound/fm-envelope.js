@@ -484,7 +484,11 @@ export default class Envelope {
 		// Higher velocities result in less attenuation when a positive sensitivity setting is used.
 		level = (level << 7 - 2 * this.velocitySensitivity * this.velocity) >> 7;
 		level = Math.min(Math.max(level, 0), 127);
-		this.totalLevelNode.offset[method](-level * 8 / 1023, time);
+		if (level === 127) {
+			this.totalLevelNode.offset[method](-1023, time);
+		} else {
+			this.totalLevelNode.offset[method](-level * 8 / 1023, time);
+		}
 	}
 
 	getTotalLevel() {

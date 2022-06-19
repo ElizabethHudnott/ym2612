@@ -3,6 +3,7 @@ import Effects from '../sound/effect-commands.js';
 
 // This needs to remain synchronized with effect-commands.js
 const EFFECT_GROUPS = new Map();
+EFFECT_GROUPS.set('p', 0x00);
 EFFECT_GROUPS.set('m', 0x30);
 
 function parseCSV(text) {

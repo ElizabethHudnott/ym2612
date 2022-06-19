@@ -31,20 +31,57 @@ class Effect {
 
 }
 
+/**
+ * Applies glide to a note, and optionally changes the glide rate.
+ * Special values: 0 = reuse previous
+ */
+class Glide extends Effect {
+
+	constructor() {
+		super();
+		this.rate = undefined;
+	}
+
+	clone() {
+		const clone = new Glide();
+		clone.rate = this.rate;
+		return clone;
+	}
+
+	set(data) {
+		const value = data[0];
+		if (value === 0) {
+			this.rate = undefined;
+		} else {
+			this.rate = data[0];
+		}
+	}
+
+	apply(trackState, channel, time) {
+		const rate = this.rate;
+		if (rate !== undefined) {
+			channel.setGlideRate(rate);
+		}
+		trackState.glide = true;
+	}
+}
+
 /**Set Vibrato Depth effect.
  * This effect has a memory.
  * Stored in files as a 16 bit signed multiple of 5/128 cent.
  * Special values: -32768 = reuse previous
  */
-class Vibrato {
+class Vibrato extends Effect {
 
 	constructor() {
+		super();
 		this.cents = undefined;
 	}
 
 	clone() {
 		const clone = new Vibrato();
 		clone.cents = this.cents;
+		return clone;
 	}
 
 	set(data) {
@@ -64,7 +101,7 @@ class Vibrato {
 		let cents = this.cents;
 		if (cents === undefined) {
 			cents = trackState.vibrato;
-		} else {
+		} else if (cents !== 0) {
 			trackState.vibrato = cents;
 		}
 		channel.setVibratoDepth(cents, time);
@@ -74,6 +111,7 @@ class Vibrato {
 
 const Effects = {};
 // 0x0n	Pitch
+Effects[0x01] = Glide;
 // 0x1n	Volume
 // 0x2n	Pan
 // 0x3n	Modulation

@@ -152,7 +152,12 @@ class TrackState {
 	constructor(ticksPerRow = 6) {
 		this.ticksPerRow = 6;
 		this.articulation = 0.5;
+		this.glide = false;
 		this.vibrato = VIBRATO_PRESETS[1];
+	}
+
+	reset() {
+		this.glide = false;
 	}
 
 }
@@ -224,6 +229,7 @@ class Pattern {
 				const cells = this.cachedCells[trackNum];
 				const cell = cells[rowNum];
 				const trackState = player.trackState[trackNum];
+				trackState.reset();
 
 				let numTicks = trackState.ticksPerRow;
 				let extendedDuration = rowDuration;
@@ -249,8 +255,12 @@ class Pattern {
 					tick = 0;
 				}
 
+				for (let effect of cell.effects) {
+					effect.apply(trackState, channel, onset);
+				}
+
 				if (cell.note !== undefined) {
-					channel.setMIDINote(cell.note, onset);
+					channel.setMIDINote(cell.note, onset, trackState.glide);
 				}
 
 				if (cell.velocity > 0) {
@@ -260,10 +270,6 @@ class Pattern {
 						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.articulation
 					);
 					channel.keyOff(context, onset + duration);
-				}
-
-				for (let effect of cell.effects) {
-					effect.apply(trackState, channel, onset);
 				}
 
 			}
