@@ -1,4 +1,4 @@
-import {PROCESSING_TIME} from './common.js';
+import {PROCESSING_TIME, VIBRATO_PRESETS} from './common.js';
 
 class Cell {
 	static EMPTY = Object.freeze(new Cell());
@@ -152,6 +152,7 @@ class TrackState {
 	constructor(ticksPerRow = 6) {
 		this.ticksPerRow = 6;
 		this.articulation = 0.5;
+		this.vibrato = VIBRATO_PRESETS[1];
 	}
 
 }
@@ -262,7 +263,7 @@ class Pattern {
 				}
 
 				for (let effect of cell.effects) {
-					effect.apply(channel, onset);
+					effect.apply(trackState, channel, onset);
 				}
 
 			}

@@ -190,7 +190,7 @@ function parsePattern(name, text, maxChannels) {
 						);
 					}
 					const effect = new effectClass();
-					effect.set(value);
+					effect.set([value]);
 					cell.effects.push(effect);
 				}
 			}

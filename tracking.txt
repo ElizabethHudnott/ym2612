@@ -24,27 +24,31 @@ Master Control Track Fields
 	Effects
 
 P = Pitch Effects
-	Portamento
+	Pitch Bend
+	Glide
 		with optional speed change (or reuse previous)
+	Ramp
+	Arpeggio
+		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
+		Implies retrigger effect
+		One pitch change per retrigger
+			set articulation to 100% if retriggering is undesirable
+		Randomization options
+			Random order (on/off)
+			Max repeats
+		Swing
 	Ornamentation
 		Run a table of:
 			Pitch offsets expressed as scale degrees + sharp/flat
 			Trigger (yes/on)
 			Effect (glissando/frequency ramp/none)
 			Table is stretched or compressed to fit the note length
-		Can't be present in the same cell as pitch bend or arpeggio
-	Pitch Bend
-		Can't be present in the same cell as ornamentation or arpeggio
-	Arpeggio
-		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
-		Implies retrigger effect
-		One pitch change per retrigger
-		Randomization options
-			Random order (on/off)
-			Random number of repeats
-				Max repeats or off
-		Swing
-		Can't be present in the same cell as pitch bend or ornamentation
+	Permitted Combinations
+						Bend	Glide	Ramp	Arpeggio	Ornamentation
+	Bend				-		N		Y		N			N
+	Glide				-		-		N		Y			N
+	Ramp				-		-		-		Y			N
+	Arpeggio			-		-		-		-			N
 
 V = Volume Effects (max 1 per cell)
 	Set Volume (with optional delay)
@@ -80,7 +84,7 @@ Sample Effects
 	Reverse
 	Funk Loop
 
-Other Note Effects
+Other Note Track Effects
 	Set scale (for transposing, arpeggios)
 	Operator Modulation Depth Bend (effectively a custom envelope)
 	Feedback
@@ -117,6 +121,16 @@ Song Structure
 
 Implementation Details
 	Turn sound off (dampen) when simultaneously changing instrument and keying on
+
+Effects with Memory
+	Arpeggio
+	Retrigger
+	LFO Rate
+	Vibrato
+	Tremolo
+	Panbrello
+	Sample Offset
+	Relative tempo change
 
 ProTracker notes
 	Nested loops using different columns

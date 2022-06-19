@@ -35,6 +35,7 @@ Fixed operator with partial key tracking ("frequency key scaling") (as 0..99 cen
 add differentiation of log saw
 compressor doesn't support soft knee
 compressor doesn't work with pre-gain higher than 4
+only run lfo when tremolo or vibrato depth is non-zero
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance (FS1R))
