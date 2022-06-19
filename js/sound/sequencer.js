@@ -235,6 +235,8 @@ class Pattern {
 						continue;
 					}
 					onset += tick / numTicks * rowDuration;
+				} else if (rowNum === 0) {
+					tick = 0;	// First row can't have a negative delay
 				} else {
 					if (tick <= -numTicks) {
 						continue;
