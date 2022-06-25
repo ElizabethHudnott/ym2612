@@ -70,7 +70,7 @@ function logToLinear(x) {
 	if (x <= 0) {
 		return 0;
 	}
-	return 2 ** (-ATTENUATION_BITS * (1023 - Math.abs(x)) / 1024);
+	return 2 ** (-ATTENUATION_BITS * (1023 - x) / 1024);
 }
 
 /**
@@ -81,7 +81,7 @@ function linearToLog(y) {
 	if (y <= 0) {
 		return 0;
 	}
-	return 1023 + Math.log2(Math.abs(y)) * 1024 / ATTENUATION_BITS;
+	return 1023 + Math.log2(y) * 1024 / ATTENUATION_BITS;
 }
 
 const DX_TO_SY_LEVEL = [

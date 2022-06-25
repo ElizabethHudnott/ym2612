@@ -7,7 +7,7 @@ import Operator from './operator.js';
 class AbstractChannel {
 
 	// 0db, 1.4db, 5.9db, 11.8db
-	static tremoloPresets = [0, 15, 63, 126].map(x => x / 1023);
+	static tremoloPresets = [0, 15, 63, 126].map(x => x / 2046);
 
 	static glideRates = [0].concat([
 		     254, 243, 232, 211, 202, 193, 185, 178, 171,
@@ -595,11 +595,12 @@ class Channel extends AbstractChannel {
 
 	/**
 	 * @param {number} depth The amount of tremolo effect to apply in the range of -511.5 to
-	 * +511.5 (though 510 is equivalent to the largest amount permitted by Yamaha). Modelled on
+	 * +511.5 (though 510 is equivalent to the largest amount permitted by Yamaha). Values
+	 * between 512 and 1023 will introduce ring modulation. The tremolo is Modelled on
 	 * OPM's combinations of 128 modulation depths and 3 amplitude modulation sensitivities.
 	 */
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
-		const scaledDepth = depth * 2 / 1023;
+		const scaledDepth = depth / 1023;
 		for (let i = 0; i < 4; i++) {
 			if (this.tremoloEnabled[i]) {
 				this.operators[i].setTremoloDepth(scaledDepth, time, method);
@@ -609,7 +610,7 @@ class Channel extends AbstractChannel {
 	}
 
 	getTremoloDepth() {
-		return Math.round(this.tremoloDepth * 1023 / 2);
+		return Math.round(this.tremoloDepth * 1023);
 	}
 
 	useTremoloPreset(presetNum, time = 0, method = 'setValueAtTime') {
@@ -623,7 +624,7 @@ class Channel extends AbstractChannel {
 	}
 
 	getTremoloPreset() {
-		const depth = Math.round(this.tremoloDepth * 1023 / 2);
+		const depth = Math.round(this.tremoloDepth * 1023);
 		return AbstractChannel.tremoloPresets.indexOf(depth);
 	}
 

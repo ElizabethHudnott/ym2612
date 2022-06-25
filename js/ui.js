@@ -57,7 +57,7 @@ window.Pattern = Pattern;
 window.Player = Player;
 
 let vibratoRange = 100;
-const TREMOLO_RANGES = [63.5, 127.5, 255, 510];
+const TREMOLO_RANGES = [63.5, 127.5, 255, 510, 1020];
 let tremoloRangeNum = 0;
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
@@ -676,11 +676,11 @@ document.getElementById('tremolo-slider').addEventListener('input', function (ev
 	let percentage, precision;
 	if (free) {
 		const depth = compoundTremoloDepth(value);
-		percentage = 2 * depth / 1023 * 100;
+		percentage = depth / 511.5 * 100;
 		precision = tremoloRangeNum > 0 ? 0 : 1;
 		eachChannel(channel => channel.setTremoloDepth(depth));
 	} else {
-		const scaledDepth = AbstractChannel.tremoloPresets[value];
+		const scaledDepth = 2 * AbstractChannel.tremoloPresets[value];
 		percentage = scaledDepth * 100;
 		precision = 0;
 		eachChannel(channel => channel.useTremoloPreset(value));
@@ -702,7 +702,8 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 		slider.max = 127;
 		slider.value = 2 * depth;
 		rangeSlider.value = 0;
-		label.innerHTML = (2 * TREMOLO_RANGES[0] / 1023 * 100).toFixed(0);
+		document.getElementById('tremolo-min').innerHTML = '0';
+		label.innerHTML = (TREMOLO_RANGES[0] / 511.5 * 100).toFixed(0);
 		rangeSlider.parentElement.classList.add('show');
 		label.parentElement.classList.add('show');
 	} else {
@@ -720,6 +721,7 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 			}
 		}
 		scaledDepth = AbstractChannel.tremoloPresets[presetNum];
+		slider.min = 0;
 		slider.max = AbstractChannel.tremoloPresets.length - 1;
 		slider.value = presetNum;
 		box.value = (scaledDepth * 100).toFixed(0);
@@ -733,19 +735,23 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 document.getElementById('tremolo').addEventListener('input', function (event) {
 	let depth = 511.5 * parseFloat(this.value) / 100;
 	if (depth >= 0) {
+		const slider = document.getElementById('tremolo-slider');
 		let tremoloRange;
 		if (depth > 510) {
 			tremoloRangeNum = TREMOLO_RANGES.length - 1;
 			tremoloRange = TREMOLO_RANGES[tremoloRangeNum];
+			slider.min = 63;
 		} else {
 			tremoloRangeNum = -1;
 			do {
 				tremoloRangeNum++;
 				tremoloRange = TREMOLO_RANGES[tremoloRangeNum];
 			} while (tremoloRange < depth);
+			slider.min = 0;
 		}
-		document.getElementById('tremolo-slider').value = tremoloSliderValue(depth);
+		slider.value = tremoloSliderValue(depth);
 		document.getElementById('tremolo-range').value = tremoloRangeNum;
+		document.getElementById('tremolo-min').innerHTML = tremoloRangeNum === 4 ? '99' : '0';
 		document.getElementById('tremolo-max').innerHTML = (tremoloRange / 511.5 * 100).toFixed(0);
 		eachChannel(channel => channel.setTremoloDepth(depth));
 	}
@@ -755,16 +761,27 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	let depth = firstChannel.getTremoloDepth();
 	tremoloRangeNum = parseInt(this.value);
 	const tremoloRange = TREMOLO_RANGES[tremoloRangeNum];
-	const scaledTremoloRange = 2 * tremoloRange / 1023 * 100;
+	const scaledTremoloRange = tremoloRange / 511.5 * 100;
 	document.getElementById('tremolo-max').innerHTML = scaledTremoloRange.toFixed(0);
 	const slider = document.getElementById('tremolo-slider');
+	if (tremoloRangeNum === 4) {
+		slider.min = 63;
+		if (depth < 510) {
+			document.getElementById('tremolo').value = 99;
+			eachChannel(channel => channel.setTremoloDepth(510));
+		}
+		document.getElementById('tremolo-min').innerHTML = '99';
+	} else {
+		slider.min = 0;
+		document.getElementById('tremolo-min').innerHTML = '0';
+	}
 	if (depth > tremoloRange) {
 		slider.value = 127;
 		const precision = tremoloRangeNum > 0 ? 0 : 1;
 		document.getElementById('tremolo').value = scaledTremoloRange.toFixed(precision);
 		eachChannel(channel => channel.setTremoloDepth(tremoloRange));
 	} else {
-		slider.value = tremoloSliderValue(depth);
+		slider.value = Math.trunc(tremoloSliderValue(depth));
 	}
 });
 

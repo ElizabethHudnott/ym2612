@@ -233,10 +233,11 @@ class Pattern {
 				trackState.reset();
 
 				let numTicks = trackState.ticksPerRow;
-				let extendedDuration = rowDuration;
-				let extraTicks = 0;
 				let tick = cell.delay;
 				let onset = time;
+				// These two account for negative delays
+				let extendedDuration = rowDuration;
+				let extraTicks = 0;
 
 				if (tick >= 0) {
 					if (tick >= numTicks) {
