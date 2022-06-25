@@ -312,7 +312,7 @@ class VolumeAutomation extends Bend {
 	}
 
 	get minNonZero() {
-		return 1;
+		return 0.2;
 	}
 
 }

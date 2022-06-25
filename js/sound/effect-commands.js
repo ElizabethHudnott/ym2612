@@ -2,16 +2,17 @@ import {VIBRATO_RANGES} from './common.js';
 
 class Effect {
 
+	clone() {
+		const clone = Object.create(this.constructor);
+		Object.assign(clone, this);
+		return clone;
+	}
+
 	/** Applies the effect.
 	 */
 	apply(trackState, channel, time) {
 		// Override in the subclass
 		throw new Error("Effect hasn't implemented the apply method.");
-	}
-
-	clone() {
-		// Override in the subclass
-		throw new Error("Effect hasn't implemented the clone method.");
 	}
 
 	/**
@@ -33,22 +34,12 @@ class Effect {
 
 /**
  * Applies glide to a note, and optionally changes the glide rate.
- * Special values: 0 = reuse previous
+ * Special values: 0 = reuse previous (maps to undefined)
  */
 class Glide extends Effect {
 
-	constructor() {
+	constructor(data) {
 		super();
-		this.rate = undefined;
-	}
-
-	clone() {
-		const clone = new Glide();
-		clone.rate = this.rate;
-		return clone;
-	}
-
-	set(data) {
 		const value = data[0];
 		if (value === 0) {
 			this.rate = undefined;
@@ -64,27 +55,18 @@ class Glide extends Effect {
 		}
 		trackState.glide = true;
 	}
+
 }
 
 /**Set Vibrato Depth effect.
  * This effect has a memory.
  * Stored in files as a 16 bit signed multiple of 5/128 cent.
- * Special values: -32768 = reuse previous
+ * Special values: -32768 = reuse previous (maps to undefined)
  */
 class Vibrato extends Effect {
 
-	constructor() {
+	constructor(data) {
 		super();
-		this.cents = undefined;
-	}
-
-	clone() {
-		const clone = new Vibrato();
-		clone.cents = this.cents;
-		return clone;
-	}
-
-	set(data) {
 		const value = data[0];
 		if (value === -32768) {
 			this.cents = undefined;
@@ -109,14 +91,76 @@ class Vibrato extends Effect {
 
 }
 
+/**Set Gate Length effect
+ * Special values:
+ * 	193 reuse the last value applied that was 72 or less
+ * 	194 reuse the last value that was between 72 and 127
+ * 	195 reuse the last value that 127 or more
+ * 	196-255 invalid
+ *
+ * 192	 1/1
+ * 144	 1/2	dotted
+ * 128	 1/1	triplet
+ * 96		 1/2
+ * 72		 1/4	dotted
+ * 64		 1/2	triplet
+ * 48		 1/4
+ * 36		 1/8	dotted
+ * 32		 1/4	triplet
+ * 24		 1/8
+ * 18		1/16	dotted
+ * 16		 1/8	triplet
+ * 12		1/16
+ * 9		1/32	dotted
+ * 8		1/16	triplet
+ * 6		1/32
+ * 4		1/32	triplet
+ * 3		1/64
+ * 2		1/64	triplet
+ * 1		1/128	triplet
+ */
+class GateLength extends Effect {
+
+	constructor(data) {
+		super();
+		const value = data[0];
+		if (value > 192) {
+			// Refers to a preset, not a fixed amount.
+			this.preset = value - 193;
+			this.length = undefined;
+		} else {
+			if (value < 72) {
+				this.preset = 0;
+			} else if (value < 128) {
+				this.preset = 1;
+			} else {
+				this.preset = 2;
+			}
+			this.length = data[0] / 192;
+		}
+	}
+
+	apply(trackState, channel, time) {
+		const length = this.length;
+		if (length === undefined) {
+			trackState.gateLength = trackState.gateLengthPresets[this.preset];
+		} else {
+			trackState.gateLength = length;
+			trackState.gateLengthPresets[this.preset] = length;
+		}
+	}
+
+}
+
 const Effects = {};
 // 0x0n	Pitch
 Effects[0x01] = Glide;
 // 0x1n	Volume
 // 0x2n	Pan
 // 0x3n	Modulation
-Effects[0x33] = Vibrato;
+Effects[0x32] = Vibrato;
 // 0x4n	Articulation
+Effects[0x40] = GateLength;
 // 0x5n	Samples
 
 export default Effects;

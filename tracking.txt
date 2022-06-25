@@ -43,12 +43,14 @@ P = Pitch Effects
 			Trigger (yes/on)
 			Effect (glissando/frequency ramp/none)
 			Table is stretched or compressed to fit the note length
+
 	Permitted Combinations
 						Bend	Glide	Ramp	Arpeggio	Ornamentation
 	Bend				-		N		Y		N			N
 	Glide				-		-		N		Y			N
 	Ramp				-		-		-		Y			N
 	Arpeggio			-		-		-		-			N
+
 
 V = Volume Effects (max 1 per cell)
 	Set Volume (with optional delay)
@@ -61,8 +63,7 @@ P = Panning Effects (max 1 per cell)
 
 M = Modulation (any number of)
 	LFO Rate
-	LFO Shape
-	LFO Sync
+	LFO Shape & Sync
 	Vibrato Depth
 	Tremolo Depth
 
@@ -102,6 +103,8 @@ Master Control Effects
 
 Not an effect but the pattern list data includes
 	random velocity changes
+	random gate length changes
+	random timing changes (doesn't change number of ticks)
 	time stretching
 	transposition
 	crescendo/decrescendo

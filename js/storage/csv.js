@@ -5,6 +5,7 @@ import Effects from '../sound/effect-commands.js';
 const EFFECT_GROUPS = new Map();
 EFFECT_GROUPS.set('p', 0x00);
 EFFECT_GROUPS.set('m', 0x30);
+EFFECT_GROUPS.set('a', 0x40);
 
 function parseCSV(text) {
 	const fieldRE = /"([^"]*(?:""[^"]*)*)"|([^",\t\r\n]*)/gu;
@@ -190,8 +191,7 @@ function parsePattern(name, text, maxChannels) {
 							'. Invalid effect value ' + valueStr
 						);
 					}
-					const effect = new effectClass();
-					effect.set([value]);
+					const effect = new effectClass([value]);
 					cell.effects.push(effect);
 				}
 			}

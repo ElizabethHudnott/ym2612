@@ -151,7 +151,8 @@ class TrackState {
 
 	constructor(ticksPerRow = 6) {
 		this.ticksPerRow = 6;
-		this.articulation = 0.5;
+		this.gateLengthPresets = [0.25, 0.5, 0.75];
+		this.gateLength = 0.5;
 		this.glide = false;
 		this.vibrato = VIBRATO_PRESETS[1];
 	}
@@ -267,7 +268,7 @@ class Pattern {
 					channel.keyOn(context, cell.velocity, onset);
 					let duration = extendedDuration * (numTicks - tick) / numTicks;
 					duration = Pattern.findNoteDuration(
-						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.articulation
+						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.gateLength
 					);
 					channel.keyOff(context, onset + duration);
 				}
@@ -278,7 +279,7 @@ class Pattern {
 		}
 	}
 
-	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, articulation) {
+	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength) {
 		const numRows = cells.length;
 		const grooveLength = groove.length;
 		let rowDuration = basicRowDuration * groove[rowNum % grooveLength];
@@ -305,7 +306,7 @@ class Pattern {
 				duration -= rowDuration * Math.min(-extraTicks, numTicks) / numTicks;
 			}
 		}
-		return lastNoteOffset + (duration - lastNoteOffset) * articulation;
+		return lastNoteOffset + (duration - lastNoteOffset) * gateLength;
 	}
 }
 
