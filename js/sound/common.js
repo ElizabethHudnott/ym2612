@@ -3,7 +3,7 @@ const NEVER = 8388498;
 
 const ClockRate = {PAL: 53203424, NTSC: 53693175};
 
-const LFO_FREQUENCIES = [0, 3.98, 5.56, 6.02, 6.37, 6.88, 9.63, 48.1, 72.2];
+const LFO_DIVISORS = [109, 78, 72, 68, 63, 45, 9, 6];
 
 const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
 
@@ -277,6 +277,6 @@ export {
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
 	gainToOutputLevel,
 	makeMathyWave,
-	PROCESSING_TIME, NEVER, ClockRate, LFO_FREQUENCIES, VIBRATO_RANGES, VIBRATO_PRESETS,
+	PROCESSING_TIME, NEVER, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	MICRO_TUNINGS,
 }

@@ -1,6 +1,6 @@
 import {
 	decibelReductionToAmplitude, amplitudeToDecibels,
-	ClockRate, LFO_FREQUENCIES, VIBRATO_PRESETS,
+	ClockRate, LFO_DIVISORS, VIBRATO_PRESETS,
 } from './common.js';
 
 const AMPLITUDES = new Array(31);
@@ -375,11 +375,10 @@ class PSG {
 		this.channels = channels;
 	}
 
-	setClockRate(context, clockRate, divider = 15) {
+	setClockRate(context, clockRate, divider = 15, opnClock = clockRate / 7) {
 		clockRate /= divider
 		this.clockRate = clockRate;
-		const opnClock = clockRate * 15 / 7;
-		this.lfoRateMultiplier = opnClock / 8000000;
+		this.lfoRateDividend = opnClock / (144 * 128);
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
 		/* Incorporate the upper 4 bits of an OPN style frequency number into the key code
 		 * 2048 / 128 = 16 (= 4 bits) But additionally there's the multiply by 0.5 aspect when
@@ -407,22 +406,32 @@ class PSG {
 		}
 	}
 
-	setLFOFrequency(frequency, time = 0, method = 'setValueAtTime') {
+	setLFORate(frequency, time = 0, method = 'setValueAtTime') {
 		this.lfo1.frequency[method](frequency, time);
 	}
 
-	getLFOFrequency() {
+	getLFORate() {
 		return this.lfo1.frequency.value;
 	}
 
-	useLFOPreset(n, time = 0) {
-		this.setLFOFrequency(LFO_FREQUENCIES[n] * this.lfoRateMultiplier, time);
+	useLFOPreset(presetNum, time = 0, method = 'setValueAtTime') {
+		let rate;
+		if (presetNum === 0) {
+			rate = 0;
+		} else {
+			rate = this.synth.lfoRateDividend / LFO_DIVISORS[presetNum - 1];
+		}
+		this.setLFORate(rate, time, method);
 	}
 
 	getLFOPreset() {
-		let frequency = this.getLFOFrequency() / this.lfoRateMultiplier;
-		frequency = Math.round(frequency * 100) / 100;
-		return LFO_FREQUENCIES.indexOf(frequency);
+		const rate = this.getLFORate();
+		if (rate === 0) {
+			return 0;
+		}
+		const divisor = Math.round(this.synth.lfoRateDividend / rate);
+		const index = LFO_DIVISORS.indexOf(divisor);
+		return index === -1 ? -1 : index + 1;
 	}
 
 	setPWMFrequency(frequency, time = 0, method = 'setValueAtTime') {

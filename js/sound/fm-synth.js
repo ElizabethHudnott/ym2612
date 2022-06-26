@@ -1,4 +1,4 @@
-import {logToLinear, outputLevelToGain, PROCESSING_TIME, ClockRate} from './common.js';
+import {logToLinear, outputLevelToGain, PROCESSING_TIME, ClockRate, LFO_DIVISORS} from './common.js';
 import Channel from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
 
@@ -68,8 +68,21 @@ export default class Synth {
 	setClockRate(clockRate, divider = 7) {
 		clockRate /= divider;
 		this.envelopeTick = 72 * 6 / clockRate;
-		this.lfoRateMultiplier = clockRate / 8000000;
+		this.lfoRateDividend = clockRate / (144 * 128);
 		this.frequencyStep = clockRate / (144 * 2 ** 20);
+	}
+
+	lfoPresetToFrequency(presetNum) {
+		return presetNum === 0 ? 0 : this.lfoRateDividend / LFO_DIVISORS[presetNum - 1];
+	}
+
+	frequencyToLFOPreset(frequency) {
+		if (frequency === 0) {
+			return 0;
+		}
+		const divisor = Math.round(this.lfoRateDividend / frequency);
+		const index = LFO_DIVISORS.indexOf(divisor);
+		return index === -1 ? -1 : index + 1;
 	}
 
 	start(time) {

@@ -1,6 +1,6 @@
 import {
 	modulationIndex, outputLevelToGain, cancelAndHoldAtTime,
-	LFO_FREQUENCIES, VIBRATO_PRESETS, PROCESSING_TIME
+	VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
 
@@ -742,13 +742,12 @@ class Channel extends AbstractChannel {
 	}
 
 	useLFOPreset(context, presetNum, time = 0, method = 'setValueAtTime') {
-		this.setLFORate(context, LFO_FREQUENCIES[presetNum] * this.synth.lfoRateMultiplier, time, method);
+		const rate = this.synth.lfoPresetToFrequency(presetNum);
+		this.setLFORate(context, rate, time, method);
 	}
 
 	getLFOPreset() {
-		let frequency = this.lfoRate / this.synth.lfoRateMultiplier;
-		frequency = Math.round(frequency * 100) / 100;
-		return LFO_FREQUENCIES.indexOf(frequency);
+		return this.synth.frequencyToLFOPreset(this.lfoRate);
 	}
 
 	triggerLFO(context, time) {

@@ -1,4 +1,4 @@
-import {PROCESSING_TIME, LFO_FREQUENCIES, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
+import {PROCESSING_TIME, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {AbstractChannel} from './sound/fm-channel.js';
@@ -396,7 +396,7 @@ document.getElementById('lfo-rate-slider').addEventListener('input', function (e
 	if (free) {
 		frequency = value;
 	} else {
-		frequency = LFO_FREQUENCIES[value] * synth.lfoRateMultiplier;
+		frequency = synth.lfoPresetToFrequency(value);
 	}
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 	const precision = document.getElementById('fast-lfo').checked ? 1 : 2;
@@ -408,8 +408,8 @@ function configureLFOFreqSlider(fast, free) {
 	if (fast) {
 		// Enable faster rates
 		if (free) {
-			slider.min = Math.round(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 10) / 10;
-			slider.max = Math.round(LFO_FREQUENCIES[8] * synth.lfoRateMultiplier * 10) / 10;
+			slider.min = Math.round(synth.lfoPresetToFrequency(6) * 10) / 10;
+			slider.max = Math.round(synth.lfoPresetToFrequency(8) * 10) / 10;
 			slider.step = 0.1;
 		} else {
 			slider.min = 6;
@@ -420,7 +420,7 @@ function configureLFOFreqSlider(fast, free) {
 		// Slower rates
 		if (free) {
 			slider.min = 0;
-			slider.max = Math.round(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 100) / 100;
+			slider.max = Math.round(synth.lfoPresetToFrequency(6) * 100) / 100;
 			slider.step = 0.01;
 		} else {
 			slider.min = 0;
@@ -435,7 +435,7 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		const fastCheckbox = document.getElementById('fast-lfo');
-		const fastThreshold = Math.ceil(LFO_FREQUENCIES[6] * synth.lfoRateMultiplier * 10) / 10;
+		const fastThreshold = Math.ceil(synth.lfoPresetToFrequency(6) * 10) / 10;
 		if (fastCheckbox.checked && value < fastThreshold) {
 			fastCheckbox.checked = false;
 			configureLFOFreqSlider(false, true);
@@ -464,7 +464,7 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 		slider.value = slider.max;
 		precision = 2;
 	}
-	const frequency = free ? parseFloat(slider.value) : LFO_FREQUENCIES[6] * synth.lfoRateMultiplier;
+	const frequency = free ? parseFloat(slider.value) : synth.lfoPresetToFrequency(6);
 	box.value = frequency.toFixed(precision);
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
 });
@@ -485,18 +485,18 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 		let delta = Number.MAX_VALUE;
 		let presetNum;
 		for (let i = 8; i >= 0; i--) {
-			const presetValue = LFO_FREQUENCIES[i] * synth.lfoRateMultiplier;
-			const thisDelta = Math.abs(value - presetValue);
+			const presetFrequency = synth.lfoPresetToFrequency(i);
+			const thisDelta = Math.abs(value - presetFrequency);
 			if (thisDelta < delta) {
 				delta = thisDelta;
 				presetNum = i;
 			}
-			if (presetValue <= value) {
+			if (presetFrequency <= value) {
 				break;
 			}
 		}
 		slider.value = presetNum;
-		const frequency = LFO_FREQUENCIES[presetNum] * synth.lfoRateMultiplier;
+		const frequency = synth.lfoPresetToFrequency(presetNum);
 		const precision = fast ? 1 : 2;
 		box.value = frequency.toFixed(precision);
 		eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
