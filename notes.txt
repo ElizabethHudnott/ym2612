@@ -20,6 +20,7 @@ tremolo polarity
 Bug: feedback strength (when n=7)?
 Bug?: slow fade in of vibrato
 
+Turning LFO frequency to zero doesn't reset phase
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening

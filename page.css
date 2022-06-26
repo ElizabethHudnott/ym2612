@@ -255,11 +255,13 @@ td.odd-col:nth-child(2n) {
 	border-style: outset;
 }
 
-.btn-group-toggle .btn {
+.btn-group-toggle .btn,
+.btn[data-toggle="button"] {
 	border-width: 3px;
 }
 
-.btn-group-toggle .btn.active {
+.btn-group-toggle .btn.active,
+.btn[data-toggle="button"].active {
 	border-style: inset;
 }
 

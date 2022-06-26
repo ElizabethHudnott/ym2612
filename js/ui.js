@@ -503,6 +503,15 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	}
 });
 
+document.getElementById('btn-key-sync').addEventListener('click', function (event) {
+	if (!this.classList.contains('active')) {
+		// Just clicked to make it active, CSS hasn't been updated yet.
+		eachChannel(channel => channel.setLFOKeySync(audioContext, true));
+	} else {
+		synth.disableLFOKeySync(audioContext);
+	}
+});
+
 /**The DX21 manual says that a value of 99 results in a delay of "approximately 15 seconds" and
  * a value of 70 takes 6.5 seconds. The rest is a leap of conjecture based on the fact that
  * non-linear relationships in Yamaha synths generally rely on exponentiation of 2 and some bit

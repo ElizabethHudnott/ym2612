@@ -1,5 +1,6 @@
 Bugs
 ----
+Turning LFO frequency to zero doesn't reset phase
 tremolo polarity
 feedback strength (when n=7)?
 Correct beginLevel when there's a velocity change

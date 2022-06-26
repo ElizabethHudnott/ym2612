@@ -98,6 +98,7 @@ class Vibrato extends Effect {
  * 	195 reuse the last value that 127 or more
  * 	196-255 invalid
  *
+ * Regular values:
  * 192	 1/1
  * 144	 1/2	dotted
  * 128	 1/1	triplet
