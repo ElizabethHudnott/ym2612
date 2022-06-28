@@ -169,7 +169,7 @@ export default class Synth {
 		}
 	}
 
-	disableLFOKeySync(context, frequency = this.channels[0].getLFORate(), time = context.currentTime + PROCESSING_TIME) {
+	resetLFOs(context, frequency = this.channels[0].getLFORate(), time = context.currentTime + PROCESSING_TIME) {
 		const numChannels = this.channels.length;
 		for (let i = 0; i < numChannels; i++) {
 			const channel = this.channels[i];

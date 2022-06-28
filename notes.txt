@@ -15,8 +15,7 @@ Changing channel volume while PCM is in use doesn't work (problem?)
 
 Add "Key On" and "Key Off" annotations to envelope diagram
 
-Change panning implementation
-tremolo polarity
+tremolo phase offset
 Bug: feedback strength (when n=7)?
 Bug?: slow fade in of vibrato
 
@@ -43,6 +42,8 @@ Ability to make parameters velocity sensitive (e.g. filter envelope amount, reso
 envelopes synced to tempo?
 attenuation bend and velocity?
 
+lfo key sync: on/off/first on
+
 Noise/S&H/sample as LFO source?
 Level scaling (per operator)
 	Breakpoint
@@ -55,7 +56,6 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 SSG loop should include attack phase (modes 0 and 4)
 envelope shift
 Add panning to PSG (like Sega Game Gear?)
-White noise as a modulator? (through filter + resonance?)
 
 on screen keyboard
 	http://www.quadibloc.com/other/cnv05.htm

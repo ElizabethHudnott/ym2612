@@ -1,4 +1,10 @@
-export default class MusicInput {
+const PanController = Object.freeze({
+	OFF: 0,
+	NOTE: 1,
+	VELOCITY: 2,
+});
+
+class MusicInput {
 
 	constructor() {
 		// Public fields
@@ -21,6 +27,12 @@ export default class MusicInput {
 		this.noteToChannel = new Map();
 		// Channel index to (re)allocate first is at the start of the array
 		this.allocationOrder = [0];
+
+		this.panRange = 2;		// Can be negative to reverse direction
+		this.minPanInput = 0;	// MIDI note or velocity. Must be less than or equal to max
+		this.maxPanInput = 127;
+		this.panMode = PanController.OFF;
+		this.panPosition = undefined; // Current position
 	}
 
 	#removeAllocation(channelIndex) {
@@ -95,6 +107,19 @@ export default class MusicInput {
 		}
 		const numChannelsArmed = this.armedChannels.length;
 		const numKeysDown = this.keysDown.length;
+
+		if (numKeysDown === 0) {
+			switch (this.panMode) {
+			case PanController.NOTE:
+				this.panPosition = this.#inputToPanPosition(note);
+				break;
+			case PanController.VELOCITY:
+				this.panPosition = this.#inputToPanPosition(velocity);
+				break;
+			}
+		}
+		const pan = this.panPosition;
+
 		if (channelIndex === undefined) {
 			channelIndex = this.allocationOrder.shift();
 			if (numKeysDown > 0 && numChannelsArmed === 1 && this.legato) {
@@ -110,7 +135,7 @@ export default class MusicInput {
 		} else {
 			glide = this.portamentoSwitch;
 		}
-		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide);
+		this.pitchChange(timeStamp / 1000, channelNum, transposedNote, velocity, glide, pan);
 
 		if (numKeysDown >= numChannelsArmed) {
 			this.noteToChannel.delete(this.channelToNote[channelIndex]);
@@ -119,6 +144,19 @@ export default class MusicInput {
 		this.channelToNote[channelIndex] = note;
 		this.noteToChannel.set(note, channelIndex);
 		this.allocationOrder.push(channelIndex);
+	}
+
+	#inputToPanPosition(input) {
+		const range = this.panRange;
+		const minInput = this.minPanInput;
+		const maxInput = this.maxPanInput;
+		if (input <= minInput) {
+			return -range / 2;
+		} else if (input >= maxInput) {
+			return range / 2;
+		} else {
+			return (input - minInput) / (maxInput - minInput) * range - range / 2;
+		}
 	}
 
 	keyUp(timeStamp, note) {
@@ -145,7 +183,7 @@ export default class MusicInput {
 		const transposedNewNote = newNote + this.transpose;
 		if (notesStolen && transposedNewNote >= 0 && transposedNewNote <= 127) {
 			const glide = this.portamentoSwitch || this.fingeredPortamento;
-			this.pitchChange(timeStamp, channelNum, transposedNewNote, 0, glide);
+			this.pitchChange(timeStamp, channelNum, transposedNewNote, 0, glide, this.panPosition);
 			this.channelToNote[channelIndex] = newNote;
 			this.noteToChannel.set(newNote, channelIndex);
 			this.#removeAllocation(channelIndex);
@@ -157,6 +195,11 @@ export default class MusicInput {
 			this.allocationOrder.splice(insertIndex, 0, channelIndex);
 		}
 		this.noteToChannel.delete(note);
+	}
+
+	setPanMode(mode) {
+		this.panMode = mode;
+		this.panPosition = undefined;
 	}
 
 	debug(event, note) {
@@ -181,7 +224,7 @@ export default class MusicInput {
 		}
 	}
 
-	pitchChange(timeStamp, channelNum, note, velocity, glide) {
+	pitchChange(timeStamp, channelNum, note, velocity, glide, pan) {
 		// To be overridden.
 	}
 
@@ -194,3 +237,5 @@ export default class MusicInput {
 	}
 
 }
+
+export {PanController, MusicInput as default};
