@@ -184,7 +184,9 @@ export default class Synth {
 	}
 
 	setChannelGain(level, time = 0, method = 'setValueAtTime') {
-		this.channelGain[method](level / (2 * this.channels.length), time);
+		// SQRT(2) comes from the Web Audio panning algorithm
+		// https://webaudio.github.io/web-audio-api/#stereopanner-algorithm
+		this.channelGain[method](level / (Math.SQRT2 * this.channels.length), time);
 	}
 
 	/**
