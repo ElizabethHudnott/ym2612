@@ -1,5 +1,5 @@
 import {
-	modulationIndex, outputLevelToGain, cancelAndHoldAtTime,
+	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
 	VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
@@ -889,7 +889,7 @@ class Channel extends AbstractChannel {
 	 * @param {number} panning -1 = left channel only, 0 = centre, 1 = right channel only
 	 */
 	setPan(panning, time = 0, method = 'setValueAtTime') {
-		this.panner.pan[method](panning, time);
+		this.panner.pan[method](panningMap(panning), time);
 		this.pan = panning;
 		this.panMode = Pan.FIXED;
 	}
@@ -910,7 +910,7 @@ class Channel extends AbstractChannel {
 		} else {
 			pan = (input - minInput) / (maxInput - minInput) * range - range / 2;
 		}
-		this.panner.pan.setValueAtTime(pan, time);
+		this.panner.pan.setValueAtTime(panningMap(pan), time);
 		this.pan = pan;
 	}
 

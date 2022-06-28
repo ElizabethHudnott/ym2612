@@ -130,6 +130,10 @@ function gainToOutputLevel(gain) {
 	return Math.sign(gain) * syToDXLevel(level);
 }
 
+function panningMap(value) {
+	return 1 - 2 * Math.acos(value) / Math.PI;
+}
+
 /**Produces a Float32Array that can be used as a waveform for creating chip tunes.
  * @param {object} options An object containing any additional options.
 */
@@ -275,7 +279,7 @@ export {
 	cancelAndHoldAtTime, decibelReductionToAmplitude, amplitudeToDecibels,
 	roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
-	gainToOutputLevel,
+	gainToOutputLevel, panningMap,
 	makeMathyWave,
 	PROCESSING_TIME, NEVER, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	MICRO_TUNINGS,
