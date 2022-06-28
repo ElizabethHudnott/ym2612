@@ -60,15 +60,11 @@ let vibratoRange = 100;
 const TREMOLO_RANGES = [63.5, 127.5, 255, 510, 1020];
 let tremoloRangeNum = 0;
 
-MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide, pan) {
+MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const channel = synth.getChannel(channelNum);
 	channel.setMIDINote(note, time, glide);
-
-	if (pan !== undefined) {
-		channel.setPan(pan, time);
-	}
 
 	if (velocity > 0) {
 		channel.keyOn(audioContext, velocity, time);

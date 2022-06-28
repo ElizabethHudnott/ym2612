@@ -4,6 +4,13 @@ import {
 } from './common.js';
 import Operator from './operator.js';
 
+const Pan = Object.freeze({
+	FIXED: 0,
+	NOTE: 1,
+	VELOCITY: 2,
+	LFO: 3,
+});
+
 class AbstractChannel {
 
 	// 0db, 1.4db, 5.9db, 11.8db
@@ -128,6 +135,11 @@ class Channel extends AbstractChannel {
 
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
+		this.panRange = 2;		// Can be negative to reverse direction
+		this.minPanInput = 0;	// Must be less than or equal to maxPanInput
+		this.maxPanInput = 127;
+		this.panMode = Pan.FIXED;
+
 		gain.connect(panner);
 		this.panner = panner;
 		const mute = new GainNode(context);
@@ -498,6 +510,9 @@ class Channel extends AbstractChannel {
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		const glideRate = glide ? this.glideRate : 0;
 		this.setFrequency(block, freqNum, time, glideRate);
+		if (this.panMode === Pan.NOTE) {
+			this.#adjustPan(noteNumber, time);
+		}
 	}
 
 	cancelGlide(time) {
@@ -844,6 +859,9 @@ class Channel extends AbstractChannel {
 	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
 		this.triggerLFO(context, time);
 		this.keyOnOff(context, velocity, time);
+		if (this.panMode === Pan.VELOCITY) {
+			this.#adjustPan(velocity, time);
+		}
 	}
 
 	keyOff(context, time = context.currentTime) {
@@ -873,10 +891,27 @@ class Channel extends AbstractChannel {
 	setPan(panning, time = 0, method = 'setValueAtTime') {
 		this.panner.pan[method](panning, time);
 		this.pan = panning;
+		this.panMode = Pan.FIXED;
 	}
 
 	getPan() {
 		return this.pan;
+	}
+
+	#adjustPan(input, time) {
+		const range = this.panRange;
+		const minInput = this.minPanInput;
+		const maxInput = this.maxPanInput;
+		let pan;
+		if (input <= minInput) {
+			pan = -range / 2;
+		} else if (input >= maxInput) {
+			pan = range / 2;
+		} else {
+			pan = (input - minInput) / (maxInput - minInput) * range - range / 2;
+		}
+		this.panner.pan.setValueAtTime(pan, time);
+		this.pan = pan;
 	}
 
 	/**
@@ -956,4 +991,4 @@ class Channel extends AbstractChannel {
 
 }
 
-export {AbstractChannel, Channel as default};
+export {Pan, AbstractChannel, Channel as default};
