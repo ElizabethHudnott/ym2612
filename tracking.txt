@@ -23,11 +23,11 @@ Note Track Fields
 Master Control Track Fields
 	Effects
 
-P = Pitch Effects
+N = Note Effects
 	Pitch Bend
 	Glide
 		with optional speed change (or reuse previous)
-	Ramp
+	Pitch Ramp
 	Arpeggio
 		optional note offsets (one or more of them, scale degrees + sharp/flat) (or reuse previous)
 		Implies retrigger effect
@@ -46,19 +46,21 @@ P = Pitch Effects
 
 	Permitted Combinations
 						Bend	Glide	Ramp	Arpeggio	Ornamentation
-	Bend				-		N		Y		N			N
+	Bend				-		N		Y*		N			N
 	Glide				-		-		N		Y			N
 	Ramp				-		-		-		Y			N
 	Arpeggio			-		-		-		-			N
+	* Ramps from some previous pitch, bends to future pitches
 
 
 V = Volume Effects (max 1 per cell)
 	Set Volume (with optional delay)
-	Fade Volume
+	Volume Ramp
 	Volume Bend
 
 P = Panning Effects (max 1 per cell)
 	Set Panning
+	Panning Ramp
 	Panning Bend
 
 M = Modulation (any number of)
@@ -66,6 +68,7 @@ M = Modulation (any number of)
 	LFO Shape & Sync
 	Vibrato Depth
 	Tremolo Depth
+	Panbrello Depth
 
 A = Articulation (any number of)
 	Gate Length / Change Articulation
@@ -73,7 +76,7 @@ A = Articulation (any number of)
 	Retrigger note
 		with a retrigger time in ticks and optional velocity change (add/subtract/multiple)
 		ignores line boundaries if successive rows contain a retrigger effect with the same retrigger time
-		reuses previous pitch if a new one is not specified
+		reuses previous pitch if a new one is not specified via arpeggio command
 
 Other Standard Effects
 	Set ticks per line

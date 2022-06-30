@@ -1,5 +1,5 @@
 import {Phrase, Pattern} from '../sound/sequencer.js';
-import Effects from '../sound/effect-commands.js';
+import {Effects} from '../sound/effect-commands.js';
 
 // This needs to remain synchronized with effect-commands.js
 const EFFECT_GROUPS = new Map();
@@ -168,31 +168,40 @@ function parsePattern(name, text, maxChannels) {
 			columnNum = trackMap.effect;
 			if (columnNum !== undefined) {
 
-				const strings = row[columnNum].toLowerCase().split(',');
-				for (let string of strings) {
-					string = string.trim();
-					if (string === '') {
+				const tokens = row[columnNum].toLowerCase().split(',');
+				const numTokens = tokens.length;
+				let tokenIndex = 0;
+				while (tokenIndex < numTokens) {
+					let token = tokens[tokenIndex].trim();
+					if (token === '') {
+						tokenIndex++;
 						continue;
 					}
-					const group = EFFECT_GROUPS.get(string[0]);
-					const effectNum = group + parseInt(string[1], 16);
+					const group = EFFECT_GROUPS.get(token[0]);
+					const effectNum = group + parseInt(token[1], 16);
 					const effectClass = Effects[effectNum];
 					if (effectClass === undefined) {
 						throw new Error(
 							'CSV file contains an error on row ' + i + ', column ' +	String(columnNum + 1) +
-							'. Unknown effect ' + string.slice(0, 2)
+							'. Unknown effect ' + token.slice(0, 2)
 						);
 					}
-					const valueStr = string.slice(2);
-					const value = parseFloat(valueStr);
+					let valueStr = token.slice(2);
+					let value = parseFloat(valueStr);
 					if (Number.isNaN(value)) {
 						throw new Error(
 							'CSV file contains an error on row ' + i + ', column ' +	String(columnNum + 1) +
 							'. Invalid effect value ' + valueStr
 						);
 					}
-					const effect = new effectClass([value]);
-					cell.effects.push(effect);
+					const values = [];
+					while (!Number.isNaN(value)) {
+						values.push(value);
+						tokenIndex++;
+						value = parseFloat(tokens[tokenIndex]);
+					}
+					const effect = new effectClass(values);
+					cell.effects.set(effectNum, effect);
 				}
 			}
 		} // end for each track

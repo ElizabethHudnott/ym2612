@@ -19,7 +19,7 @@ class Effect {
 	 * @return {String[]} List of types.
 	 */
 	get binaryFormat() {
-		return 'UInt8';
+		return ['UInt8'];
 	}
 
 	/**
@@ -153,7 +153,27 @@ class GateLength extends Effect {
 
 }
 
+class Retrigger extends Effect {
+
+	constructor(data) {
+		super();
+		this.ticks = data[0];
+		// -127 = reduce by 50%, +127 = double
+		this.velocityMultiple = 1 + data[1] / (data[1] >= 0 ? 127 : 254);
+	}
+
+	get binaryFormat() {
+		return ['Int8'];
+	}
+
+	apply(trackState, channel, time) {
+		trackState.retrigger = this;
+	}
+
+}
+
 const Effects = {};
+const EffectNumbers = {};
 // 0x0n	Pitch
 Effects[0x01] = Glide;
 // 0x1n	Volume
@@ -162,6 +182,8 @@ Effects[0x01] = Glide;
 Effects[0x32] = Vibrato;
 // 0x4n	Articulation
 Effects[0x40] = GateLength;
+Effects[0x41] = Retrigger;
+EffectNumbers.RETRIGGER = 0x41;
 // 0x5n	Samples
 
-export default Effects;
+export {EffectNumbers, Effects};

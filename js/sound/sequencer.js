@@ -1,4 +1,5 @@
 import {PROCESSING_TIME, VIBRATO_PRESETS} from './common.js';
+import {EffectNumbers, Effects} from './effect-commands.js';
 
 class Cell {
 	static EMPTY = Object.freeze(new Cell());
@@ -14,7 +15,7 @@ class Cell {
 		// Instrument number or undefined for no change of instrument
 		this.instrument = undefined;
 		// Effect command objects
-		this.effects = [];
+		this.effects = new Map();
 	}
 
 	clone(deep) {
@@ -23,11 +24,10 @@ class Cell {
 		newCell.note = this.note;
 		newCell.velocity = this.velocity;
 		newCell.instrument = this.instrument;
-		const numEffects = this.effects.length;
 		if (deep) {
-			const effects = new Array(numEffects);
-			for (let i = 0; i < numEffects; i++) {
-				effects[i] = this.effects[i].clone();
+			const effects = new Map();
+			for (let [number, params] of this.effects.entries()) {
+				effects.set(number, params.clone());
 			}
 			newCell.effects = effects;
 		} else {
@@ -94,6 +94,9 @@ class Transform {
 		const outputCells = new Array(length);
 		let firstNote = true;
 		let inputStepsTaken = -1;	// incremented before use
+
+		const transformsVelocity = intensity !== 1 || accent < 1;
+
 		for (let outputRowNum = 0; outputRowNum < length; outputRowNum++) {
 
 			if (this.loop) {
@@ -118,19 +121,22 @@ class Transform {
 			}
 
 			let cell = phrase.cells[position];
+			const velocity = cell.velocity;
+			const retrigger = cell.effects.get(EffectNumbers.RETRIGGER);
+			const delayChange = step < 0 && cell.delay !== 0;
+			const instrumentChange = velocity > 0 && firstNote && this.initialInstrument !== 0;
 
 			if (
-				(step < 0 && cell.delay !== 0) ||
-				(cell.velocity > 0 && (intensity !== 1 || accent < 1)) ||
-				(firstNote && this.initialInstrument !== 0)
+				delayChange || instrumentChange ||
+				(velocity > 0 && transformsVelocity)
 			) {
 				cell = cell.clone(false);
 				if (step < 0) {
 					cell.delay = -cell.delay;
 				}
-				if (cell.velocity > 0) {
-					const velocity = intensity * cell.velocity * accent + intensity * (1 - accent);
-					cell.velocity = Math.min(velocity, 127);
+				if (velocity > 0) {
+					const scaledVelocity = intensity * velocity * accent + intensity * (1 - accent);
+					cell.velocity = Math.min(scaledVelocity, 127);
 					if (firstNote) {
 						cell.instrument = this.initialInstrument;
 						firstNote = false;
@@ -153,12 +159,14 @@ class TrackState {
 		this.ticksPerRow = 6;
 		this.gateLengthPresets = [0.25, 0.5, 0.75];
 		this.gateLength = 0.5;
-		this.glide = false;
 		this.vibrato = VIBRATO_PRESETS[1];
+		this.prevVelocity = 127;	// For retriggering
+		this.reset();
 	}
 
 	reset() {
 		this.glide = false;
+		this.retrigger = undefined;
 	}
 
 }
@@ -233,31 +241,31 @@ class Pattern {
 				trackState.reset();
 
 				let numTicks = trackState.ticksPerRow;
-				let tick = cell.delay;
+				let startTick = cell.delay;
 				let onset = time;
 				// These two account for negative delays
 				let extendedDuration = rowDuration;
 				let extraTicks = 0;
 
-				if (tick >= 0) {
-					if (tick >= numTicks) {
+				if (startTick >= 0) {
+					if (startTick >= numTicks) {
 						continue;
 					}
-					onset += tick / numTicks * rowDuration;
+					onset += startTick / numTicks * rowDuration;
 				} else if (rowNum === 0) {
-					tick = 0;	// First row can't have a negative delay
+					startTick = 0;	// First row can't have a negative delay
 				} else {
-					if (tick <= -numTicks) {
+					if (startTick <= -numTicks) {
 						continue;
 					}
-					const timeExtension = -tick / numTicks * prevRowDuration;
+					const timeExtension = -startTick / numTicks * prevRowDuration;
 					extendedDuration += timeExtension;
 					onset -= timeExtension;
-					extraTicks = -tick;
-					tick = 0;
+					extraTicks = -startTick;
+					startTick = 0;
 				}
 
-				for (let effect of cell.effects) {
+				for (let effect of cell.effects.values()) {
 					effect.apply(trackState, channel, onset);
 				}
 
@@ -265,13 +273,73 @@ class Pattern {
 					channel.setMIDINote(cell.note, onset, trackState.glide);
 				}
 
-				if (cell.velocity > 0) {
-					channel.keyOn(context, cell.velocity, onset);
-					let duration = extendedDuration * (numTicks - tick) / numTicks;
+				let velocity = cell.velocity;
+				let duration = extendedDuration * (numTicks - startTick) / numTicks;
+				const gateLength = trackState.gateLength;
+				const retrigger = trackState.retrigger;
+
+				if (retrigger) {
+					if (velocity === undefined) {
+						velocity = trackState.prevVelocity;
+					}
+
 					duration = Pattern.findNoteDuration(
-						duration, basicRowDuration, numTicks, groove, cells, rowNum, trackState.gateLength
+						duration, basicRowDuration, numTicks, groove, cells, rowNum, 1, false
 					);
-					channel.keyOff(context, onset + duration);
+					const numRowTicks = numTicks - startTick + extraTicks;
+					let tick = 0;
+					let tickTime = onset;
+					if (trackState.carriedTicks > 0) {
+						tick = Math.min(retrigger.ticks - trackState.carriedTicks, numRowTicks);
+						const carriedTime = trackState.carriedTime;
+						const offTime = onset - carriedTime +
+							(carriedTime + duration * tick / numRowTicks) * gateLength;
+						channel.keyOff(context, offTime);
+
+						tickTime = onset + duration * tick / numRowTicks;
+						trackState.carriedTicks = 0;
+						trackState.carriedTime = 0;
+					}
+
+					while (tick < numRowTicks) {
+						// Restrict actual velocity used to a valid value
+						const noteVelocity = Math.max(Math.min(Math.round(velocity), 127), 1);
+						channel.keyOn(context, noteVelocity, tickTime);
+						let nextTriggerTick = tick + retrigger.ticks;
+						if (nextTriggerTick > numRowTicks) {
+							if (
+								rowNum < numRows - 1 &&
+								cells[rowNum + 1].effects.has(EffectNumbers.RETRIGGER)
+							) {
+								trackState.carriedTicks = nextTriggerTick - numRowTicks;
+								trackState.carriedTime = onset + duration - tickTime;
+								break;
+							} else {
+								nextTriggerTick = numRowTicks;
+							}
+						}
+						const nextTriggerTime = onset + duration * nextTriggerTick / numRowTicks;
+						const offTime = tickTime + (nextTriggerTime - tickTime) * gateLength;
+						channel.keyOff(context, offTime);
+						tick = nextTriggerTick;
+						tickTime = nextTriggerTime;
+						velocity *= retrigger.velocityMultiple;
+					}
+					trackState.prevVelocity = velocity;
+
+				} else {
+
+					if (velocity > 0) {
+						channel.keyOn(context, velocity, onset);
+						duration = Pattern.findNoteDuration(
+							duration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength,
+							true
+						);
+						channel.keyOff(context, onset + duration);
+						trackState.prevVelocity = velocity;
+					}
+					trackState.carriedTicks = 0;
+
 				}
 
 			}
@@ -280,7 +348,7 @@ class Pattern {
 		}
 	}
 
-	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength) {
+	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength, multiRow) {
 		const numRows = cells.length;
 		const grooveLength = groove.length;
 		let rowDuration = basicRowDuration * groove[rowNum % grooveLength];
@@ -289,15 +357,18 @@ class Pattern {
 		rowNum++;
 		let cell = cells[rowNum];
 
-		while (rowNum < numRows && cell.velocity === undefined) {
-			if (cell.note !== undefined) {
-				lastNoteOffset = duration;
+		if (multiRow) {
+			while (rowNum < numRows && cell.velocity === undefined && !cell.effects.has(EffectNumbers.RETRIGGER)) {
+				if (cell.note !== undefined) {
+					lastNoteOffset = duration;
+				}
+				rowDuration = basicRowDuration * groove[rowNum % grooveLength];
+				duration += rowDuration;
+				rowNum++;
+				cell = cells[rowNum];
 			}
-			rowDuration = basicRowDuration * groove[rowNum % grooveLength];
-			duration += rowDuration;
-			rowNum++;
-			cell = cells[rowNum];
 		}
+
 		if (cell !== undefined) {
 			const lastRowDuration = basicRowDuration * groove[rowNum % grooveLength];
 			let extraTicks = cell.delay;

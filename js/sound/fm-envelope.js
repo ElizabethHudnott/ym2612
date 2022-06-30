@@ -481,9 +481,18 @@ export default class Envelope {
 
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.totalLevel = level;
-		// Higher velocities result in less attenuation when a positive sensitivity setting is used.
-		level = (level << 7 - 2 * this.velocitySensitivity * this.velocity) >> 7;
-		level = Math.min(Math.max(level, 0), 127);
+		const sensitivity = this.velocitySensitivity;
+		if (sensitivity !== 0) {
+			const velocity = this.velocity;
+			if (velocity === 0) {
+				level = 127;
+			} else {
+				// Higher velocities result in less attenuation (subtraction) when a positive
+				// sensitivity setting is used.
+				level = ((level << 7) - 2 * sensitivity * velocity) >> 7;
+				level = Math.min(Math.max(level, 0), 126);
+			}
+		}
 		if (level === 127) {
 			this.totalLevelNode.offset[method](-1023, time);
 		} else {

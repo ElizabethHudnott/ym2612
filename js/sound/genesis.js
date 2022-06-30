@@ -21,7 +21,7 @@ export default class GenesisSound {
 		}
 		this.fm = new Synth(context, numFMChannels, filter, masterClockRate / 7);
 		this.psg = new PSG(context, numPulseChannels, filter, psgClockRate);
-		this.setCompression(4, 10);
+		this.setCompression(1.44, 10);
 	}
 
 	start(time) {
