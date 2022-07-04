@@ -122,7 +122,6 @@ class Transform {
 
 			let cell = phrase.cells[position];
 			const velocity = cell.velocity;
-			const retrigger = cell.effects.get(EffectNumbers.RETRIGGER);
 			const delayChange = step < 0 && cell.delay !== 0;
 			const instrumentChange = velocity > 0 && firstNote && this.initialInstrument !== 0;
 
@@ -166,7 +165,6 @@ class TrackState {
 
 	reset() {
 		this.glide = false;
-		this.retrigger = undefined;
 	}
 
 }
@@ -243,15 +241,17 @@ class Pattern {
 				let numTicks = trackState.ticksPerRow;
 				let startTick = cell.delay;
 				let onset = time;
-				// These two account for negative delays
-				let extendedDuration = rowDuration;
-				let extraTicksBefore = 0;
+				// These two record the actual length of the row, after adjustments to account for
+				// delays.
+				let duration = rowDuration;
+				let numRowTicks = numTicks;
 
 				if (startTick >= 0) {
 					if (startTick >= numTicks) {
 						continue;
 					}
 					onset += startTick / numTicks * rowDuration;
+					duration *= (numTicks - startTick) / numTicks;
 				} else if (rowNum === 0) {
 					startTick = 0;	// First row can't have a negative delay
 				} else {
@@ -265,26 +265,18 @@ class Pattern {
 					 * row (ignoring delays but including groove and tempo).
 					 */
 					const timeExtension = -startTick / numTicks * prevRowDuration;
-					extendedDuration += timeExtension;
+					duration += timeExtension;
 					onset -= timeExtension;
 					/* N.B. Naively adding ticks based on time borrowed from the row before will
 					 * give weird results when there's a groove or a tempo change but that's an
 					 * acceptable limitation.
 					 */
-					extraTicksBefore = -startTick;
+					numRowTicks += -startTick;
 					startTick = 0;
 				}
 
-				for (let effect of cell.effects.values()) {
-					effect.apply(trackState, channel, onset);
-				}
-
 				let velocity = cell.velocity;
-				/* Either extendedDuration is equal to the original row duration (delay >= 0)
-				 * or startTick is equal to zero (delay < 0)
-				 */
-				let duration = extendedDuration * (numTicks - startTick) / numTicks;
-				let numRowTicks = numTicks - startTick + extraTicksBefore;
+				numRowTicks -= startTick;
 				const nextCell = cells[rowNum + 1];
 				if (nextCell?.delay < 0) {
 					const ticksDeductedAfter = -nextCell.delay;
@@ -293,61 +285,18 @@ class Pattern {
 				}
 
 				const gateLength = trackState.gateLength;
-				const retrigger = trackState.retrigger;
+				const retrigger = cell.effects.get(EffectNumbers.RETRIGGER);
 
-				if (retrigger) {
-					if (velocity === undefined) {
-						velocity = trackState.prevVelocity;
-					}
+				if (retrigger === undefined) {
 
-					let tick = 0;
-					let tickTime = onset;
-					if (trackState.carriedTicks > 0) {
-						tick = Math.min(retrigger.ticks - trackState.carriedTicks, numRowTicks);
-						const carriedTime = trackState.carriedTime;
-						const offTime = onset - carriedTime +
-							(carriedTime + duration * tick / numRowTicks) * gateLength;
-						channel.keyOff(context, offTime);
-
-						tickTime = onset + duration * tick / numRowTicks;
-						trackState.carriedTicks = 0;
-						trackState.carriedTime = 0;
-					}
-
-					if (cell.note !== undefined) {
-						channel.setMIDINote(cell.note, tickTime, trackState.glide);
-					}
-
-					while (tick < numRowTicks) {
-						// Restrict actual velocity used to a valid value
-						const noteVelocity = Math.max(Math.min(Math.round(velocity), 127), 1);
-						channel.keyOn(context, noteVelocity, tickTime);
-						let nextTriggerTick = tick + retrigger.ticks;
-						if (nextTriggerTick > numRowTicks) {
-							if (
-								rowNum < numRows - 1 &&
-								cells[rowNum + 1].effects.has(EffectNumbers.RETRIGGER)
-							) {
-								trackState.carriedTicks = nextTriggerTick - numRowTicks;
-								trackState.carriedTime = onset + duration - tickTime;
-								break;
-							} else {
-								nextTriggerTick = numRowTicks;
-							}
-						}
-						const nextTriggerTime = onset + duration * nextTriggerTick / numRowTicks;
-						const offTime = tickTime + (nextTriggerTime - tickTime) * gateLength;
-						channel.keyOff(context, offTime);
-						tick = nextTriggerTick;
-						tickTime = nextTriggerTime;
-						velocity *= retrigger.velocityMultiple;
-					}
-					trackState.prevVelocity = velocity;
-
-				} else {
+					// No retriggering
 
 					if (cell.note !== undefined) {
 						channel.setMIDINote(cell.note, onset, trackState.glide);
+					}
+
+					for (let effect of cell.effects.values()) {
+						effect.apply(trackState, channel, onset);
 					}
 
 					if (velocity > 0) {
@@ -359,10 +308,64 @@ class Pattern {
 						trackState.prevVelocity = velocity;
 					}
 					trackState.carriedTicks = 0;
-
+					continue;
 				}
 
-			}
+				// Retriggering scenario
+
+				if (velocity === undefined) {
+					velocity = trackState.prevVelocity;
+				}
+
+				let tick = 0;
+				let tickTime = onset;
+				if (trackState.carriedTicks > 0) {
+					tick = Math.min(retrigger.ticks - trackState.carriedTicks, numRowTicks);
+					const carriedTime = trackState.carriedTime;
+					const offTime = onset - carriedTime +
+						(carriedTime + duration * tick / numRowTicks) * gateLength;
+					channel.keyOff(context, offTime);
+
+					tickTime = onset + duration * tick / numRowTicks;
+					trackState.carriedTicks = 0;
+					trackState.carriedTime = 0;
+				}
+
+				if (cell.note !== undefined) {
+					channel.setMIDINote(cell.note, tickTime, trackState.glide);
+				}
+
+				for (let effect of cell.effects.values()) {
+					effect.apply(trackState, channel, tickTime);
+				}
+
+				while (tick < numRowTicks) {
+					// Restrict actual velocity used to a valid value
+					const noteVelocity = Math.max(Math.min(Math.round(velocity), 127), 1);
+					channel.keyOn(context, noteVelocity, tickTime);
+					let nextTriggerTick = tick + retrigger.ticks;
+					if (nextTriggerTick > numRowTicks) {
+						if (
+							rowNum < numRows - 1 &&
+							cells[rowNum + 1].effects.has(EffectNumbers.RETRIGGER)
+						) {
+							trackState.carriedTicks = nextTriggerTick - numRowTicks;
+							trackState.carriedTime = onset + duration - tickTime;
+							break;
+						} else {
+							nextTriggerTick = numRowTicks;
+						}
+					}
+					const nextTriggerTime = onset + duration * nextTriggerTick / numRowTicks;
+					const offTime = tickTime + (nextTriggerTime - tickTime) * gateLength;
+					channel.keyOff(context, offTime);
+					tick = nextTriggerTick;
+					tickTime = nextTriggerTime;
+					velocity *= retrigger.velocityMultiple;
+				}
+				trackState.prevVelocity = velocity;
+
+			}	// End for each track
 			time += rowDuration;
 			prevRowDuration = rowDuration;
 		}

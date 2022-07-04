@@ -11,8 +11,7 @@ class Effect {
 	/** Applies the effect.
 	 */
 	apply(trackState, channel, time) {
-		// Override in the subclass
-		throw new Error("Effect hasn't implemented the apply method.");
+		// Normally overridden in the subclass
 	}
 
 	/**
@@ -226,10 +225,6 @@ class Retrigger extends Effect {
 
 	get binaryFormat() {
 		return ['Int8'];
-	}
-
-	apply(trackState, channel, time) {
-		trackState.retrigger = this;
 	}
 
 }
