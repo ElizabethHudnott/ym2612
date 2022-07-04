@@ -611,7 +611,7 @@ class Channel extends AbstractChannel {
 	/**
 	 * @param {number} depth The amount of tremolo effect to apply in the range of -511.5 to
 	 * +511.5 (though 510 is equivalent to the largest amount permitted by Yamaha). Values
-	 * between 512 and 1023 will introduce ring modulation. The tremolo is Modelled on
+	 * between 512 and 1023 will introduce ring modulation. The tremolo is modelled on
 	 * OPM's combinations of 128 modulation depths and 3 amplitude modulation sensitivities.
 	 */
 	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {

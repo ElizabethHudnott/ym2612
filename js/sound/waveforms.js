@@ -117,6 +117,63 @@ class OscillatorConfig {
 		return config;
 	}
 
+	// Waveforms from FS1R and FM-X
+
+	static all1(skirt) {
+		const length = skirt + 2;
+		const coefficients = new Float32Array(length);
+		coefficients[1] = 1;
+		let sign = -1;
+		// E.g. skirt = 1 => 1st and 2nd harmonics present, array indices 0..2, length 3
+		for (let i = 2; i <= skirt + 1; i++) {
+			coefficients[i] = sign / i;
+			sign *= -1;
+		}
+		const config = new OscillatorConfig('custom');
+		config.sines = coefficients;
+		config.cosines = new Float32Array(length);
+		return config;
+	}
+
+	static coAll1(skirt) {
+		const length = skirt + 2;
+		const coefficients = new Float32Array(length);
+		let sign = 1;
+		for (let i = 1; i <= skirt + 1; i++) {
+			coefficients[i] = sign;
+			sign *= -1;
+		}
+		const config = new OscillatorConfig('custom');
+		config.sines = new Float32Array(length);
+		config.cosines = coefficients;
+		return config;
+	}
+
+	static odd1(skirt) {
+		const length = 2 + 2 * skirt;
+		const coefficients = new Float32Array(length);
+		// E.g. skirt = 1 => 1st and 3rd harmonics present, array indices 0..3, length 4
+		for (let i = 0; i <= skirt; i++) {
+			coefficients[2 * i + 1] = 1 / (2 * i + 1);
+		}
+		const config = new OscillatorConfig('custom');
+		config.sines = coefficients;
+		config.cosines = new Float32Array(length);
+		return config;
+	}
+
+	static coOdd1(skirt) {
+		const length = 2 + 2 * skirt;
+		const coefficients = new Float32Array(length);
+		for (let i = 0; i <= skirt; i++) {
+			coefficients[i + 1] = 1;
+		}
+		const config = new OscillatorConfig('custom');
+		config.sines = new Float32Array(length);
+		config.cosines = coefficients;
+		return config;
+	}
+
 }
 
 const W2_COEFFICIENTS = [1, 0, -0.19, 0, 0.03, 0, -0.01];
@@ -179,8 +236,8 @@ const Waveform = {
 	SQUARE12:		OscillatorConfig.additive2('square', false, 0, 'square', 2),
 	SAW12:			OscillatorConfig.additive2('sawtooth', false, 0, 'sawtooth', 2, 1, 4/3),
 
-	SINE12345:		OscillatorConfig.additiveSin([1, -1/2, 1/3, -1/4, 1/5]),
-	COSINE12345:	OscillatorConfig.additiveCos([1, -1, 1, -1, 1]),
+	SINE12345:		OscillatorConfig.all1(4),
+	COSINE12345:	OscillatorConfig.coAll1(4),
 
 	SINE12:			OscillatorConfig.additiveSin([1, 1]),
 	COSINE12:		OscillatorConfig.additiveCos([1, 2]),

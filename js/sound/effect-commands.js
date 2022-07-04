@@ -32,7 +32,7 @@ class Effect {
 
 }
 
-/**
+/**Portamento or Glide Effect
  * Applies glide to a note, and optionally changes the glide rate.
  * Special values: 0 = reuse previous (maps to undefined)
  */
@@ -93,32 +93,46 @@ class Vibrato extends Effect {
 
 /**Set Gate Length effect
  * Special values:
- * 	193 reuse the last value applied that was 72 or less
- * 	194 reuse the last value that was between 72 and 127
- * 	195 reuse the last value that 127 or more
+ * 	193 reuse the last value applied that was 72 or less (initial value: 48)
+ * 	194 reuse the last value that was between 72 and 127 (initial value: 96)
+ * 	195 reuse the last value that 127 or more (initial value: 144)
  * 	196-255 invalid
  *
- * Regular values:
- * 192	 1/1
- * 144	 1/2	dotted
- * 128	 1/1	triplet
- * 96		 1/2
- * 72		 1/4	dotted
- * 64		 1/2	triplet
- * 48		 1/4
- * 36		 1/8	dotted
- * 32		 1/4	triplet
- * 24		 1/8
- * 18		1/16	dotted
- * 16		 1/8	triplet
- * 12		1/16
- * 9		1/32	dotted
- * 8		1/16	triplet
- * 6		1/32
- * 4		1/32	triplet
- * 3		1/64
- * 2		1/64	triplet
- * 1		1/128	triplet
+ * Examples of regular values (x/192 for x in [1, 192]):
+ * 192	32/32		1/1
+ * 186	31/32
+ * 180	30/31
+ * 174	29/32
+ * 168	28/32		7/8
+ * 162	27/32
+ * 160				5/6
+ * 156	26/32
+ * 150	25/32
+ * 144	24/32		3/4
+ * 138	23/32
+ * 132	22/32
+ * 128				2/3
+ * 126	21/32
+ * 120	20/32		5/8
+ * 114	19/32
+ * 108	18/32
+ * 102	17/32
+ * 96		16/32		1/2
+ * 90		15/32
+ * 84		14/32
+ * 78		13/32
+ * 72		12/32		3/8
+ * 66		11/32
+ * 64					1/3
+ * 60		10/32
+ * 54		 9/32
+ * 48		 8/32		1/4
+ * 42		 7/32
+ * 36		 6/32		3/16
+ * 32					1/6
+ * 30		 5/32
+ * 24		 4/32		1/8
+ * 18		 3/32
  */
 class GateLength extends Effect {
 
@@ -153,13 +167,61 @@ class GateLength extends Effect {
 
 }
 
+/**Retrigger effect
+ *
+ * The first parameter is the spacing between consecutive triggers, measured in ticks.
+ *
+ * The second parameter specifies an optional velocity change between each note:
+ * +127	298.4375%
+ * + 64	200%
+ * + 32	150%
+ * + 21	133%
+ * + 16	125%
+ * +  8	112.5%
+ * +  4	106.25%
+ * +  2  103.125%
+ * +  1	101.5625%
+ *    0	100%
+ * -  1	 99.4792%
+ * -  6	 96.875% 	(- 3.125%)
+ * - 12	 93.75% 		(- 6.25%)
+ * - 24	 87.5%		(-12.5%)
+ * - 38	 80.2083%
+ * - 48	 75%			(-25%)
+ * - 64	 66.6667%	(-33.333%)
+ * - 96	 50%			(-50%)
+ * -128	 33.3333%
+ *
+ * Given an increase in velocity expressed as a parameter value (1..127), to find the value
+ * required to generate a corresponding decrease in velocity (reciprocal multiplier):
+ * 	y = ROUND( 192 * (1 / (1 + x / 64) - 1) )
+ *
+ * And given a decrease in velocity expressed as a parameter value (-1..-127), to find value
+ * required to generate a corresponding increase in velocity:
+ * 	x = ROUND( 64 * (1 / (1 + y / 192) - 1) )
+ *
+ * To convert a percentage value of 100% or more to a parameter value:
+ * 	v = ROUND( 64 * (p / 100 - 1) )
+ *
+ * To convert a percentage value less than 100% to a parameter value:
+ * 	v = ROUND( 192 * (p / 100 - 1) )
+ *
+ * To increase the velocity to p% over the course of n notes (p > 100%):
+ * 	v = ROUND( 64 * ((p / 100) ** (n - 1) - 1) )
+ *
+ * To decrease the velocity to p% over the course of n notes:
+ * 	v = ROUND( 192 *  ((p / 100) ** (n - 1) - 1) )
+ */
 class Retrigger extends Effect {
 
 	constructor(data) {
 		super();
 		this.ticks = data[0];
-		// -127 = reduce by 50%, +127 = double
-		this.velocityMultiple = 1 + data[1] / (data[1] >= 0 ? 127 : 254);
+		if (data[1] >= 0) {
+			this.velocityMultiple = 1 + data[1] / 64;
+		} else {
+			this.velocityMultiple = 1 +  data[1] / 192;
+		}
 	}
 
 	get binaryFormat() {

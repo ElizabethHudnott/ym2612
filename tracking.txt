@@ -10,9 +10,9 @@ Note Track Fields
 		Empty: preserve previous pitch
 
 	Dynamics
-		00 Slur/Legato
+			(i.e. empty space) Slur or tie
 		NN Key on with specified velocity
-		-1	Rest (displayed as REST in the pitch column)
+		 0	Rest
 
 	Instrument
 		00 Continue using the previously selected instrument
@@ -34,9 +34,7 @@ N = Note Effects
 		One pitch change per retrigger
 			set articulation to 100% if retriggering is undesirable
 		Randomization options
-			Random order (on/off)
-			Max repeats
-		Swing
+			Random order (on/off) (no adjacent repeated pitches)
 	Ornamentation
 		Run a table of:
 			Pitch offsets expressed as scale degrees + sharp/flat
@@ -100,7 +98,11 @@ Macros
 Master Control Effects
 	Dynamic range compression
 	Pattern Delay (extra time for effects to run, whole repeats + extra ticks)
-	Set Tempo (absolute or relative +/- or relative multiple or reciprocal of multiple)
+	Set Tempo (absolute or relative +/-)
+		Issue: negative delay + slowing tempo could result in going back more than 1 row
+	Change grid resolution
+		Multiplies lines per minute, e.g. 2, 3, 1/2, 1/3, etc.
+		Changes lines per beat on every track
 	Loop Start
 	Loop End
 
@@ -108,7 +110,6 @@ Not an effect but the pattern list data includes
 	random velocity changes
 	random gate length changes
 	random timing changes (doesn't change number of ticks)
-	time stretching
 	transposition
 	crescendo/decrescendo
 	direction (forward/reverse/forward then back/back then forward/random)

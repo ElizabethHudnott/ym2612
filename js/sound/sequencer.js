@@ -245,7 +245,7 @@ class Pattern {
 				let onset = time;
 				// These two account for negative delays
 				let extendedDuration = rowDuration;
-				let extraTicks = 0;
+				let extraTicksBefore = 0;
 
 				if (startTick >= 0) {
 					if (startTick >= numTicks) {
@@ -258,10 +258,20 @@ class Pattern {
 					if (startTick <= -numTicks) {
 						continue;
 					}
+					/* Negative delays
+					 * The fraction numberedTick / totalTicks is based on the number of ticks per
+					 * row as it applies to the current row (before modification caused by delays).
+					 * BUT the time that we apply that fraction to is the duration of the PREVIOUS
+					 * row (ignoring delays but including groove and tempo).
+					 */
 					const timeExtension = -startTick / numTicks * prevRowDuration;
 					extendedDuration += timeExtension;
 					onset -= timeExtension;
-					extraTicks = -startTick;
+					/* N.B. Naively adding ticks based on time borrowed from the row before will
+					 * give weird results when there's a groove or a tempo change but that's an
+					 * acceptable limitation.
+					 */
+					extraTicksBefore = -startTick;
 					startTick = 0;
 				}
 
@@ -269,12 +279,19 @@ class Pattern {
 					effect.apply(trackState, channel, onset);
 				}
 
-				if (cell.note !== undefined) {
-					channel.setMIDINote(cell.note, onset, trackState.glide);
+				let velocity = cell.velocity;
+				/* Either extendedDuration is equal to the original row duration (delay >= 0)
+				 * or startTick is equal to zero (delay < 0)
+				 */
+				let duration = extendedDuration * (numTicks - startTick) / numTicks;
+				let numRowTicks = numTicks - startTick + extraTicksBefore;
+				const nextCell = cells[rowNum + 1];
+				if (nextCell?.delay < 0) {
+					const ticksDeductedAfter = -nextCell.delay;
+					duration -= rowDuration * Math.min(ticksDeductedAfter, numTicks) / numTicks;
+					numRowTicks -= ticksDeductedAfter;
 				}
 
-				let velocity = cell.velocity;
-				let duration = extendedDuration * (numTicks - startTick) / numTicks;
 				const gateLength = trackState.gateLength;
 				const retrigger = trackState.retrigger;
 
@@ -283,10 +300,6 @@ class Pattern {
 						velocity = trackState.prevVelocity;
 					}
 
-					duration = Pattern.findNoteDuration(
-						duration, basicRowDuration, numTicks, groove, cells, rowNum, 1, false
-					);
-					const numRowTicks = numTicks - startTick + extraTicks;
 					let tick = 0;
 					let tickTime = onset;
 					if (trackState.carriedTicks > 0) {
@@ -299,6 +312,10 @@ class Pattern {
 						tickTime = onset + duration * tick / numRowTicks;
 						trackState.carriedTicks = 0;
 						trackState.carriedTime = 0;
+					}
+
+					if (cell.note !== undefined) {
+						channel.setMIDINote(cell.note, tickTime, trackState.glide);
 					}
 
 					while (tick < numRowTicks) {
@@ -329,11 +346,14 @@ class Pattern {
 
 				} else {
 
+					if (cell.note !== undefined) {
+						channel.setMIDINote(cell.note, onset, trackState.glide);
+					}
+
 					if (velocity > 0) {
 						channel.keyOn(context, velocity, onset);
 						duration = Pattern.findNoteDuration(
-							duration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength,
-							true
+							duration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength
 						);
 						channel.keyOff(context, onset + duration);
 						trackState.prevVelocity = velocity;
@@ -348,7 +368,7 @@ class Pattern {
 		}
 	}
 
-	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength, multiRow) {
+	static findNoteDuration(initialDuration, basicRowDuration, numTicks, groove, cells, rowNum, gateLength) {
 		const numRows = cells.length;
 		const grooveLength = groove.length;
 		let rowDuration = basicRowDuration * groove[rowNum % grooveLength];
@@ -357,29 +377,31 @@ class Pattern {
 		rowNum++;
 		let cell = cells[rowNum];
 
-		if (multiRow) {
-			while (rowNum < numRows && cell.velocity === undefined && !cell.effects.has(EffectNumbers.RETRIGGER)) {
-				if (cell.note !== undefined) {
-					lastNoteOffset = duration;
-				}
-				rowDuration = basicRowDuration * groove[rowNum % grooveLength];
-				duration += rowDuration;
-				rowNum++;
-				cell = cells[rowNum];
+		while (rowNum < numRows && cell.velocity === undefined && !cell.effects.has(EffectNumbers.RETRIGGER)) {
+			if (cell.note !== undefined) {
+				lastNoteOffset = duration;
 			}
+			rowDuration = basicRowDuration * groove[rowNum % grooveLength];
+			duration += rowDuration;
+			rowNum++;
+			cell = cells[rowNum];
 		}
 
+		let extraTicks = 0;
 		if (cell !== undefined) {
 			const lastRowDuration = basicRowDuration * groove[rowNum % grooveLength];
-			let extraTicks = cell.delay;
+			extraTicks = cell.delay;
 			if (extraTicks >= 0) {
-				duration += lastRowDuration * Math.min(extraTicks, numTicks) / numTicks;
+				extraTicks = Math.min(extraTicks, numTicks);
+				duration += lastRowDuration * extraTicks / numTicks;
 			} else {
-				duration -= rowDuration * Math.min(-extraTicks, numTicks) / numTicks;
+				extraTicks = Math.max(-extraTicks, -numTicks);
+				duration += rowDuration * extraTicks / numTicks;
 			}
 		}
 		return lastNoteOffset + (duration - lastNoteOffset) * gateLength;
 	}
+
 }
 
 export {Phrase, Transform, Pattern, Player};

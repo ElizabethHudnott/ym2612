@@ -510,7 +510,7 @@ document.getElementById('btn-key-sync').addEventListener('click', function (even
 		// Just clicked to make it active, CSS hasn't been updated yet.
 		eachChannel(channel => channel.setLFOKeySync(audioContext, true));
 	} else {
-		synth.disableLFOKeySync(audioContext);
+		synth.resetLFOs(audioContext);
 	}
 });
 
