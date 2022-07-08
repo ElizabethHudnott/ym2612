@@ -267,9 +267,11 @@ class Pattern {
 					const timeExtension = -startTick / numTicks * prevRowDuration;
 					duration += timeExtension;
 					onset -= timeExtension;
-					/* N.B. Naively adding ticks based on time borrowed from the row before will
-					 * give weird results when there's a groove or a tempo change but that's an
-					 * acceptable limitation.
+					/* Naively adding time and ticks based on time borrowed from the row prior will
+					 * give weird results when there's a groove or a tempo change, because division
+					 * into ticks of uniform duration will make the ticks occur out of sync with
+					 * those happening on other tracks which have the same number of ticks per row.
+					 * But that's an acceptable limitation.
 					 */
 					numRowTicks += -startTick;
 					startTick = 0;
@@ -320,6 +322,10 @@ class Pattern {
 				let tick = 0;
 				let tickTime = onset;
 				if (trackState.carriedTicks > 0) {
+					/* There's a design choice to be made here about how a positive delay interacts
+					 * with retriggering, whether or not the delayed ticks count towards completing
+					 * a note that was already in progress
+					 */
 					tick = Math.min(retrigger.ticks - trackState.carriedTicks, numRowTicks);
 					const carriedTime = trackState.carriedTime;
 					const offTime = onset - carriedTime +

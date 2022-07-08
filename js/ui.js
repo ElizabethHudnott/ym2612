@@ -79,7 +79,7 @@ MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
 };
 
 MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
-	let amount, freeCheckbox, precision;
+	let amount, sign, freeCheckbox, precision;
 	switch (controller) {
 	case 5:	// Portamento time
 		amount = Math.min(value, 99);
@@ -97,7 +97,8 @@ MUSIC_INPUT.controlChange = function (timeStamp, controller, value) {
 		document.getElementById('modulation-1-1').value = Math.round(amount * 140) / 10;
 		break;
 	case 92:
-		amount = compoundTremoloDepth(value);
+		sign = firstChannel.getTremoloDepth() >= 0 ? 1 : -1;
+		amount = sign * compoundTremoloDepth(value);
 		eachChannel(channel => channel.setTremoloDepth(amount));
 		freeCheckbox = document.getElementById('tremolo-free');
 		if (!freeCheckbox.checked) {
@@ -686,7 +687,8 @@ document.getElementById('tremolo-slider').addEventListener('input', function (ev
 	const box = document.getElementById('tremolo');
 	let percentage, precision;
 	if (free) {
-		const depth = compoundTremoloDepth(value);
+		const sign = firstChannel.getTremoloDepth() >= 0 ? 1 : -1;
+		const depth = sign * compoundTremoloDepth(value);
 		percentage = depth / 511.5 * 100;
 		precision = tremoloRangeNum > 0 ? 0 : 1;
 		eachChannel(channel => channel.setTremoloDepth(depth));
@@ -711,14 +713,14 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 	const depth = firstChannel.getTremoloDepth();
 	if (free) {
 		slider.max = 127;
-		slider.value = 2 * depth;
+		slider.value = 2 * Math.abs(depth);
 		rangeSlider.value = 0;
 		document.getElementById('tremolo-min').innerHTML = '0';
 		label.innerHTML = (TREMOLO_RANGES[0] / 511.5 * 100).toFixed(0);
 		rangeSlider.parentElement.classList.add('show');
 		label.parentElement.classList.add('show');
 	} else {
-		let scaledDepth = 2 * depth / 1023;
+		let scaledDepth = 2 * Math.abs(depth) / 1023;
 		let presetNum = -1, presetValue;
 		do {
 			presetNum++;
@@ -745,7 +747,9 @@ document.getElementById('tremolo-free').addEventListener('input', function (even
 
 document.getElementById('tremolo').addEventListener('input', function (event) {
 	let depth = 511.5 * parseFloat(this.value) / 100;
-	if (depth >= 0) {
+	const sign = depth >= 0 ? 1 : -1;
+	depth = Math.abs(depth);
+	if (depth <= 1023) {
 		const slider = document.getElementById('tremolo-slider');
 		let tremoloRange;
 		if (depth > 510) {
@@ -764,12 +768,14 @@ document.getElementById('tremolo').addEventListener('input', function (event) {
 		document.getElementById('tremolo-range').value = tremoloRangeNum;
 		document.getElementById('tremolo-min').innerHTML = tremoloRangeNum === 4 ? '99' : '0';
 		document.getElementById('tremolo-max').innerHTML = (tremoloRange / 511.5 * 100).toFixed(0);
-		eachChannel(channel => channel.setTremoloDepth(depth));
+		eachChannel(channel => channel.setTremoloDepth(sign * depth));
 	}
 });
 
 document.getElementById('tremolo-range').addEventListener('input', function (event) {
 	let depth = firstChannel.getTremoloDepth();
+	const sign = depth >= 0 ? 1 : -1;
+	depth = Math.abs(depth);
 	tremoloRangeNum = parseInt(this.value);
 	const tremoloRange = TREMOLO_RANGES[tremoloRangeNum];
 	const scaledTremoloRange = tremoloRange / 511.5 * 100;
@@ -778,8 +784,8 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	if (tremoloRangeNum === 4) {
 		slider.min = 63;
 		if (depth < 510) {
-			document.getElementById('tremolo').value = 99;
-			eachChannel(channel => channel.setTremoloDepth(510));
+			document.getElementById('tremolo').value = sign * 99;
+			eachChannel(channel => channel.setTremoloDepth(sign * 510));
 		}
 		document.getElementById('tremolo-min').innerHTML = '99';
 	} else {
@@ -789,8 +795,8 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	if (depth > tremoloRange) {
 		slider.value = 127;
 		const precision = tremoloRangeNum > 0 ? 0 : 1;
-		document.getElementById('tremolo').value = scaledTremoloRange.toFixed(precision);
-		eachChannel(channel => channel.setTremoloDepth(tremoloRange));
+		document.getElementById('tremolo').value = sign * scaledTremoloRange.toFixed(precision);
+		eachChannel(channel => channel.setTremoloDepth(sign * tremoloRange));
 	} else {
 		slider.value = Math.trunc(tremoloSliderValue(depth));
 	}
