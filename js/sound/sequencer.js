@@ -156,6 +156,9 @@ class TrackState {
 
 	constructor(ticksPerRow = 6) {
 		this.ticksPerRow = 6;
+		// Number of ticks the current note has already played for because it started on a
+		// previous row.
+		this.carriedTicks = 0;
 		this.gateLengthPresets = [0.25, 0.5, 0.75];
 		this.gateLength = 0.5;
 		this.vibrato = VIBRATO_PRESETS[1];
@@ -237,8 +240,12 @@ class Pattern {
 				const cell = cells[rowNum];
 				const trackState = player.trackState[trackNum];
 				trackState.reset();
+				let numTicks = cell.effects.get(EffectNumbers.TICKS_PER_ROW)?.ticks;
+				if (numTicks !== undefined) {
+					trackState.ticksPerRow = numTicks;
+				}
 
-				let numTicks = trackState.ticksPerRow;
+				numTicks = trackState.ticksPerRow;
 				let startTick = cell.delay;
 				let onset = time;
 				// These two record the actual length of the row, after adjustments to account for
@@ -324,9 +331,29 @@ class Pattern {
 				if (trackState.carriedTicks > 0) {
 					/* There's a design choice to be made here about how a positive delay interacts
 					 * with retriggering, whether or not the delayed ticks count towards completing
-					 * a note that was already in progress
+					 * a note that was already in progress, whether a note is prolonged or a rest is
+					 * inserted. I chose to prolong the retriggered note.
 					 */
-					tick = Math.min(retrigger.ticks - trackState.carriedTicks, numRowTicks);
+					tick = retrigger.ticks - trackState.carriedTicks;
+					if (tick > numRowTicks) {
+						if (nextCell?.effects.has(EffectNumbers.RETRIGGER)) {
+							// Permit retriggering less than once per row.
+							trackState.carriedTicks += numRowTicks;
+							trackState.carriedTime += duration;
+
+							if (cell.note !== undefined) {
+								channel.setMIDINote(cell.note, onset, trackState.glide);
+							}
+
+							for (let effect of cell.effects.values()) {
+								effect.apply(trackState, channel, onset);
+							}
+
+							continue;	// Process next track
+						} else {
+							tick = numRowTicks;
+						}
+					}
 					const carriedTime = trackState.carriedTime;
 					const offTime = onset - carriedTime +
 						(carriedTime + duration * tick / numRowTicks) * gateLength;
@@ -351,11 +378,8 @@ class Pattern {
 					channel.keyOn(context, noteVelocity, tickTime);
 					let nextTriggerTick = tick + retrigger.ticks;
 					if (nextTriggerTick > numRowTicks) {
-						if (
-							rowNum < numRows - 1 &&
-							cells[rowNum + 1].effects.has(EffectNumbers.RETRIGGER)
-						) {
-							trackState.carriedTicks = nextTriggerTick - numRowTicks;
+						if (nextCell?.effects.has(EffectNumbers.RETRIGGER)) {
+							trackState.carriedTicks = numRowTicks - tick;
 							trackState.carriedTime = onset + duration - tickTime;
 							break;
 						} else {

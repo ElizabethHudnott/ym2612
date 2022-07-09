@@ -21,14 +21,6 @@ class Effect {
 		return ['UInt8'];
 	}
 
-	/**
-	 * @param {Object[]} data As it's recorded in a module file.
-	 */
-	set(data) {
-		// Override in the subclass
-		throw new Error("Effect hasn't implemented the set method.");
-	}
-
 }
 
 /**Portamento or Glide Effect
@@ -229,18 +221,34 @@ class Retrigger extends Effect {
 
 }
 
+class TicksPerRow extends Effect {
+
+	constructor(data) {
+		super();
+		this.ticks = data[0] + 1;
+	}
+
+}
+
 const Effects = {};
 const EffectNumbers = {};
+
 // 0x0n	Pitch
 Effects[0x01] = Glide;
+
 // 0x1n	Volume
 // 0x2n	Pan
+
 // 0x3n	Modulation
 Effects[0x32] = Vibrato;
+
 // 0x4n	Articulation
 Effects[0x40] = GateLength;
 Effects[0x41] = Retrigger;
 EffectNumbers.RETRIGGER = 0x41;
+Effects[0x42] = TicksPerRow;
+EffectNumbers.TICKS_PER_ROW = 0x42;
+
 // 0x5n	Samples
 
 export {EffectNumbers, Effects};
