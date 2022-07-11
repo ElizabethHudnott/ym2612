@@ -49,10 +49,10 @@ class Glide extends Effect {
 
 }
 
-/**Set Vibrato Depth effect.
+/**Set Vibrato Depth.
  * This effect has a memory.
  * Stored in files as a 16 bit signed multiple of 5/128 cent.
- * Special values: -32768 = reuse previous (maps to undefined)
+ * Special values: -32768 = reuse previous (maps to undefined in the class' properties)
  */
 class Vibrato extends Effect {
 
@@ -78,6 +78,40 @@ class Vibrato extends Effect {
 			trackState.vibrato = cents;
 		}
 		channel.setVibratoDepth(cents, time);
+	}
+
+}
+
+/**Set Tremolo Depth (or ring modulation).
+ * This effect has a memory.
+ * Stored in files as a 16 bit signed value in the range [-2046, 2046], representing
+ * [-1023, 1023] in increments of 0.5
+ * Special values: -32768 = reuse previous (maps to undefined in the class' properties)
+ */
+class Tremolo extends Effect {
+
+	constructor(data) {
+		super();
+		const value = data[0];
+		if (value === -32768) {
+			this.depth = undefined;
+		} else {
+			this.depth = value / 2;
+		}
+	}
+
+	get binaryFormat() {
+		return ['Int16'];
+	}
+
+	apply(trackState, channel, time) {
+		let depth = this.depth;
+		if (depth === undefined) {
+			depth = trackState.tremolo;
+		} else if (depth !== 0) {
+			trackState.tremolo = depth;
+		}
+		channel.setTremoloDepth(depth, time);
 	}
 
 }
@@ -241,6 +275,7 @@ Effects[0x01] = Glide;
 
 // 0x3n	Modulation
 Effects[0x32] = Vibrato;
+Effects[0x33] = Tremolo;
 
 // 0x4n	Articulation
 Effects[0x40] = GateLength;

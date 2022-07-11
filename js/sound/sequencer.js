@@ -155,19 +155,24 @@ class Transform {
 class TrackState {
 
 	constructor(ticksPerRow = 6) {
-		this.ticksPerRow = 6;
+		this.ticksPerRow = ticksPerRow;
 		// Number of ticks the current note has already played for because it started on a
 		// previous row.
 		this.carriedTicks = 0;
 		this.gateLengthPresets = [0.25, 0.5, 0.75];
 		this.gateLength = 0.5;
 		this.vibrato = VIBRATO_PRESETS[1];
+		this.tremolo = 7.5;
 		this.prevVelocity = 127;	// For retriggering
-		this.reset();
+		this.newRow();
 	}
 
-	reset() {
+	newRow() {
 		this.glide = false;
+	}
+
+	newPattern(ticksPerRow) {
+		this.ticksPerRow = ticksPerRow;
 	}
 
 }
@@ -177,13 +182,26 @@ class Player {
 	constructor(context, synth, rowsPerMinute = 240, ticksPerRow = 6, groove = [1]) {
 		this.context = context;
 		this.synth = synth;
-		const numChannels = synth.numberOfChannels;
-		this.trackState = new Array(numChannels);
-		for (let i = 0; i < numChannels; i++) {
-			this.trackState[i] = new TrackState(ticksPerRow);
+		this.trackState = new Array(synth.numberOfChannels);
+		this.initialRowsPerMin = rowsPerMinute;
+		this.initialTicksPerRow = ticksPerRow;
+		this.initialGroove = groove;
+		this.reset();
+	}
+
+	newPattern() {
+		for (let state of this.trackState) {
+			state.newPattern(this.initialTicksPerRow);
 		}
-		this.setTempo(rowsPerMinute);
-		this.groove = groove;
+	}
+
+	reset() {
+		const trackStates = this.trackState;
+		for (let i = 0; i < trackStates.length; i++) {
+			trackStates[i] = new TrackState(this.initialTicksPerRow);
+		}
+		this.setTempo(this.initialRowsPerMin);
+		this.groove = this.initialGroove;
 	}
 
 	setTempo(rowsPerMinute) {
@@ -219,6 +237,7 @@ class Pattern {
 		const context = player.context;
 		const numTracks = this.phrases.length;
 		const numRows = this.length;
+		player.newPattern();
 		if (this.groove !== undefined) {
 			player.groove = this.groove;
 		}
@@ -239,14 +258,14 @@ class Pattern {
 				const cells = this.cachedCells[trackNum];
 				const cell = cells[rowNum];
 				const trackState = player.trackState[trackNum];
-				trackState.reset();
+				trackState.newRow();
 				let numTicks = cell.effects.get(EffectNumbers.TICKS_PER_ROW)?.ticks;
 				if (numTicks !== undefined) {
 					trackState.ticksPerRow = numTicks;
 				}
 
 				numTicks = trackState.ticksPerRow;
-				let startTick = cell.delay;
+				const startTick = cell.delay;
 				let onset = time;
 				// These two record the actual length of the row, after adjustments to account for
 				// delays.
@@ -274,18 +293,17 @@ class Pattern {
 					const timeExtension = -startTick / numTicks * prevRowDuration;
 					duration += timeExtension;
 					onset -= timeExtension;
-					/* Naively adding time and ticks based on time borrowed from the row prior will
-					 * give weird results when there's a groove or a tempo change, because division
-					 * into ticks of uniform duration will make the ticks occur out of sync with
-					 * those happening on other tracks which have the same number of ticks per row.
-					 * But that's an acceptable limitation.
-					 */
-					numRowTicks += -startTick;
-					startTick = 0;
 				}
 
-				let velocity = cell.velocity;
+				/* Negative delays: Naively adding time and ticks based on time borrowed from the
+				 * previous row will give weird results if a tick based effect is used when the
+				 * rows initially had different amounts of time allocated to them (because of
+				 * groove or a tempo change). Division into ticks of uniform duration will make the
+				 * ticks occur out of sync with those happening on other tracks which have the same
+				 * number of ticks per row. But that's an acceptable limitation.
+				 */
 				numRowTicks -= startTick;
+
 				const nextCell = cells[rowNum + 1];
 				if (nextCell?.delay < 0) {
 					const ticksDeductedAfter = -nextCell.delay;
@@ -293,7 +311,8 @@ class Pattern {
 					numRowTicks -= ticksDeductedAfter;
 				}
 
-				const gateLength = trackState.gateLength;
+				let velocity = cell.velocity;
+				let gateLength;
 				const retrigger = cell.effects.get(EffectNumbers.RETRIGGER);
 
 				if (retrigger === undefined) {
@@ -307,6 +326,7 @@ class Pattern {
 					for (let effect of cell.effects.values()) {
 						effect.apply(trackState, channel, onset);
 					}
+					gateLength = trackState.gateLength;
 
 					if (velocity > 0) {
 						channel.keyOn(context, velocity, onset);
@@ -356,7 +376,7 @@ class Pattern {
 					}
 					const carriedTime = trackState.carriedTime;
 					const offTime = onset - carriedTime +
-						(carriedTime + duration * tick / numRowTicks) * gateLength;
+						(carriedTime + duration * tick / numRowTicks) * trackState.gateLength;
 					channel.keyOff(context, offTime);
 
 					tickTime = onset + duration * tick / numRowTicks;
@@ -371,6 +391,7 @@ class Pattern {
 				for (let effect of cell.effects.values()) {
 					effect.apply(trackState, channel, tickTime);
 				}
+				gateLength = trackState.gateLength;
 
 				while (tick < numRowTicks) {
 					// Restrict actual velocity used to a valid value

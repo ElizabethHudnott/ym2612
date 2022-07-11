@@ -75,8 +75,6 @@ A = Articulation (any number of)
 		with a retrigger time in ticks and optional velocity change (add/subtract/multiple)
 		ignores line boundaries if successive rows contain a retrigger effect with the same retrigger time
 		reuses previous pitch if a new one is not specified via arpeggio command
-
-Other Standard Effects
 	Set ticks per line
 
 Sample Effects
