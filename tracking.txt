@@ -78,13 +78,15 @@ A = Articulation (any number of)
 	Set ticks per line
 
 Sample Effects
-	New Note Action (cut or continue) (samples only)
+	New Note Action (fade, continue/end loop or cut) (samples only)
 	Sample Offset
 	Sample Fine-Tune
 	Reverse
 	Funk Loop
 
 Other Note Track Effects
+	Set Distortion
+	Random instrument (for slight variations)
 	Set scale (for transposing, arpeggios)
 	Operator Modulation Depth Bend (effectively a custom envelope)
 	Feedback
@@ -95,14 +97,12 @@ Macros
 
 Master Control Effects
 	Dynamic range compression
-	Pattern Delay (extra time for effects to run, whole repeats + extra ticks)
+	Pattern Delay (extra time for effects to run, whole repeats + fraction)
 	Set Tempo (absolute or relative +/-)
 		Issue: negative delay + slowing tempo could result in going back more than 1 row
 	Change grid resolution
 		Multiplies lines per minute, e.g. 2, 3, 1/2, 1/3, etc.
 		Changes lines per beat on every track
-	Loop Start
-	Loop End
 
 Not an effect but the pattern list data includes
 	random velocity changes
@@ -114,8 +114,9 @@ Not an effect but the pattern list data includes
 	...?
 
 Song Structure
-	Chains
-	Multiple phrases per track of each pattern, with one chosen during playback based on
+	Sections (chains)
+	Repeat x times
+	Multiple phrases per track for each pattern, with one chosen during playback based on
 		External variables (horizontal resequencing)
 			Switches at the beginning of the next bar
 		Randomization
@@ -137,9 +138,6 @@ Effects with Memory
 	Sample Offset
 	Relative tempo change
 
-ProTracker notes
-	Nested loops using different columns
-
 Instrument Editor
 	Option to disable transposing (for percussion)
 
@@ -157,4 +155,4 @@ Defaults
  1/4	4 lines	8 lines	= 48 ticks	16 ticks		S + L3.T4 + L6.T2
  1/8	2 lines	4 lines	= 24 ticks	 8 ticks		S + L2.T2 + L3.T4
 1/16	1 lines	2 lines	= 12 ticks	 4 ticks		S +    T4 + L2.T2
-1/32	3 ticks	1 line	=  6 ticks	 2 ticks		S +    T4 +    T4
+1/32	3 ticks	1 line	=  6 ticks	 2 ticks		S +    T2 +    T4

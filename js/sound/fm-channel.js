@@ -135,9 +135,11 @@ class Channel extends AbstractChannel {
 
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
-		this.panRange = 2;		// Can be negative to reverse direction
-		this.minPanInput = 0;	// Must be less than or equal to maxPanInput
-		this.maxPanInput = 127;
+		// The range is plus or minus this value, so it represents half of the total range.
+		// Can be negative to reverse the direction.
+		this.panRange = 1;
+		this.panInputCentre = 64;
+		this.panInputRange = 63; // +- this value. Half the total range.
 		this.panMode = Pan.FIXED;
 
 		gain.connect(panner);
@@ -885,6 +887,13 @@ class Channel extends AbstractChannel {
 		}
 	}
 
+	setDynamicPan(mode, panRange, inputCentre, inputRange) {
+		this.panMode = mode;
+		this.panRange = panRange / 2;
+		this.panInputCentre = inputCentre;
+		this.panInputRange = inputRange / 2;
+	}
+
 	/**
 	 * @param {number} panning -1 = left channel only, 0 = centre, 1 = right channel only
 	 */
@@ -899,17 +908,13 @@ class Channel extends AbstractChannel {
 	}
 
 	#adjustPan(input, time) {
-		const range = this.panRange;
-		const minInput = this.minPanInput;
-		const maxInput = this.maxPanInput;
-		let pan;
-		if (input <= minInput) {
-			pan = -range / 2;
-		} else if (input >= maxInput) {
-			pan = range / 2;
-		} else {
-			pan = (input - minInput) / (maxInput - minInput) * range - range / 2;
+		let relativePosition = (input - this.panInputCentre) / this.panInputRange;
+		if (relativePosition < -1) {
+			relativePosition = -1;
+		} else if (relativePosition > 1) {
+			relativePosition = 1;
 		}
+		const pan = relativePosition * this.panRange;
 		this.panner.pan.setValueAtTime(panningMap(pan), time);
 		this.pan = pan;
 	}
