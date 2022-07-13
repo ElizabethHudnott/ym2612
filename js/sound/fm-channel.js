@@ -897,10 +897,15 @@ class Channel extends AbstractChannel {
 	/**
 	 * @param {number} panning -1 = left channel only, 0 = centre, 1 = right channel only
 	 */
-	setPan(panning, time = 0, method = 'setValueAtTime') {
-		this.panner.pan[method](panningMap(panning), time);
+	setPan(panning, time = 0) {
+		this.panner.pan.setValueAtTime(panningMap(panning), time);
 		this.pan = panning;
 		this.panMode = Pan.FIXED;
+	}
+
+	rampPan(panning, time) {
+		this.panner.pan.linearRampToValueAtTime(panningMap(panning), time);
+		this.pan = panning;
 	}
 
 	getPan() {

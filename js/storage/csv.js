@@ -3,9 +3,10 @@ import {Effects} from '../sound/effect-commands.js';
 
 // This needs to remain synchronized with effect-commands.js
 const EFFECT_GROUPS = new Map();
-EFFECT_GROUPS.set('p', 0x00);
-EFFECT_GROUPS.set('m', 0x30);
-EFFECT_GROUPS.set('a', 0x40);
+EFFECT_GROUPS.set('n', 0x00);	// Note
+EFFECT_GROUPS.set('p', 0x20);	// Pan
+EFFECT_GROUPS.set('m', 0x30);	// Modulation
+EFFECT_GROUPS.set('a', 0x40);	// Articulation
 
 function parseCSV(text) {
 	const fieldRE = /"([^"]*(?:""[^"]*)*)"|([^",\t\r\n]*)/gu;

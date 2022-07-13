@@ -23,7 +23,7 @@ class Effect {
 
 }
 
-/**Portamento or Glide Effect
+/**Portamento or Glide effect
  * Applies glide to a note, and optionally changes the glide rate.
  * Special values: 0 = reuse previous (maps to undefined)
  */
@@ -45,6 +45,46 @@ class Glide extends Effect {
 			channel.setGlideRate(rate);
 		}
 		trackState.glide = true;
+	}
+
+}
+
+/**Set Pan effect
+ * Range: [-127, +127]
+ */
+class SetPan extends Effect {
+
+	constructor(data) {
+		super();
+		this.pan = data[0];
+	}
+
+	get binaryFormat() {
+		return ['Int8'];
+	}
+
+	apply(trackState, channel, time) {
+		channel.setPan(this.pan / 127, time);
+	}
+
+}
+
+/**Ramp Pan effect
+ * Range: [-127, +127]
+ */
+class RampPan extends Effect {
+
+	constructor(data) {
+		super();
+		this.pan = data[0];
+	}
+
+	get binaryFormat() {
+		return ['Int8'];
+	}
+
+	apply(trackState, channel, time) {
+		channel.rampPan(this.pan / 127, time);
 	}
 
 }
@@ -267,11 +307,14 @@ class TicksPerRow extends Effect {
 const Effects = {};
 const EffectNumbers = {};
 
-// 0x0n	Pitch
+// 0x0n	Note
 Effects[0x01] = Glide;
 
 // 0x1n	Volume
+
 // 0x2n	Pan
+Effects[0x20] = SetPan;
+Effects[0x21] = RampPan;
 
 // 0x3n	Modulation
 Effects[0x32] = Vibrato;
