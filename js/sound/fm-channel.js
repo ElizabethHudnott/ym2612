@@ -138,6 +138,7 @@ class Channel extends AbstractChannel {
 		// The range is plus or minus this value, so it represents half of the total range.
 		// Can be negative to reverse the direction.
 		this.panRange = 1;
+		this.panDirection = 1; // 1 or -1
 		this.panInputCentre = 64;
 		this.panInputRange = 63; // +- this value. Half the total range.
 		this.panMode = Pan.FIXED;
@@ -887,13 +888,6 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setDynamicPan(mode, panRange, inputCentre, inputRange) {
-		this.panMode = mode;
-		this.panRange = panRange / 2;
-		this.panInputCentre = inputCentre;
-		this.panInputRange = inputRange / 2;
-	}
-
 	/**
 	 * @param {number} panning -1 = left channel only, 0 = centre, 1 = right channel only
 	 */
@@ -910,6 +904,53 @@ class Channel extends AbstractChannel {
 
 	getPan() {
 		return this.pan;
+	}
+
+	setPanModulationSource(mode) {
+		this.panMode = mode;
+	}
+
+	getPanModulationSource() {
+		return this.panMode;
+	}
+
+	setStereoWidth(width) {
+		this.panRange = this.panDirection * width / 2;
+	}
+
+	getStereoWidth() {
+		return Math.abs(this.panRange) * 2;
+	}
+
+	/**
+	 * @param {number} direction 1 = left to right, -1 = right to left
+	 */
+	setPanModulationDirection(direction) {
+		this.panRange = direction * Math.abs(this.panRange);
+		this.panDirection = direction;
+	}
+
+	getPanModulationDirection() {
+		return this.panDirection;
+	}
+
+	setPanControllerCentre(value) {
+		this.panInputCentre = value;
+	}
+
+	getPanControllerCentre() {
+		return this.panInputCentre;
+	}
+
+	/**
+	 * @param {number} range Between 0 and 2
+	 */
+	setPanControllerRange(range) {
+		this.panInputRange = range / 2;
+	}
+
+	getPanControllerRange() {
+		return this.panInputRange * 2;
 	}
 
 	#adjustPan(input, time) {

@@ -812,6 +812,23 @@ document.getElementById('fingered-glide').addEventListener('input', function (ev
 	MUSIC_INPUT.fingeredPortamento = this.checked;
 });
 
+document.getElementById('pan-source').addEventListener('input', function (event) {
+	const source = parseInt(this.value);
+	eachChannel(channel => channel.setPanModulationSource(source));
+});
+
+document.getElementById('pan-direction').addEventListener('input', function (event) {
+	const direction = parseInt(this.value);
+	eachChannel(channel => channel.setPanModulationDirection(direction));
+});
+
+document.getElementById('pan-width-slider').addEventListener('input', function (event) {
+	const value = parseInt(this.value);
+	const stereoWidth = 2 * value / 99;
+	eachChannel(channel => channel.setStereoWidth(stereoWidth));
+	document.getElementById('pan-width').value = value;
+});
+
 let filterFrequency, filterQ;
 
 document.getElementById('filter-enable').addEventListener('input', function (event) {
