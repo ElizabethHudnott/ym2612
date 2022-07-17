@@ -1,7 +1,7 @@
 import {PROCESSING_TIME, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
-import {AbstractChannel} from './sound/fm-channel.js';
+import {Pan, AbstractChannel} from './sound/fm-channel.js';
 import {OscillatorConfig, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import {Effects} from './sound/effect-commands.js';
@@ -62,9 +62,40 @@ let vibratoRange = 100;
 const TREMOLO_RANGES = [63.5, 127.5, 255, 510, 1020];
 let tremoloRangeNum = 0;
 
+class InputHook {
+	constructor() {
+		this.callback = undefined;
+		this.onrevoke = undefined;
+	}
+
+	call(note, velocity) {
+		if (this.callback) {
+			this.callback(note, velocity);
+		}
+	}
+
+	set(callback, onrevoke) {
+		this.clear();
+		this.callback = callback;
+		this.onrevoke = onrevoke;
+	}
+
+	clear() {
+		if (this.onrevoke) {
+			this.onrevoke();
+		}
+		this.callback = undefined;
+		this.onrevoke = undefined;
+	}
+
+}
+const inputHook = new InputHook();
+
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
 	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
+	inputHook.call(note, velocity);
+
 	const channel = synth.getChannel(channelNum);
 	channel.setMIDINote(note, time, glide);
 
@@ -72,6 +103,7 @@ MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide
 		channel.keyOn(audioContext, velocity, time);
 		soundSystem.applyFilter();
 	}
+
 };
 
 MUSIC_INPUT.noteOff = function (timeStamp, channelNum) {
@@ -825,8 +857,66 @@ document.getElementById('pan-direction').addEventListener('input', function (eve
 document.getElementById('pan-width-slider').addEventListener('input', function (event) {
 	const value = parseInt(this.value);
 	const stereoWidth = 2 * value / 99;
-	eachChannel(channel => channel.setStereoWidth(stereoWidth));
 	document.getElementById('pan-width').value = value;
+	eachChannel(channel => channel.setStereoWidth(stereoWidth));
+});
+
+document.getElementById('pan-width').addEventListener('input', function (event) {
+	const value = parseFloat(this.value);
+	if (value >= 0 && value <= 99) {
+		const stereoWidth = 2 * value / 99;
+		document.getElementById('pan-width-slider').value = value;
+		eachChannel(channel => channel.setStereoWidth(stereoWidth));
+	}
+});
+
+document.getElementById('btn-pan-centre').addEventListener('click', function (event) {
+	const highlight = 'font-weight-bold';
+	if (this.classList.contains(highlight)) {
+		inputHook.clear();
+		return;
+	}
+	const button = this;
+	const callback = function (note, velocity) {
+		button.classList.remove(highlight);
+		let value;
+		if (firstChannel.getPanModulationSource() === Pan.NOTE) {
+			value = note;
+		} else {
+			value = velocity;
+		}
+		eachChannel(channel => channel.setPanControllerCentre(value));
+		inputHook.clear();
+	};
+	const deactivate = () => button.classList.remove(highlight);
+	inputHook.set(callback, deactivate);
+	button.classList.add(highlight);
+});
+
+document.getElementById('btn-pan-range').addEventListener('click', function (event) {
+	const highlight = 'font-weight-bold';
+	if (this.classList.contains(highlight)) {
+		inputHook.clear();
+		return;
+	}
+	const button = this;
+	const callback = function (note, velocity) {
+		button.classList.remove(highlight);
+		let value;
+		if (firstChannel.getPanModulationSource() === Pan.NOTE) {
+			value = note;
+		} else {
+			value = velocity;
+		}
+		const range = Math.abs(value - firstChannel.getPanControllerCentre());
+		if (range > 0) {
+			eachChannel(channel => channel.setPanControllerRange(range));
+		}
+		inputHook.clear();
+	};
+	const deactivate = () => button.classList.remove(highlight);
+	inputHook.set(callback, deactivate);
+	button.classList.add(highlight);
 });
 
 let filterFrequency, filterQ;
@@ -873,7 +963,7 @@ document.getElementById('filter-q-slider').addEventListener('input', function (e
 document.getElementById('filter-q').addEventListener('input', function (event) {
 	audioContext.resume();
 	const value = parseFloat(this.value);
-	if (value >= -770.63678 && value <= 770.63678) {
+	if (value > -770.63678 && value < 770.63678) {
 		document.getElementById('filter-q-slider').value = value;
 		soundSystem.setFilterResonance(value);
 		filterQ = value;

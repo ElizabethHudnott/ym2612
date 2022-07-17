@@ -9,6 +9,7 @@ Algorithms on Other Systems (to consider)
 	1->2&3, 2->3->4		(Digitone)
 Renumber operators 2 & 3?
 
+reimplement pulse wave using distortion (https://youtu.be/QWz-CH2TerI?t=404)
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
 Changing channel volume while PCM is in use doesn't work (problem?)
