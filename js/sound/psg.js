@@ -161,8 +161,10 @@ class ToneChannel {
 		this.waveform = 1;		// Mix: 0 (sawtooth only) to 1 (pulse only)
 		this.sequenceMode = WaveSequence.NONE;
 		this.sequenceTime = 3 / synth.framesPerSecond;
-		this.dutyCycle = 2048;	// 0 (0%) to 4096 (100%)
-		this.pwmDepth = 0;		// 0 to 4096
+		// Duty cycle: 0 (0%) to 4096 (100%) (stick to 0 to 2048 to avoid limiter glitches with PWM)
+		this.dutyCycle = 2048;
+		// PWM range: 0 to 4096, even numbers only. All sounds are possible using 0-2048 or even 0-1024.
+		this.pwmDepth = 0;
 		this.vibratoDepth = 0;	// in cents
 
 		const initialDutyCycle = this.dutyCycle / 4096;
@@ -186,7 +188,7 @@ class ToneChannel {
 		this.dutyCycleParam = dutyCycleNode.offset;
 		const dutyCycleLimiter = new WaveShaperNode(context, {curve: [1, 0, 1]});
 		dutyCycleNode.connect(dutyCycleLimiter);
-		const pwm = new GainNode(context, {gain: this.pwmDepth / 4096});
+		const pwm = new GainNode(context, {gain: this.pwmDepth / 8192});
 		this.pwm = pwm.gain;
 		pwmLFO.connect(pwm);
 		pwm.connect(dutyCycleLimiter);
@@ -344,10 +346,12 @@ class ToneChannel {
 	}
 
 	/**
-	 * @param {number} amount Between 0 and 4096, representing 0% and 100% respectively.
+	 * @param {number} amount Amount of PWM travel. An even number between 0 and 4096, where 0
+	 * represents 0% and 4096 represents 100%.
 	 */
 	setPWMDepth(amount, time = 0, method = 'setValueAtTime') {
-		this.pwm[method](amount / 4096, time);
+		amount = (amount >> 1) << 1;
+		this.pwm[method](amount / 8192, time);
 		this.pwmDepth = amount;
 	}
 
