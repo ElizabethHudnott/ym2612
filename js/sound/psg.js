@@ -6,7 +6,7 @@ import {
 const AMPLITUDES = new Array(31);
 AMPLITUDES[0] = 0;
 for (let i = 2; i <= 30; i += 2) {
-	// 2dB per step
+	// 2dB per big step
 	AMPLITUDES[i] = decibelReductionToAmplitude(30 - i);
 }
 /* Support 1/2 step volume levels, which are created by rapidly alternating values on the real
@@ -50,18 +50,10 @@ class NoiseChannel {
 		toneInputGain.connect(source.playbackRate);
 		this.source = source;
 
-		const tremolo = new GainNode(context);
-		source.connect(tremolo);
-		this.tremolo = tremolo;
-		const tremoloGain = new GainNode(context, {gain: 0});
-		tremoloGain.connect(tremolo.gain);
-		this.tremoloAmp = tremoloGain.gain;
-		lfo.connect(tremoloGain);
-
 		const envelopeGain = new GainNode(context, {gain: 0});
-		tremolo.connect(envelopeGain);
-		envelopeGain.connect(output);
 		this.envelopeGain = envelopeGain;
+		source.connect(envelopeGain);
+		envelopeGain.connect(output);
 	}
 
 	makeSource(context) {
@@ -102,9 +94,9 @@ class NoiseChannel {
 	}
 
 	loadRegister(context, time = 0) {
-		const newSource = this.makeSource(context, time);
+		const newSource = this.makeSource(context);
 		newSource.start(time);
-		newSource.connect(this.tremolo);
+		newSource.connect(this.envelopeGain);
 		this.source.stop(time);
 		if (this.countdownValue === undefined) {
 			this.toneInputGain.gain.setValueAtTime((this.pulsing ? 8 : 1) / context.sampleRate, time);
@@ -146,19 +138,39 @@ class NoiseChannel {
 class ToneChannel {
 
 	constructor(synth, context, lfo, pwmLFO, output, reciprocalTable, minusOne) {
+		this.frequency = 0;
+		this.lastFreqChange = 0;
+		this.keyCode = 0;
+		this.waveform = 1;		// Mix: 0 (sawtooth only) to 1 (pulse only)
+		this.dutyCycle = 2048;	// 0 (0%) to 4096 (100%)
+		this.pwmDepth = 0;		// 0 to 4096
+		this.vibratoDepth = 0;	// in cents
+
+		const initialDutyCycle = this.dutyCycle / 4096;
+
 		this.synth = synth;
-		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
+		const saw = new OscillatorNode(context, {frequency: this.frequency, type: 'sawtooth'});
 		this.saw = saw;
 		const frequency = new ConstantSourceNode(context, {offset: 0});
 		this.frequencyNode = frequency;
 		this.frequencyControl = frequency.offset;
 		const vibratoAmp = new GainNode(context);
 		frequency.connect(vibratoAmp);
-		const vibratoDepth = new GainNode(context, {gain: 0});
+		const vibratoDepth = new GainNode(context, {gain: (2 ** (this.vibratoDepth / 1200)) - 1});
 		vibratoDepth.connect(vibratoAmp.gain);
-		this.vibratoDepth = vibratoDepth.gain;
+		this.vibratoDepthParam = vibratoDepth.gain;
 		lfo.connect(vibratoDepth);
 		vibratoAmp.connect(saw.frequency);
+
+		const dutyCycleNode = new ConstantSourceNode(context, {offset: initialDutyCycle});
+		this.dutyCycleNode = dutyCycleNode;
+		this.dutyCycleParam = dutyCycleNode.offset;
+		const dutyCycleLimiter = new WaveShaperNode(context, {curve: [1, 0, 1]});
+		dutyCycleNode.connect(dutyCycleLimiter);
+		const pwm = new GainNode(context, {gain: this.pwmDepth / 4096});
+		this.pwm = pwm.gain;
+		pwmLFO.connect(pwm);
+		pwm.connect(dutyCycleLimiter);
 
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
 		vibratoAmp.connect(reciprocalInputScaler);
@@ -166,18 +178,22 @@ class ToneChannel {
 		reciprocalInputScaler.connect(reciprocal);
 		minusOne.connect(reciprocal);
 		this.reciprocal = reciprocal;
-		const dutyCycle = new GainNode(context, {gain: 0.5});
-		reciprocal.connect(dutyCycle);
-		this.dutyCycleParam = dutyCycle.gain;
+		const dutyCycleMultiplier = new GainNode(context, {gain: 0});
+		dutyCycleLimiter.connect(dutyCycleMultiplier.gain);
+		reciprocal.connect(dutyCycleMultiplier);
 		const delay = new DelayNode(context, {delayTime: 0, maxDelayTime: 0.5});
 		saw.connect(delay);
-		dutyCycle.connect(delay.delayTime);
-		const inverter = new GainNode(context, {gain: -1});
+		dutyCycleMultiplier.connect(delay.delayTime);
+		const inverter = new GainNode(context, {gain: -this.waveform});
 		delay.connect(inverter);
-		this.wave = inverter.gain;
-		const dcOffset = new ConstantSourceNode(context, {offset: 0});
+		this.waveParam = inverter.gain;
+		const dcOffset = new ConstantSourceNode(context, {offset: 2 * initialDutyCycle - 1});
 		dcOffset.connect(inverter);
 		this.dcOffset = dcOffset;
+		const times2 = new GainNode(context, {gain: 2});
+		pwm.connect(times2);
+		times2.connect(dcOffset.offset);
+
 		const waveGain = new GainNode(context, {gain: 0});
 		saw.connect(waveGain);
 		inverter.connect(waveGain);
@@ -187,36 +203,17 @@ class ToneChannel {
 		this.constant = constant.offset;
 		this.constantNode = constant;
 
-		const pwm = new GainNode(context, {gain: 0});
-		pwmLFO.connect(pwm);
-		pwm.connect(dutyCycle.gain);
-		const times2 = new GainNode(context, {gain: 2});
-		pwm.connect(times2);
-		times2.connect(dcOffset.offset);
-		this.pwm = pwm.gain;
-
-		const tremolo = new GainNode(context);
-		waveGain.connect(tremolo);
-		constant.connect(tremolo);
-		this.tremolo = tremolo.gain;
-		const tremoloGain = new GainNode(context, {gain: 0});
-		tremoloGain.connect(tremolo.gain);
-		this.tremoloAmp = tremoloGain.gain;
-		lfo.connect(tremoloGain);
-
 		const envelopeGain = new GainNode(context, {gain: 0});
-		tremolo.connect(envelopeGain);
+		waveGain.connect(envelopeGain);
+		constant.connect(envelopeGain);
 		envelopeGain.connect(output);
 		this.envelopeGain = envelopeGain;
-
-		this.frequency = 0;
-		this.lastFreqChange = 0;
-		this.keyCode = 0;
 	}
 
 	start(time = 0) {
 		this.saw.start(time);
 		this.frequencyNode.start(time);
+		this.dutyCycleNode.start(time);
 		this.dcOffset.start(time);
 		this.constantNode.start(time);
 	}
@@ -224,6 +221,7 @@ class ToneChannel {
 	stop(time = 0) {
 		this.saw.stop(time);
 		this.frequencyNode.stop(time);
+		this.dutyCycleNode.stop(time);
 		this.dcOffset.stop(time);
 		this.constantNode.stop(time);
 		this.reciprocal.disconnect();
@@ -268,55 +266,49 @@ class ToneChannel {
 	}
 
 	setWave(value, time = 0, method = 'setValueAtTime') {
-		this.wave[method](-value, time);
+		this.waveParam[method](-value, time);
+		this.waveform = value;
 	}
 
 	getWave() {
-		return -this.wave.value;
+		return this.waveform;
 	}
 
+
+	/**
+	 * @param {number} value Between 0 and 4096, representing 0% and 100% respectively.
+	 */
 	setDutyCycle(value, time = 0, method = 'setValueAtTime') {
-		this.dutyCycleParam[method](value, time);
-		this.dcOffset.offset[method](2 * value - 1, time);
+		const duty = value / 4096;
+		this.dutyCycleParam[method](duty, time);
+		this.dcOffset.offset[method](2 * duty - 1, time);
+		this.dutyCycle = value;
 	}
 
 	getDutyCycle() {
-		return (this.dcOffset.offset.value + 1) / 2;
+		return this.dutyCycle;
 	}
 
+	/**
+	 * @param {number} amount Between 0 and 4096, representing 0% and 100% respectively.
+	 */
 	setPWMDepth(amount, time = 0, method = 'setValueAtTime') {
-		this.pwm[method](amount, time);
+		this.pwm[method](amount / 4096, time);
+		this.pwmDepth = amount;
 	}
 
 	getPWMDepth() {
-		return this.pwm.value;
-	}
-
-	setTremoloDepth(depth, time = 0, method = 'setValueAtTime') {
-		const linearAmount = 1 - decibelReductionToAmplitude(2 * depth);
-		this.tremoloAmp[method](linearAmount, time);
-		this.tremolo[method](1 - linearAmount, time);
-	}
-
-	getTremoloDepth() {
-		return amplitudeToDecibels(this.tremoloAmp.value) / 2;
-	}
-
-	useTremoloPreset(presetNum, time = 0) {
-		this.setTremoloDepth(TREMOLO_PRESETS[presetNum], time);
-	}
-
-	getTremoloPreset() {
-		return TREMOLO_PRESETS.indexOf(Math.round(this.getTremoloDepth()));
+		return this.pwmDepth;
 	}
 
 	setVibratoDepth(cents, time = 0, method = 'setValueAtTime') {
 		const depth = (2 ** (cents / 1200)) - 1;
-		this.vibratoDepth[method](depth, time);
+		this.vibratoDepthParam[method](depth, time);
+		this.vibratoDepth = cents;
 	}
 
 	getVibratoDepth() {
-		return this.vibratoDepth.value;
+		return this.vibratoDepth;
 	}
 
 	useVibratoPreset(presetNum, time = 0) {
@@ -324,7 +316,7 @@ class ToneChannel {
 	}
 
 	getVibratoPreset() {
-		return VIBRATO_PRESETS.indexOf(this.getVibratoDepth());
+		return VIBRATO_PRESETS.indexOf(this.vibratoDepth);
 	}
 
 }
@@ -449,7 +441,7 @@ class PSG {
 	}
 
 	frequencyToFreqNumber(frequency) {
-		return frequency === 0 ? 0 : this.clockRate / (32 * frequency);
+		return frequency === 0 ? 1 : this.clockRate / (32 * frequency);
 	}
 
 	tuneEqualTemperament(referencePitch = 440, referenceNote = 9, interval = 2, divisions = 12) {
@@ -490,10 +482,6 @@ class PSG {
 			prevIdealFrequency = idealFrequency;
 		}
 		this.noteFrequencies = frequencies;
-	}
-
-	getLFO(n) {
-		return n === 1 ? this.lfo : this.pwmLFO;
 	}
 
 	/**Approximates keyCode in the FM synth but derives the key code from a frequency in Hertz

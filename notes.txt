@@ -64,14 +64,24 @@ on screen keyboard
 LFO centering (only up / only down / bipolar)?
 
 PSG
+	waveforms: saw, pulse, mixture, one then the other, alternating (with choice of starting wave)
 	panning
 	glide
 	looping envelope
 	filter envelope
 	overall volume of patch
-	LFO delay & fade
-	wave sequencing (alternate pulse and saw using a square wave LFO)
-	see AY8930, Super PSG and JUNO 106 manuals for more ideas
+	LFO delay & fade, LFOs per voice, optional key sync (like FM LFO)
+	see AY8930 (only use envelope per voice from the enhanced features), Super PSG and inSIDious manuals for more ideas
+	No separate tremolo
+		Generalize looping envelope to alternatively contain values to support tremolo
+		Noise channel only has a regular, non-looping envelope
+	new oscillator on each key on
+	move filter into PSG (separate wet/dry per channel)
+	add vibrato to noise channel
+	option to configure LFSR polynomial
+	per channel tunings
+	generalize getMIDINote to handle different interval and divisions values
+	mixer: noise vs tones
 	replace calcKeyCode with less jumpy version
 
 OPL2/3-like features
