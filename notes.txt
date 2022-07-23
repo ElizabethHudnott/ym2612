@@ -64,16 +64,16 @@ on screen keyboard
 LFO centering (only up / only down / bipolar)?
 
 PSG
-	waveforms: saw, pulse, mixture, one then the other, alternating (with choice of starting wave)
 	panning
 	glide
 	looping envelope
 	filter envelope
-	overall volume of patch
+	overall volume control for patch
 	LFO delay & fade, LFOs per voice, optional key sync (like FM LFO)
 	see AY8930 (only use envelope per voice from the enhanced features), Super PSG and inSIDious manuals for more ideas
 	No separate tremolo
-		Generalize looping envelope to alternatively contain values to support tremolo
+		Generalize envelope to support custom waveforms, AM or custom envelopes (up to 64 steps, 31 levels), looping or not
+		Quick options to create tremolo
 		Noise channel only has a regular, non-looping envelope
 	new oscillator on each key on
 	move filter into PSG (separate wet/dry per channel)
@@ -81,7 +81,7 @@ PSG
 	option to configure LFSR polynomial
 	per channel tunings
 	generalize getMIDINote to handle different interval and divisions values
-	mixer: noise vs tones
+	mixer: noise vs tones (mix noise into tones as well as separate noise channel? See AY manual)
 	replace calcKeyCode with less jumpy version
 
 OPL2/3-like features
@@ -119,7 +119,7 @@ Combine sample with synth
 	Kawai Digital Multi Spectrum (K4)
 	Yamaha SY77, etc.
 
-Custom waveforms
+Custom waveforms?
 	Only available for an operator that is not modulated by another operator or itself
 
 makeBasicWaveform
@@ -171,7 +171,6 @@ UI
 	Use slider to control coarse and fine (detune2) ratios together
 	Pad LED display with trailing zeros after decimal point
 	More intense red LEDs
-	Custom waveform editor? (max 64 time steps, 4-6 bit levels, like Famicom Disk System)
 
 initial phase offsets (DX7)("Understanding FM Implementations: A Call for Common Standards")
 	carrier:modulator	modulator	carrier

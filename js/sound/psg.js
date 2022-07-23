@@ -135,6 +135,23 @@ class NoiseChannel {
 
 }
 
+const WaveSequence = Object.freeze({
+	NONE: 0,
+	ONE_SHOT: 1,
+	PERIODIC: 2,
+});
+
+/**
+ * Waveforms supported:
+ * 	Pulse (default) (with optional PWM): setWave(1); setSequence(WaveSequence.NONE);
+ * 	Sawtooth: setWave(0); setSequence(WaveSequence.NONE);
+ * 	A mix of pulse and saw: e.g. setWave(0.5); setSequence(WaveSequence.NONE);
+ * 	One basic waveform then the other:
+ * 		setWave(0) (saw first) or setWave(1) (pulse first); setSequence(WaveSequence.ONE_SHOT);
+ * 	Alternating:
+ * 		setWave(0) (saw first) or setWave(1) (pulse first); setSequence(WaveSequence.PERIODIC);
+ * 	Others (e.g. triangle) will be supported using a looping envelope and setFrequency(0);
+ */
 class ToneChannel {
 
 	constructor(synth, context, lfo, pwmLFO, output, reciprocalTable, minusOne) {
@@ -142,6 +159,8 @@ class ToneChannel {
 		this.lastFreqChange = 0;
 		this.keyCode = 0;
 		this.waveform = 1;		// Mix: 0 (sawtooth only) to 1 (pulse only)
+		this.sequenceMode = WaveSequence.NONE;
+		this.sequenceTime = 3 / synth.framesPerSecond;
 		this.dutyCycle = 2048;	// 0 (0%) to 4096 (100%)
 		this.pwmDepth = 0;		// 0 to 4096
 		this.vibratoDepth = 0;	// in cents
@@ -194,6 +213,10 @@ class ToneChannel {
 		pwm.connect(times2);
 		times2.connect(dcOffset.offset);
 
+		this.waveLFOGain = new GainNode(context, {gain: -0.5});
+		this.waveLFOGain.connect(inverter.gain);
+		this.waveLFO = undefined;
+
 		const waveGain = new GainNode(context, {gain: 0});
 		saw.connect(waveGain);
 		inverter.connect(waveGain);
@@ -225,6 +248,10 @@ class ToneChannel {
 		this.dcOffset.stop(time);
 		this.constantNode.stop(time);
 		this.reciprocal.disconnect();
+		if (this.waveLFO) {
+			this.waveLFO.stop(time);
+			this.waveLFO = undefined;
+		}
 	}
 
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
@@ -266,7 +293,11 @@ class ToneChannel {
 	}
 
 	setWave(value, time = 0, method = 'setValueAtTime') {
-		this.waveParam[method](-value, time);
+		if (this.sequenceMode === WaveSequence.PERIODIC) {
+			this.waveLFOGain.gain[method](0.5 - value, time);
+		} else {
+			this.waveParam[method](-value, time);
+		}
 		this.waveform = value;
 	}
 
@@ -274,6 +305,29 @@ class ToneChannel {
 		return this.waveform;
 	}
 
+	setWaveSequence(mode, time = 0) {
+		if (mode === WaveSequence.PERIODIC) {
+			this.waveParam.setValueAtTime(-0.5, time);
+			this.waveLFOGain.gain.setValueAtTime(this.waveform >= 0.5 ? -0.5 : 0.5, time);
+		} else if (this.waveLFO) {
+			this.waveLFO.stop(time);
+			this.waveParam.setValueAtTime(-this.waveform, time);
+			this.waveLFO = undefined;
+		}
+		this.sequenceMode = mode;
+	}
+
+	getWaveSequence() {
+		return this.sequenceMode;
+	}
+
+	setWaveSequenceTime(frames) {
+		this.sequenceTime = frames / this.synth.framesPerSecond;
+	}
+
+	getWaveSequenceTime() {
+		return Math.round(this.sequenceTime * this.synth.framesPerSecond);
+	}
 
 	/**
 	 * @param {number} value Between 0 and 4096, representing 0% and 100% respectively.
@@ -319,12 +373,38 @@ class ToneChannel {
 		return VIBRATO_PRESETS.indexOf(this.vibratoDepth);
 	}
 
+
+	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
+		switch (this.sequenceMode) {
+		case WaveSequence.ONE_SHOT:
+			this.waveParam.setValueAtTime(-this.waveform, time);
+			this.waveParam.setValueAtTime(this.waveform - 1, time + this.sequenceTime);
+			break;
+		case WaveSequence.PERIODIC:
+			if (this.waveLFO) {
+				this.waveLFO.stop(time);
+			}
+			const waveLFO = new OscillatorNode(
+				context, {type: 'square', frequency: 1 / (2 * this.sequenceTime)}
+			);
+			waveLFO.start(time);
+			waveLFO.connect(this.waveLFOGain);
+			this.waveLFO = waveLFO;
+			break;
+		}
+		this.envelopeGain.gain.setValueAtTime(1, time);
+	}
+
+	keyOff(context, time = context.currentTime) {
+		this.envelopeGain.gain.setValueAtTime(0, time);
+	}
+
 }
 
 class PSG {
 
-	constructor(context, numToneChannels = 3, output = context.destination, clockRate = ClockRate.PAL / 15) {
-		this.setClockRate(context, clockRate, 1);
+	constructor(context, numToneChannels = 3, output = context.destination, clockRate = ClockRate.PAL / 15, fps = 50) {
+		this.setClockRate(context, clockRate, 1, fps, clockRate * 15 / 7);
 		this.tuneEqualTemperament();
 
 		let frequencyLimit = context.sampleRate / 2;
@@ -364,15 +444,14 @@ class PSG {
 		this.channels = channels;
 	}
 
-	setClockRate(context, clockRate, divider = 15, opnClock = clockRate / 7) {
+	setClockRate(context, clockRate, divider = 15, fps, opnClock = clockRate / 7) {
+		this.framesPerSecond = fps;
 		clockRate /= divider
 		this.clockRate = clockRate;
 		this.lfoRateDividend = opnClock / (144 * 128);
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
-		/* Incorporate the upper 4 bits of an OPN style frequency number into the key code
-		 * 2048 / 128 = 16 (= 4 bits) But additionally there's the multiply by 0.5 aspect when
-		 * converting from a frequency number into Hertz.*/
-		this.hertzToFBits = 32 * opnFrequencyStep;
+		// Incorporate the upper bits of an OPN style frequency number into the key code
+		this.hertzToFBits = 128 * opnFrequencyStep;
 
 		if (this.noiseChannel) {
 			this.noiseChannel.setClockRate(context, clockRate);
@@ -499,6 +578,6 @@ class PSG {
 }
 
 export {
-	PSG, NoiseChannel, ToneChannel,
+	PSG, NoiseChannel, ToneChannel, WaveSequence,
 	TREMOLO_PRESETS
 }
