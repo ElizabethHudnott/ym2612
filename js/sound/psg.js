@@ -145,33 +145,30 @@ class NoiseChannel {
 
 class ToneChannel {
 
-	constructor(synth, context, lfo1, lfo2, output, reciprocalTable) {
+	constructor(synth, context, lfo, pwmLFO, output, reciprocalTable, minusOne) {
 		this.synth = synth;
 		const saw = new OscillatorNode(context, {frequency: 0, type: 'sawtooth'});
 		this.saw = saw;
 		const frequency = new ConstantSourceNode(context, {offset: 0});
 		this.frequencyNode = frequency;
 		this.frequencyControl = frequency.offset;
-		const fmMod = new GainNode(context);
-		frequency.connect(fmMod);
-		this.fmMod = fmMod.gain;
+		const vibratoAmp = new GainNode(context);
+		frequency.connect(vibratoAmp);
 		const vibratoDepth = new GainNode(context, {gain: 0});
-		vibratoDepth.connect(fmMod.gain);
+		vibratoDepth.connect(vibratoAmp.gain);
 		this.vibratoDepth = vibratoDepth.gain;
-		lfo1.connect(vibratoDepth);
-		fmMod.connect(saw.frequency);
+		lfo.connect(vibratoDepth);
+		vibratoAmp.connect(saw.frequency);
 
 		const reciprocalInputScaler = new GainNode(context, {gain: 2 / synth.maxFrequency});
-		fmMod.connect(reciprocalInputScaler);
+		vibratoAmp.connect(reciprocalInputScaler);
 		const reciprocal = new WaveShaperNode(context, {curve: reciprocalTable});
 		reciprocalInputScaler.connect(reciprocal);
-		const reciprocalShift = new ConstantSourceNode(context, {offset: -1});
-		this.reciprocalShift = reciprocalShift;
-		reciprocalShift.connect(reciprocal);
+		minusOne.connect(reciprocal);
 		this.reciprocal = reciprocal;
 		const dutyCycle = new GainNode(context, {gain: 0.5});
 		reciprocal.connect(dutyCycle);
-		this.dutyCycle = dutyCycle.gain;
+		this.dutyCycleParam = dutyCycle.gain;
 		const delay = new DelayNode(context, {delayTime: 0, maxDelayTime: 0.5});
 		saw.connect(delay);
 		dutyCycle.connect(delay.delayTime);
@@ -191,7 +188,7 @@ class ToneChannel {
 		this.constantNode = constant;
 
 		const pwm = new GainNode(context, {gain: 0});
-		lfo2.connect(pwm);
+		pwmLFO.connect(pwm);
 		pwm.connect(dutyCycle.gain);
 		const times2 = new GainNode(context, {gain: 2});
 		pwm.connect(times2);
@@ -205,7 +202,7 @@ class ToneChannel {
 		const tremoloGain = new GainNode(context, {gain: 0});
 		tremoloGain.connect(tremolo.gain);
 		this.tremoloAmp = tremoloGain.gain;
-		lfo1.connect(tremoloGain);
+		lfo.connect(tremoloGain);
 
 		const envelopeGain = new GainNode(context, {gain: 0});
 		tremolo.connect(envelopeGain);
@@ -220,7 +217,6 @@ class ToneChannel {
 	start(time = 0) {
 		this.saw.start(time);
 		this.frequencyNode.start(time);
-		this.reciprocalShift.start(time);
 		this.dcOffset.start(time);
 		this.constantNode.start(time);
 	}
@@ -228,7 +224,6 @@ class ToneChannel {
 	stop(time = 0) {
 		this.saw.stop(time);
 		this.frequencyNode.stop(time);
-		this.reciprocalShift.stop(time);
 		this.dcOffset.stop(time);
 		this.constantNode.stop(time);
 		this.reciprocal.disconnect();
@@ -281,7 +276,7 @@ class ToneChannel {
 	}
 
 	setDutyCycle(value, time = 0, method = 'setValueAtTime') {
-		this.dutyCycle[method](value, time);
+		this.dutyCycleParam[method](value, time);
 		this.dcOffset.offset[method](2 * value - 1, time);
 	}
 
@@ -355,20 +350,22 @@ class PSG {
 		for (let i = 1; i <= numSteps; i++) {
 			reciprocalTable[i] = 1 / (i * step);
 		}
+		const minusOne = new ConstantSourceNode(context, {offset: -1});
+		this.minusOne = minusOne;
 
-		const lfo1 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
-		this.lfo1 = lfo1;
-		const lfo2 = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
-		this.lfo2 = lfo2;
+		const lfo = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
+		this.lfo = lfo;
+		const pwmLFO = new OscillatorNode(context, {frequency: 0, type: 'triangle'});
+		this.pwmLFO = pwmLFO;
 
 		const channelGain = new GainNode(context, {gain: 1 / (numToneChannels + 1)});
-		channelGain.connect(context.destination);
+		channelGain.connect(output);
 		const channels = [];
 		for (let i = 0; i < numToneChannels; i++) {
-			const channel = new ToneChannel(this, context, lfo1, lfo2, channelGain, reciprocalTable);
+			const channel = new ToneChannel(this, context, lfo, pwmLFO, channelGain, reciprocalTable, minusOne);
 			channels[i] = channel;
 		}
-		const noiseChannel = new NoiseChannel(context, lfo1, channelGain, clockRate);
+		const noiseChannel = new NoiseChannel(context, lfo, channelGain, clockRate);
 		noiseChannel.connectIn(channels[2].frequencyNode);
 		channels[numToneChannels] = noiseChannel;
 		this.noiseChannel = noiseChannel;
@@ -383,7 +380,7 @@ class PSG {
 		/* Incorporate the upper 4 bits of an OPN style frequency number into the key code
 		 * 2048 / 128 = 16 (= 4 bits) But additionally there's the multiply by 0.5 aspect when
 		 * converting from a frequency number into Hertz.*/
-		this.hertzToFBits = 64 * opnFrequencyStep;
+		this.hertzToFBits = 32 * opnFrequencyStep;
 
 		if (this.noiseChannel) {
 			this.noiseChannel.setClockRate(context, clockRate);
@@ -391,27 +388,29 @@ class PSG {
 	}
 
 	start(time) {
-		this.lfo1.start(time);
-		this.lfo2.start(time);
+		this.minusOne.start(time);
+		this.lfo.start(time);
+		this.pwmLFO.start(time);
 		for (let channel of this.channels) {
 			channel.start(time);
 		}
 	}
 
 	stop(time = 0) {
-		this.lfo1.stop(time);
-		this.lfo2.stop(time);
+		this.lfo.stop(time);
+		this.pwmLFO.stop(time);
+		this.minusOne.stop(time);
 		for (let channel of this.channels) {
 			channel.stop(time);
 		}
 	}
 
 	setLFORate(frequency, time = 0, method = 'setValueAtTime') {
-		this.lfo1.frequency[method](frequency, time);
+		this.lfo.frequency[method](frequency, time);
 	}
 
 	getLFORate() {
-		return this.lfo1.frequency.value;
+		return this.lfo.frequency.value;
 	}
 
 	useLFOPreset(presetNum, time = 0, method = 'setValueAtTime') {
@@ -435,11 +434,11 @@ class PSG {
 	}
 
 	setPWMFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		this.lfo2.frequency[method](frequency, time);
+		this.pwmLFO.frequency[method](frequency, time);
 	}
 
 	getPWMFrequency() {
-		return this.lfo2.frequency.value;
+		return this.pwmLFO.frequency.value;
 	}
 
 	frequencyNumberToHz(frequencyNumber) {
@@ -494,7 +493,7 @@ class PSG {
 	}
 
 	getLFO(n) {
-		return n === 1 ? this.lfo1 : this.lfo2;
+		return n === 1 ? this.lfo : this.pwmLFO;
 	}
 
 	/**Approximates keyCode in the FM synth but derives the key code from a frequency in Hertz

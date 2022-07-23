@@ -484,7 +484,7 @@ export default class FMOperator extends Operator {
 		this.centreFrequencyNode.connect(vibratoAmp.gain);
 		vibratoDepth.connect(vibratoAmp);
 		vibratoAmp.connect(this.frequencyNode.offset);
-		this.vibratoDepthControl = vibratoDepth.gain;
+		this.vibratoDepthParam = vibratoDepth.gain;
 		this.vibratoDepth = 0;
 	}
 
@@ -601,7 +601,7 @@ export default class FMOperator extends Operator {
 	}
 
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {
-		this.vibratoDepthControl[method](linearAmount, time);
+		this.vibratoDepthParam[method](linearAmount, time);
 		this.vibratoDepth = linearAmount;
 	}
 
