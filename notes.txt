@@ -63,8 +63,13 @@ on screen keyboard
 
 LFO centering (only up / only down / bipolar)?
 
+Filter
+	Separate wet/dry per channel
+	Separate filters for FM and PSG? (Per voice for FM?)
+
 PSG
-	panning
+	separate into multiple files
+	panning (but no modulation)
 	glide
 	looping envelope
 	filter envelope
@@ -75,13 +80,12 @@ PSG
 		Generalize envelope to support custom waveforms, AM or custom envelopes (up to 64 steps, 31 levels), looping or not
 		Quick options to create tremolo
 		Noise channel only has a regular, non-looping envelope
-	new oscillator on each key on
-	move filter into PSG (separate wet/dry per channel)
-	add vibrato to noise channel
-	option to configure LFSR polynomial
+	new oscillator on each key on? Need to prevent frequency going too low
+	noise channel
+		option to configure LFSR polynomial and noise bit depth and starting value
+		tidy up code
 	per channel tunings
 	generalize getMIDINote to handle different interval and divisions values
-	mixer: noise vs tones (mix noise into tones as well as separate noise channel? See AY manual)
 	replace calcKeyCode with less jumpy version
 
 OPL2/3-like features

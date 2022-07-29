@@ -19,7 +19,11 @@ for (let i = 1; i <= 29; i += 2) {
 const TREMOLO_PRESETS = [0, 1, 3, 6];
 
 class NoiseChannel {
-	constructor(context, lfo, output, clockRate) {
+	constructor(synth, context, lfo, output) {
+		this.synth = synth;
+		this.sampleRate = context.sampleRate;
+		this.waveform = 0;
+
 		const noiseBuffer = new AudioBuffer({length: 57336, sampleRate: context.sampleRate});
 		let sampleData = noiseBuffer.getChannelData(0);
 		let lfsr = 1 << 15;
@@ -29,26 +33,19 @@ class NoiseChannel {
 			lfsr = (lfsr >>> 1) | (tap << 15);
 			sampleData[i] = output === 1 ? -1 : 1;
 		}
-		this.noiseBuffer = noiseBuffer;
 
 		const pulseBuffer = new AudioBuffer({length: 128, sampleRate: context.sampleRate});
 		sampleData = pulseBuffer.getChannelData(0);
 		sampleData.fill(-1, 0, 8);
 		sampleData.fill(1, 8);
-		this.pulseBuffer = pulseBuffer;
-		this.pulsing = true;
 
-		const toneInputGain = new GainNode(context, {gain: 0});
-		this.toneInputGain = toneInputGain;
-		this.countdownValue = 16;
-		/* "When its input changes from 0 to 1 (ie. only once for every two times the related
-		 *counter reaches zero..." Equivalent to using 32 here instead of 16.
-		 * https://www.smspower.org/Development/SN76489
-		 */
-		this.transitionsPerSample = clockRate / (32 * context.sampleRate);
+		this.buffers = [pulseBuffer, noiseBuffer];
+		this.playbackRates = [128, 1];
+		this.frequencyDividers = [16, 1];	// Pulse wave has 1/16 duty cycle
 		const source = this.makeSource(context);
-		toneInputGain.connect(source.playbackRate);
 		this.source = source;
+		this.rateMultiplier = this.playbackRates[this.waveform];
+		this.setCountdownValue(16);
 
 		const envelopeGain = new GainNode(context, {gain: 0});
 		this.envelopeGain = envelopeGain;
@@ -57,27 +54,11 @@ class NoiseChannel {
 	}
 
 	makeSource(context) {
-		let playbackRate;
-		if (this.countdownValue) {
-			playbackRate = this.transitionsPerSample / this.countdownValue;
-		} else {
-			playbackRate = 0;
-		}
-
-		let buffer;
-
-		if (this.pulsing) {
-			buffer = this.pulseBuffer;
-			playbackRate *= 8;
-		} else {
-			buffer = this.noiseBuffer;
-		}
-
 		return new AudioBufferSourceNode(context, {
-			buffer: buffer,
+			buffer: this.buffers[this.waveform],
 			loop: true,
-			loopEnd: buffer.length,
-			playbackRate: playbackRate,
+			loopEnd: Number.MAX_VALUE,
+			playbackRate: 0,
 		});
 	}
 
@@ -89,48 +70,48 @@ class NoiseChannel {
 		this.source.stop(time);
 	}
 
-	connectIn(toneFrequency) {
-		toneFrequency.connect(this.toneInputGain);
+	setFrequency(frequency, time = 0) {
+		this.frequency = frequency;
+		const rateMultiplier = this.rateMultiplier;
+		// For the pulse wave each sample is duplicated 8 times: 128 / 16 = 8
+		const maxRate = rateMultiplier / this.frequencyDividers[this.waveform];
+		const rate = Math.min(rateMultiplier * 4 * this.frequency / this.sampleRate, maxRate);
+		this.source.playbackRate.setValueAtTime(rate, time);
 	}
 
-	loadRegister(context, time = 0) {
-		const newSource = this.makeSource(context);
-		newSource.start(time);
-		newSource.connect(this.envelopeGain);
-		this.source.stop(time);
-		if (this.countdownValue === undefined) {
-			this.toneInputGain.gain.setValueAtTime((this.pulsing ? 8 : 1) / context.sampleRate, time);
-		}
-		this.toneInputGain.connect(newSource.playbackRate);
-		this.source = newSource;
+	getFrequency() {
+		return this.frequency;
 	}
 
-	setClockRate(context, clockRate, time = 0) {
-		this.transitionsPerSample = clockRate / (32 * context.sampleRate);
-		this.loadRegister(context, time);
-	}
-
-	useToneFrequency(context, time = 0) {
-		this.source.playbackRate.setValueAtTime(0, time);
-		this.toneInputGain.gain.setValueAtTime((this.pulsing ? 8 : 1) / context.sampleRate, time);
-		this.countdownValue = undefined;
-	}
-
+	/**When calling setCountdownValue() and setWave() together then setWave() must be called
+	 * first. After calling setWave() it's always necessary to call setCountdownValue() again if
+	 * you want to preserve the countdown value rather than preserving the frequency in Hertz.
+	 */
 	setCountdownValue(count, time = 0) {
-		this.toneInputGain.gain.setValueAtTime(0, time);
-		this.countdownValue = Math.max(count, 1);
+		const divider = this.frequencyDividers[this.waveform];
+		this.setFrequency(this.synth.frequencyNumberToHz(4 * count) / divider, time);
 	}
 
 	getCountdownValue() {
-		return this.countdownValue;
+		return Math.round(this.synth.frequencyToFreqNumber(this.frequency) / 4);
 	}
 
-	setPulsing(enabled) {
-		this.pulsing = enabled;
+	/**
+	 * @param {number} value 0 = pulse wave, 1 = noise
+	 */
+	setWave(context, value, time = 0) {
+		this.waveform = value;										// Used by makeSource()
+		const newSource = this.makeSource(context);
+		newSource.connect(this.envelopeGain);
+		newSource.start(time);
+		this.source.stop(time);
+		this.source = newSource;									// Used by setFrequency()
+		this.rateMultiplier = this.playbackRates[value];	// Used by setFrequency()
+		this.setFrequency(this.frequency, time);
 	}
 
-	isPulsing() {
-		return this.pulsing;
+	getWave() {
+		return this.waveform;
 	}
 
 }
@@ -441,13 +422,16 @@ class PSG {
 			const channel = new ToneChannel(this, context, lfo, pwmLFO, channelGain, reciprocalTable, minusOne);
 			channels[i] = channel;
 		}
-		const noiseChannel = new NoiseChannel(context, lfo, channelGain, clockRate);
-		noiseChannel.connectIn(channels[2].frequencyNode);
+		const noiseChannel = new NoiseChannel(this, context, lfo, channelGain);
 		channels[numToneChannels] = noiseChannel;
 		this.noiseChannel = noiseChannel;
 		this.channels = channels;
 	}
 
+	/**
+	 * @param {number} [clockRate] Use 4,000,000 (with divider = 1) to emulate an AY-3-8910
+	 * running at 2MHz.
+	 */
 	setClockRate(context, clockRate, divider = 15, fps, opnClock = clockRate / 7) {
 		this.framesPerSecond = fps;
 		clockRate /= divider
@@ -456,10 +440,6 @@ class PSG {
 		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
 		// Incorporate the upper bits of an OPN style frequency number into the key code
 		this.hertzToFBits = 128 * opnFrequencyStep;
-
-		if (this.noiseChannel) {
-			this.noiseChannel.setClockRate(context, clockRate);
-		}
 	}
 
 	start(time) {
