@@ -69,11 +69,15 @@ Filter
 
 PSG
 	separate into multiple files
+	overall volume control for patch
 	panning (but no modulation)
-	glide
+	glide (no stepping)
+	pitch bend
+	discrete pitch movements
+		bends (sometimes looping) simulating vibrato or envelope
+		based on frequency numbers
 	looping envelope
 	filter envelope
-	overall volume control for patch
 	LFO delay & fade, LFOs per voice, optional key sync (like FM LFO)
 	see AY8930 (only use envelope per voice from the enhanced features), Super PSG and inSIDious manuals for more ideas
 	No separate tremolo
@@ -82,7 +86,7 @@ PSG
 		Noise channel only has a regular, non-looping envelope
 	new oscillator on each key on? Need to prevent frequency going too low
 	noise channel
-		option to configure LFSR polynomial and noise bit depth and starting value
+		option to configure LFSR polynomial and noise bit depth and starting value and repetitions of each sample
 		tidy up code
 	per channel tunings
 	generalize getMIDINote to handle different interval and divisions values
