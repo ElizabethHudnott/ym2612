@@ -1,6 +1,6 @@
-import {cancelAndHoldAtTime} from './common.js';
+import {cancelAndHoldAtTime, ClockRate} from './common.js';
 
-const OPL_ENVELOPE_TICK = 72 / 3579545;
+const OPL_ENVELOPE_TICK = 72 / (ClockRate.NTSC / 15);
 
 export default class Envelope {
 
@@ -136,7 +136,7 @@ export default class Envelope {
 			keyCode = 31 - keyCode;
 			scaling = -scaling;
 		}
-		return Math.trunc(keyCode / 2 ** (4 - scaling));
+		return keyCode >> (4 - scaling);
 	}
 
 	dampenTime(from, rateAdjust) {
@@ -494,7 +494,7 @@ export default class Envelope {
 			}
 		}
 		if (level === 127) {
-			this.totalLevelNode.offset[method](-1023, time);
+			this.totalLevelNode.offset[method](-1, time);
 		} else {
 			this.totalLevelNode.offset[method](-level * 8 / 1023, time);
 		}

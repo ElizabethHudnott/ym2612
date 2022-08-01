@@ -4,18 +4,25 @@ import TwoOperatorChannel from './two-op-channel.js';
 
 export default class Synth {
 
+	static sampleRate(clockRate, clockDivider1 = 7, clockDivider2 = 144) {
+		return clockRate / (clockDivider1 * clockDivider2);
+	}
+
 	static keyCode(blockNumber, frequencyNumber) {
 		const f11 = frequencyNumber >= 1024;
 		const lsb = frequencyNumber >= 1152 || (!f11 && frequencyNumber >= 896);
 		return (blockNumber << 2) + (f11 << 1) + lsb;
 	}
 
-	constructor(context, numChannels = 8, output = context.destination, clockRate = ClockRate.PAL / 7) {
+	constructor(
+		context, numChannels = 6, output = context.destination, clockRate = ClockRate.NTSC,
+		clockDivider1 = 7, clockDivider2 = 144
+	) {
 		// Tuning data
 		this.referencePitch = 220;
 		this.referenceNote = 69;
 		this.feedbackCallibration = 2.5;
-		this.setClockRate(clockRate, 1);
+		this.setClockRate(clockRate, clockDivider1, clockDivider2);
 
 		const channelGain = new GainNode(context, {gain: 1 / (2 * numChannels)});
 		channelGain.connect(output);
@@ -64,12 +71,14 @@ export default class Synth {
 
 	/**Configures internal timings, etc. to match the real chip's behaviour in different
 	 * settings such as PAL versus NTSC game consoles.
+	 * @param {number} divider1 Use 15 for OPM
+	 * @param {number} divider2 Use 64 for OPM
 	 */
-	setClockRate(clockRate, divider = 7) {
-		clockRate /= divider;
-		this.envelopeTick = 72 * 6 / clockRate;
-		this.lfoRateDividend = clockRate / (144 * 128);
-		this.frequencyStep = clockRate / (144 * 2 ** 20);
+	setClockRate(clockRate, divider1 = 7, divider2 = 144) {
+		clockRate /= divider1;
+		this.envelopeTick = divider2 * 3 / clockRate;
+		this.lfoRateDividend = clockRate / (divider2 * 128);
+		this.frequencyStep = clockRate / (divider2 * 2 ** 20);
 	}
 
 	lfoPresetToFrequency(presetNum) {

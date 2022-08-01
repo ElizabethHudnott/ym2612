@@ -7,9 +7,8 @@ Algorithms on Other Systems (to consider)
 	1 -> 2 & 3, 4			(DX7, Dirtywave M8)
 	1->2&4, 3->2&4			Algorithm 4 + more (Digitone)
 	1->2&3, 2->3->4		(Digitone)
-Renumber operators 2 & 3?
 
-reimplement pulse wave using distortion (https://youtu.be/QWz-CH2TerI?t=404)
+fm-x waves
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
 Changing channel volume while PCM is in use doesn't work (problem?)
@@ -20,13 +19,13 @@ tremolo phase offset
 Bug: feedback strength (when n=7)?
 Bug?: slow fade in of vibrato
 
-Turning LFO frequency to zero doesn't reset phase
+Turning LFO frequency to zero doesn't reset phase when key sync is off
+	Nor should it when not using UI
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening
 	add initial phase parameter
 Sustain on/off envelope option (one shot)
-Envelope trigger method (regardless of key currently on or off)
 Add second release stage to envelopes (from -18db, interdependent across operators, see "reverb" in DX11 manual)
 AM envelopes
 Operator ratio bend
@@ -36,7 +35,7 @@ Fixed operator with partial key tracking ("frequency key scaling") (as 0..99 cen
 add differentiation of log saw
 compressor doesn't support soft knee
 compressor doesn't work with pre-gain higher than 4
-only run lfo when tremolo or vibrato depth is non-zero
+only run lfo when tremolo, vibrato, panbrello, etc. depth is non-zero
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance (FS1R))

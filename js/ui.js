@@ -1,4 +1,5 @@
-import {PROCESSING_TIME, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
+import {PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
+import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
 import {Pan, AbstractChannel} from './sound/fm-channel.js';
@@ -17,8 +18,10 @@ import {Phrase, Transform, Pattern, Player} from './sound/sequencer.js';
 import Recorder from './sound/recorder.js';
 import {parsePattern} from './storage/csv.js';
 
-const audioContext = new AudioContext({latencyHint: 'interactive'});
-const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS);
+const audioContext = new AudioContext(
+	{ latencyHint: 'interactive', sampleRate: Synth.sampleRate(ClockRate.NTSC, 15, 64) }
+);
+const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, ClockRate.NTSC, 60, 15, 64);
 soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
 const synth = soundSystem.fm;
 const psg = soundSystem.psg;

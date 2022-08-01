@@ -138,7 +138,6 @@ class ToneChannel {
 	constructor(synth, context, lfo, pwmLFO, output, reciprocalTable, minusOne) {
 		this.frequency = 0;
 		this.lastFreqChange = 0;
-		this.keyCode = 0;
 		this.waveform = 1;		// Mix: 0 (sawtooth only) to 1 (pulse only)
 		this.sequenceMode = WaveSequence.NONE;
 		this.sequenceTime = 3 / synth.framesPerSecond;
@@ -249,7 +248,6 @@ class ToneChannel {
 		}
 		this.frequency = frequency;
 		this.lastFreqChange = time;
-		this.keyCode = this.synth.keyCode(frequency);
 	}
 
 	getFrequency() {
@@ -388,8 +386,11 @@ class ToneChannel {
 
 class PSG {
 
-	constructor(context, numToneChannels = 3, output = context.destination, clockRate = ClockRate.PAL / 15, fps = 50) {
-		this.setClockRate(context, clockRate, 1, fps, clockRate * 15 / 7);
+	constructor(
+		context, numToneChannels = 3, output = context.destination, clockRate = ClockRate.NTSC,
+		clockDivider = 15, fps = 60
+	) {
+		this.setClockRate(context, clockRate, clockDivider, fps);
 		this.tuneEqualTemperament();
 
 		let frequencyLimit = context.sampleRate / 2;
@@ -432,14 +433,9 @@ class PSG {
 	 * @param {number} [clockRate] Use 4,000,000 (with divider = 1) to emulate an AY-3-8910
 	 * running at 2MHz.
 	 */
-	setClockRate(context, clockRate, divider = 15, fps, opnClock = clockRate / 7) {
+	setClockRate(context, clockRate, divider = 15, fps) {
+		this.clockRate = clockRate / divider;
 		this.framesPerSecond = fps;
-		clockRate /= divider
-		this.clockRate = clockRate;
-		this.lfoRateDividend = opnClock / (144 * 128);
-		const opnFrequencyStep = opnClock / (144 * 2 ** 20);
-		// Incorporate the upper bits of an OPN style frequency number into the key code
-		this.hertzToFBits = 128 * opnFrequencyStep;
 	}
 
 	start(time) {
@@ -466,26 +462,6 @@ class PSG {
 
 	getLFORate() {
 		return this.lfo.frequency.value;
-	}
-
-	useLFOPreset(presetNum, time = 0, method = 'setValueAtTime') {
-		let rate;
-		if (presetNum === 0) {
-			rate = 0;
-		} else {
-			rate = this.synth.lfoRateDividend / LFO_DIVISORS[presetNum - 1];
-		}
-		this.setLFORate(rate, time, method);
-	}
-
-	getLFOPreset() {
-		const rate = this.getLFORate();
-		if (rate === 0) {
-			return 0;
-		}
-		const divisor = Math.round(this.synth.lfoRateDividend / rate);
-		const index = LFO_DIVISORS.indexOf(divisor);
-		return index === -1 ? -1 : index + 1;
 	}
 
 	setPWMFrequency(frequency, time = 0, method = 'setValueAtTime') {
@@ -545,18 +521,6 @@ class PSG {
 			prevIdealFrequency = idealFrequency;
 		}
 		this.noteFrequencies = frequencies;
-	}
-
-	/**Approximates keyCode in the FM synth but derives the key code from a frequency in Hertz
-	 * rather than a Yamaha frequency number.
-	 */
-	keyCode(frequency) {
-		const multiple = frequency / this.hertzToFBits;
-		const block = Math.max(Math.ceil(Math.log2(multiple / 16)), 0);
-		const remainder = Math.trunc(multiple / (2 ** block));
-		const f11 = remainder >= 8;
-		const lsb = remainder > 8 || remainder === 7;
-		return (block << 2) + (f11 << 1) + lsb;
 	}
 
 }

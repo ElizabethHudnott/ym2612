@@ -4,7 +4,11 @@ import {PSG} from './psg.js';
 
 export default class GenesisSound {
 
-	constructor(context, numFMChannels = 6, numPulseChannels = 3, masterClockRate = ClockRate.PAL, psgClockRate = undefined, output = context.destination) {
+	constructor(
+		context, numFMChannels = 6, numPulseChannels = 3, masterClockRate = ClockRate.NTSC,
+		fps = 60, fmClockDivider1 = 7, fmClockDivider2 = 144, psgClockRate = masterClockRate / 15,
+		output = context.destination
+	) {
 		this.cutoff = 4000;
 		this.resonance = 0;
 		const filter = new BiquadFilterNode(context, {frequency: this.cutoff, Q: this.resonance});
@@ -16,11 +20,8 @@ export default class GenesisSound {
 		filter.connect(compressor);
 		compressor.connect(output);
 
-		if (psgClockRate === undefined) {
-			psgClockRate = masterClockRate / 15;
-		}
-		this.fm = new Synth(context, numFMChannels, filter, masterClockRate / 7);
-		this.psg = new PSG(context, numPulseChannels, filter, psgClockRate);
+		this.fm = new Synth(context, numFMChannels, filter, masterClockRate, fmClockDivider1, fmClockDivider2);
+		this.psg = new PSG(context, numPulseChannels, filter, psgClockRate, 1, fps);
 		this.setCompression(1.44, 10);
 	}
 

@@ -1,42 +1,35 @@
 Bugs
 ----
-Turning LFO frequency to zero doesn't reset phase
-tremolo polarity
-feedback strength (when n=7)?
+Turning LFO frequency to zero doesn't reset phase when key sync is off
+	Nor should it when not using UI
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
+don't consider algorithm change in phase reset
 	delay stage should happen after dampening
-	add initial phase parameter
-Reading .value is broken in chrome
 fade in of vibrato is slow
-linearValueAtTime - check values saved appropriately
 SSG loop should include attack phase (modes 0 and 4)
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 
-
-Tweaks
-------
-Use slider to control coarse and fine (detune2) ratios together
-Tabindexes in the custom algorithm section?
-Add "Key On" and "Key Off" annotations to envelope diagram
-
-
 Necessary Improvements
 ----------------------
-testing
-on screen keyboard
 add differentiation of log saw
-MIDI input
-Renumber operators 2 & 3?
-Use Algorithm 4 at start-up, Operators 3 & 4 (will be 2 & 4) disabled
-AM envelopes
+Renumber operators 2 & 3
 Refactor operator UI
-Finish UI
-Quick edit (DX11 manual p.13)
+Finish UI (prioritize: velocity, SSG, envelope reset)
 Icon/logo
 OPN presets
 User presets
-Service worker
-WAV output
 graphics
-basic(!) sequencer
+
+Lower Priority
+--------------
+Quick edit (DX11 manual p.13)
+on screen keyboard
+AM envelopes
+Use slider to control coarse and fine (detune2) ratios together
+testing
+Add "Key On" and "Key Off" annotations to envelope diagram
+tremolo polarity
+feedback strength when n=7
+Reading .value is broken in chrome
+linearValueAtTime - check values saved appropriately

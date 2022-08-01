@@ -6,7 +6,7 @@ A powerful FM synthesizer that's accessible for beginners and runs on the web, w
 * 12 prebuilt algorithms plus user-defined ones
 * Choose between 8 voices with 8 operators (4+4) or up to 16 voices with 4 operators (2+2)
 * 6 stage envelopes
-* 9 basic waveforms
+* x basic waveforms
 	<<insert images>>
 * Looping envelopes
 * Hard sync
