@@ -18,7 +18,7 @@
 	</style>
 </head>
 <body>
-	<form class="container bg-theme-dark" id="instrument-panel">
+	<form class="container instrument-panel bg-theme-dark">
 		<ul class="nav nav-pills nav-fill mb-1" role="tablist" id="instrument-tablist">
 			<li class="nav-item" role="presentation">
 				<a class="nav-link" id="performance-tab" data-toggle="tab" href="#performance" role="tab" aria-controls="performance">
@@ -922,5 +922,21 @@
 			</div>
 		</template>
 	</form>
+	<div class="container footer fixed-bottom text-center" style="min-height: auto">
+		<div class="d-inline-block mr-2">
+			<a href="https://www.patreon.com/bePatron?u=23440273" class="patreon" title="Become a patron">
+				<img src="img/patreon.svg" width="16" height="15" alt="Patreon">
+				<span class="ml-2">Become a patron</span>
+			</a>
+		</div>
+		<form class="d-inline-block align-bottom" action="https://www.paypal.com/donate" method="post" target="_top" style="line-height: 0;">
+			<input type="hidden" name="business" value="XZYN78CQHAVDN">
+			<input type="hidden" name="no_recurring" value="0">
+			<input type="hidden" name="item_name" value="Thank you for supporting my work as a creator with disabilities.">
+			<input type="hidden" name="currency_code" value="GBP">
+			<input type="image" src="https://www.paypalobjects.com/en_GB/i/btn/btn_donate_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" style="height: 33px">
+		</form>
+
+	</div>
 </body>
 </html>

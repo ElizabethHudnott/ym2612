@@ -12,8 +12,29 @@
 	src: url('fonts/digital-7-monoitalic.ttf');
 }
 
+@font-face {
+	font-family: "America";
+	font-display: swap;
+	font-style: normal;
+	font-weight: 400;
+	src: local("America Regular"),
+		local("America-Regular"),
+		url("fonts/GT-America-Standard-Regular.woff2");
+}
+
+@font-face {
+	font-family: "America";
+	font-display: swap;
+	font-style: normal;
+	font-weight: 700;
+	src: local("America Bold"),
+		local("America-Bold"),
+		url("fonts/GT-America-Standard-Bold.woff2");
+}
+
 :root {
 	--accent-color: hsl(175, 30%, 41%);
+	--panel-color: hsl(305, 57%, 23%);
 	--border-color: hsl(300, 100%, 60%);
 	--shaded: hsl(305, 65%, 15%);
 	accent-color: var(--accent-color);
@@ -26,10 +47,16 @@ body {
 	overflow-y: scroll;
 }
 
-#instrument-panel {
-	max-width:  800px;
-	min-height:  100vh;
-	padding:  12px;
+.instrument-panel {
+	max-width: 800px;
+	min-height: 100vh;
+	padding: 12px;
+}
+
+.footer {
+	background-color: var(--panel-color);
+	max-width: 800px;
+	padding: 0.5rem 12px;
 }
 
 input[type="range"] {
@@ -228,12 +255,12 @@ td.odd-col:nth-child(2n) {
 }
 
 .panel {
-	background-color:  hsl(305, 57%, 23%);
-	border-color:  var(--border-color);
-	border-style:  solid;
-	border-width:  1px;
-	color:  hsl(300, 100%, 73%);
-	margin-bottom:  1.5rem;
+	background-color: var(--panel-color);
+	border-color: var(--border-color);
+	border-style: solid;
+	border-width: 1px;
+	color: hsl(300, 100%, 73%);
+	margin-bottom: 1.5rem;
 	padding: 15px;
 }
 
@@ -307,4 +334,24 @@ td.odd-col:nth-child(2n) {
 
 .custom-switch .custom-control-input:checked~.custom-control-label::after {
 	background-color: #d8d8d8;
+}
+
+.patreon {
+	background-color: rgb(232, 91, 70);
+	border: 1px solid rgb(232, 91, 70);
+	border-radius: 9999px;
+	color: white;
+	display: block;
+	font-family: America, sans-serif;
+	font-display: swap;
+	font-size: 0.875rem;
+	font-weight: 500;
+	padding: 5px 1rem;
+	user-select: none;
+}
+
+.patreon:hover {
+	background-color: rgb(231, 81, 59);
+	color: white;
+	text-decoration: none;
 }
