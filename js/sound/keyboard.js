@@ -35,6 +35,7 @@ keymap.set('KeyO', 74);
 keymap.set('Digit0', 75);
 keymap.set('KeyP', 76);
 keymap.set('BracketLeft', 77);
+keymap.set('BracketRight', 79);
 
 const notesOn = new Set();
 let velocity = 127;
@@ -42,9 +43,8 @@ let transpose = 0;
 
 document.body.addEventListener('keydown', function (event) {
 	const code = event.code;
-	const shift = event.shiftKey;
 
-	if (event.altKey || event.ctrlKey || event.metaKey) {
+	if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
 		return;
 	}
 
@@ -62,30 +62,36 @@ document.body.addEventListener('keydown', function (event) {
 		}
 	}
 
-	if (code === 'Minus' || code === 'NumpadSubtract') {
-		if (shift) {
-			if (transpose > -48 && notesOn.size === 0) {
-				transpose -= 12;
-			}
-		} else if (velocity > 16) {
+	switch (code) {
+	case 'Minus':
+	case 'NumpadSubtract':
+		if (velocity > 16) {
 			velocity -= 16;
 		}
 		return;
-	}
 
-	if (code === 'Equal' || code === 'NumpadAdd') {
-		event.preventDefault();	// + character in number inputs
-		if (shift) {
-			if (transpose < 60 && notesOn.size === 0) {
-				transpose += 12;
-			}
-		} else if (velocity < 127) {
+	case 'Equal':
+	case 'NumpadAdd':
+		if (velocity < 127) {
 			velocity += 16;
 		}
 		return;
+
+	case 'NumpadMultiply':
+		if (transpose < 60 && notesOn.size === 0) {
+			transpose += 12;
+		}
+		return;
+
+	case 'NumpadDivide':
+		if (transpose > -48 && notesOn.size === 0) {
+			transpose -= 12;
+		}
+		return;
+
 	}
 
-	if (event.repeat || shift) {
+	if (event.repeat) {
 		return;
 	}
 
