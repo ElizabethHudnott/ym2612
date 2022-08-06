@@ -110,28 +110,22 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return Math.round(10 / this.glideRate);
 	}
 
-	fixFrequency(operatorNum, fixed, time = undefined) {
+	fixFrequency(operatorNum, fixed = true, time = 0) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
-		const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
+		const operator = parent.getOperator(effectiveOperatorNum);
 
 		if (fixed) {
-			if (multiple !== 1 && !parent.isOperatorFixed(effectiveOperatorNum) &&
-				(operatorNum !== 2 || parent.isOperatorFixed(this.operatorOffset))
-			) {
-				// Turn a frequency multiple into a fixed frequency.
-				let block = parent.getFrequencyBlock(this.operatorOffset + 2);
-				let freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
-				[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
-				parent.freqBlockNumbers[effectiveOperatorNum - 1] = block;
-				parent.frequencyNumbers[effectiveOperatorNum - 1] = freqNum;
-			}
-		} else if (time !== undefined) {
-				// Restore a frequency ratio
-				const operator = parent.getOperator(effectiveOperatorNum);
-				const block = parent.getFrequencyBlock(this.operatorOffset + 2);
-				const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
-				operator.setFrequency(block, freqNum, multiple, time);
+			// Restore a fixed frequency from a register.
+			let block = parent.getFrequencyBlock(effectiveOperatorNum);
+			let freqNum = parent.getFrequencyNumber(effectiveOperatorNum);
+			operator.setFrequency(block, freqNum, 1, time);
+		} else {
+			// Restore a frequency ratio
+			const block = parent.getFrequencyBlock(this.operatorOffset + 2);
+			const freqNum = parent.getFrequencyNumber(this.operatorOffset + 2);
+			const multiple = parent.getFrequencyMultiple(effectiveOperatorNum);
+			operator.setFrequency(block, freqNum, multiple, time);
 		}
 		parent.fixedFrequency[effectiveOperatorNum - 1] = fixed;
 	}
@@ -214,12 +208,15 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, glide = true) {
+	setOperatorNote(operatorNum, noteNumber, mutliple = 1, time = 0, glide = true) {
 		const parent = this.parentChannel;
 		const effectiveOperatorNum = this.operatorOffset + operatorNum;
 		parent.fixFrequency(effectiveOperatorNum, true, undefined, false);
-		const block = this.noteFreqBlockNumbers[noteNumber];
-		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		let block = this.noteFreqBlockNumbers[noteNumber];
+		let freqNum = this.noteFrequencyNumbers[noteNumber];
+		if (multiple !== 1) {
+			[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
+		}
 		const glideRate = glide ? this.glideRate : 0;
 		parent.setOperatorFrequency(effectiveOperatorNum, block, freqNum, time, glideRate);
 	}

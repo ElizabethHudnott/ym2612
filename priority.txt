@@ -4,9 +4,7 @@ Turning LFO frequency to zero doesn't reset phase when key sync is off
 	Nor should it when not using UI
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
-don't consider algorithm change in phase reset
-	delay stage should happen after dampening
-fade in of vibrato is slow
+delay stage should happen after dampening
 SSG loop should include attack phase (modes 0 and 4)
 Oscillator phase should reset on each SSG loop for modes 0 and 4
 

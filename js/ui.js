@@ -838,16 +838,19 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 });
 
 document.getElementById('glide-slider').addEventListener('input', function (event) {
+	audioContext.resume();
 	const glideRate = parseInt(this.value);
 	document.getElementById('glide').value = glideRate;
 	eachChannel(channel => channel.setGlideRate(glideRate));
 });
 
 document.getElementById('fingered-glide').addEventListener('input', function (event) {
+	audioContext.resume();
 	MUSIC_INPUT.fingeredPortamento = this.checked;
 });
 
 document.getElementById('pan-source').addEventListener('input', function (event) {
+	audioContext.resume();
 	const source = parseInt(this.value);
 	eachChannel(channel => channel.setPanModulationSource(source));
 });
@@ -1008,15 +1011,13 @@ function waveform(event) {
 }
 
 function unfixFrequency(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
-	eachChannel(channel => channel.fixFrequency(opNum, false, time));
+	eachChannel(channel => channel.fixFrequency(opNum, false));
 }
 
 function frequencyMultipleSlider(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const opStr = 'op' + opNum;
@@ -1030,13 +1031,12 @@ function frequencyMultipleSlider(event) {
 	document.getElementById(opStr + '-freq-unfixed').checked = true;
 	document.getElementById(opStr + '-multiple').value = value;
 	eachChannel(channel => {
-		channel.setFrequencyMultiple(opNum, value, time);
-		channel.fixFrequency(opNum, false, time);
+		channel.setFrequencyMultiple(opNum, value);
+		channel.fixFrequency(opNum, false);
 	});
 }
 
 function frequencyMultiple(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
 	const opNum = getOperator(this);
 	const valueStr = this.value;
 	let numerator = parseFloat(valueStr);
@@ -1055,8 +1055,8 @@ function frequencyMultiple(event) {
 	document.getElementById('op' + opNum + '-freq-unfixed').checked = true;
 	document.getElementById('op' + opNum + '-multiple-slider').value = value;
 	eachChannel(channel => {
-		channel.setFrequencyMultiple(opNum, value, time);
-		channel.fixFrequency(opNum, false, time);
+		channel.setFrequencyMultiple(opNum, value);
+		channel.fixFrequency(opNum, false);
 	});
 }
 
@@ -1091,7 +1091,6 @@ function frequencyFreeMultiple(event) {
 }
 
 function frequency(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
 	audioContext.resume();
 	const opNum = getOperator(this);
 	document.getElementById('op' + opNum + '-freq-fixed').checked = true;
@@ -1101,7 +1100,7 @@ function frequency(event) {
 		freqNum = firstChannel.getOperator(opNum).getFrequencyNumber();
 	}
 	eachChannel(channel => {
-		channel.fixFrequency(opNum, true, 0);
+		channel.fixFrequency(opNum, true);
 		channel.setOperatorFrequency(opNum, block, freqNum);
 	});
 }

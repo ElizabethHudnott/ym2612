@@ -17,7 +17,6 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 
 tremolo phase offset
 Bug: feedback strength (when n=7)?
-Bug?: slow fade in of vibrato
 
 Turning LFO frequency to zero doesn't reset phase when key sync is off
 	Nor should it when not using UI
@@ -38,7 +37,7 @@ compressor doesn't work with pre-gain higher than 4
 only run lfo when tremolo, vibrato, panbrello, etc. depth is non-zero
 
 linearValueAtTime - check values saved appropriately
-Ability to make parameters velocity sensitive (e.g. filter envelope amount, resonance (FS1R))
+Ability to make parameters velocity sensitive (e.g. distortion, filter envelope amount, resonance (FS1R))
 envelopes synced to tempo?
 attenuation bend and velocity?
 

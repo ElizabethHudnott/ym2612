@@ -56,7 +56,7 @@ body {
 .footer {
 	background-color: var(--panel-color);
 	max-width: 800px;
-	padding: 0.5rem 12px;
+	padding: 0.5rem 12px 4px;
 }
 
 input[type="range"] {

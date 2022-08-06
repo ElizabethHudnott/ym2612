@@ -419,38 +419,22 @@ class Channel extends AbstractChannel {
 		return Math.round(10 / this.glideRate);
 	}
 
-	fixFrequency(operatorNum, fixed, time = undefined, preserve = true) {
+	fixFrequency(operatorNum, fixed = true, time = 0) {
 		const operator = this.operators[operatorNum - 1];
-		const multiple = this.frequencyMultiples[operatorNum - 1];
-		const fixedFrequency = this.fixedFrequency;
 
 		if (fixed) {
-			if (preserve) {
-				if (multiple !== 1 && !fixedFrequency[operatorNum - 1] &&
-					(operatorNum !== 4 ||
-						(fixedFrequency[0] && fixedFrequency[1] && fixedFrequency[2])
-					)
-				) {
-					// Turn a frequency multiple into a fixed frequency.
-					let block = this.freqBlockNumbers[3];
-					let freqNum = this.frequencyNumbers[3];
-					[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
-					this.freqBlockNumbers[operatorNum - 1] = block;
-					this.frequencyNumbers[operatorNum - 1] = freqNum;
-				}
-			} else if (time !== undefined) {
-				// Restore a fixed frequency from a register.
-				const block = this.freqBlockNumbers[operatorNum - 1];
-				const freqNum = this.frequencyNumbers[operatorNum - 1];
-				operator.setFrequency(block, freqNum, 1, time);
-			}
-		} else if (time !== undefined) {
-				// Restore a frequency ratio
-				const block = this.freqBlockNumbers[3];
-				const freqNum = this.frequencyNumbers[3];
-				operator.setFrequency(block, freqNum, multiple, time);
+			// Restore a fixed frequency from a register.
+			const block = this.freqBlockNumbers[operatorNum - 1];
+			const freqNum = this.frequencyNumbers[operatorNum - 1];
+			operator.setFrequency(block, freqNum, 1, time);
+		} else {
+			// Restore a frequency ratio
+			const block = this.freqBlockNumbers[3];
+			const freqNum = this.frequencyNumbers[3];
+			const multiple = this.frequencyMultiples[operatorNum - 1];
+			operator.setFrequency(block, freqNum, multiple, time);
 		}
-		fixedFrequency[operatorNum - 1] = fixed;
+		this.fixedFrequency[operatorNum - 1] = fixed;
 	}
 
 	isOperatorFixed(operatorNum) {
@@ -570,10 +554,13 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setOperatorNote(operatorNum, noteNumber, time = 0, glide = true) {
+	setOperatorNote(operatorNum, noteNumber, multiple = 1, time = 0, glide = true) {
 		this.fixedFrequency[operatorNum - 1] = true;
-		const block = this.noteFreqBlockNumbers[noteNumber];
-		const freqNum = this.noteFrequencyNumbers[noteNumber];
+		let block = this.noteFreqBlockNumbers[noteNumber];
+		let freqNum = this.noteFrequencyNumbers[noteNumber];
+		if (multiple !== 1) {
+			[block, freqNum] = this.multiplyFreqComponents(block, freqNum, multiple);
+		}
 		const glideRate = glide ? this.glideRate : 0;
 		this.setOperatorFrequency(operatorNum, block, freqNum, time, glideRate);
 	}

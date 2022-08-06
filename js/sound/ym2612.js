@@ -52,7 +52,7 @@ write[0x27] = (chip, b, t) => {
 	const fixed = (b & 96) > 0;
 	const channel = chip.synth.getChannel(3);
 	for (let i = 1; i <= 4; i++) {
-		channel.fixFrequency(i, fixed, t, false);
+		channel.fixFrequency(i, fixed, t);
 	}
 }
 
