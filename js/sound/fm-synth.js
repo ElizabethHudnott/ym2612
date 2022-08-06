@@ -296,14 +296,16 @@ export default class Synth {
 			keyCodes[i] = keyCode;
 			numInstances[keyCode]++;
 		}
+		// Don't worry about frequencies outside the range of most acoustic instruments
 		let minIndex = 0;
-		while (frequencyData[minIndex + 1] <= 13.75 && keyCodes[minIndex] === 0) {
+		const halfStandardA0 = 13.75 / this.frequencyStep;
+		while (frequencyData[minIndex + 1] <= halfStandardA0 && keyCodes[minIndex] === 0) {
 			numInstances[0]--;
 			minIndex++;
 		}
 		let maxIndex = blocks.length - 1;
-		const standardC7 = 440 * (2 ** (27 / 12)) / this.frequencyStep; // effectively C8
-		while (frequencyData[maxIndex - 1] >= standardC7 && keyCodes[maxIndex] === 31) {
+		const standardC8 = 440 * (2 ** (39 / 12)) / this.frequencyStep;
+		while (frequencyData[maxIndex - 1] >= standardC8 && keyCodes[maxIndex] === 31) {
 			numInstances[31]--;
 			maxIndex--;
 		}

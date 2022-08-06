@@ -988,7 +988,7 @@ class Channel extends AbstractChannel {
 	/**Calculates frequency data for a scale of 128 MIDI notes.
 	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
 	 * @param {number} interval The default value of 2 separates consecutive copies of the root
-	 * note by a 2:1 frequency ratio (an octave). Different values can produce stretched
+	 * note using a 2:1 frequency ratio (1 octave). Different values can produce stretched
 	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
 	 * produce unusual scales, such as Wendy Carlos' alpha, beta and gamma scales.
 	 * @param {number} divisions How many notes the chromatic scale should have.
