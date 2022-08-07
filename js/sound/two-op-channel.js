@@ -76,8 +76,8 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	getAlgorithm() {
-		const isFM = this.getModulationDepth(1, 2) !== 0;
-		return isFM ? 0 : 1;
+		// Algorithms 0 (false) = FM, 1 (true) = AM
+		return Number(this.getModulationDepth() === 0);
 	}
 
 	setModulationDepth(amount, time = 0, method = 'setValueAtTime') {

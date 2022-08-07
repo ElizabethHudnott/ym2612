@@ -194,7 +194,7 @@ document.getElementById('compress-ratio').addEventListener('input', function (ev
 	const ratio = parseFloat(this.value);
 	if (ratio > 1 && ratio <= 20) {
 		document.getElementById('compress-ratio-slider').value = ratio;
-		soundSystem.setCompression(soundSystem.getpreGain(), ratio);
+		soundSystem.setCompression(soundSystem.getPreGain(), ratio);
 	}
 });
 

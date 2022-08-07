@@ -30,7 +30,7 @@ AM envelopes
 Operator ratio bend
 	Separate ratio node (so it works with pitch bend and glide)
 Operator frequency offset? (in frequency numbers) (can be combined with a ratio)
-Fixed operator with partial key tracking ("frequency key scaling") (as 0..99 centred on C3) (FS1R)
+Fixed operator with partial key tracking ("frequency key scaling") (as -200..200 with specified centre key) (FM-X & FS1R)
 add differentiation of log saw
 compressor doesn't support soft knee
 compressor doesn't work with pre-gain higher than 4

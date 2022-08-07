@@ -136,7 +136,6 @@ class Channel extends AbstractChannel {
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
 		// The range is plus or minus this value, so it represents half of the total range.
-		// Can be negative to reverse the direction.
 		this.panRange = 1;
 		this.panDirection = 1; // 1 or -1
 		this.panInputCentre = 64;
@@ -290,12 +289,14 @@ class Channel extends AbstractChannel {
 		return this.operators[operatorNum - 1];
 	}
 
-	splitChannel(split, time = 0) {
+	splitChannel(context, split, time = 0) {
 		if (split) {
 			this.setVolume(this.outputLevel / 2, time);
+			this.setLFOKeySync(context, false, time);
 			this.applyLFO(time);
 		} else {
 			this.setVolume(this.outputLevel, time);
+			this.setLFOKeySync(context, this.lfoKeySync, time);
 		}
 	}
 
