@@ -1,25 +1,25 @@
 Wanted Feature List / Change List
 ---------------------------------
 Algorithms on Other Systems (to consider)
-	1 -> 2 & 3 -> 4		(Bleass, Dirtywave M8) diamond shape
-	1 -> 2 -> 3 & 4		(Bleass, Dirtywave M8)
-	1 & 2 & 3 -> 4			(DX7, Bleass, Dirtywave M8)
-	1 -> 2 & 3, 4			(DX7, Dirtywave M8)
+	1 -> 2 & 3 -> 4		(Bleass, Dirtywave M8, Ableton) diamond shape
+	1 -> 2 -> 3 & 4		(Bleass, Dirtywave M8, Ableton)
+	1 & 2 & 3 -> 4			(DX7, Bleass, Dirtywave M8, Ableton)
+	1 -> 2 & 3, 4			(DX7, Dirtywave M8, Ableton)
 	1->2&4, 3->2&4			Algorithm 4 + more (Digitone)
 	1->2&3, 2->3->4		(Digitone)
+	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
 fm-x waves
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
 Changing channel volume while PCM is in use doesn't work (problem?)
 
+Make envelope diagram dynamic
 Add "Key On" and "Key Off" annotations to envelope diagram
 
-tremolo phase offset
+tremolo & auto pan phase offset
 Bug: feedback strength (when n=7)?
 
-Turning LFO frequency to zero doesn't reset phase when key sync is off
-	Nor should it when not using UI
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening

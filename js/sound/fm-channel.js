@@ -158,6 +158,11 @@ class Channel extends AbstractChannel {
 		this.lfoDelay = 0;
 		this.lfoFade = 0;
 
+		const autoPan = new GainNode(context, {gain: 0});
+		this.autoPan = autoPan.gain;
+		lfoEnvelope.connect(autoPan);
+		autoPan.connect(panner.pan);
+
 		const op1 = new Operator(this, context, lfoEnvelope, shaper, dbCurve);
 		const op2 = new Operator(this, context, lfoEnvelope, shaper, dbCurve);
 		const op3 = new Operator(this, context, lfoEnvelope, shaper, dbCurve);
@@ -894,7 +899,25 @@ class Channel extends AbstractChannel {
 		return this.pan;
 	}
 
-	setPanModulationSource(mode) {
+	setPanModulationSource(mode, time = 0) {
+		if (mode === Pan.LFO) {
+			this.panner.pan.setValueAtTime(0, time);
+			this.autoPan.setValueAtTime(-panningMap(this.panRange), time);
+			this.pan = 0;
+		} else {
+			if (mode === Pan.FIXED) {
+				if (this.panMode !== Pan.FIXED) {
+					// Switching from another mode to fixed position mode places panning in the
+					// centre.
+					this.panner.pan.setValueAtTime(0, time);
+				}
+			} else {
+				// Switching to a mode other than fixed resets the fixed panning position to the
+				// centre.
+				this.pan = 0;
+			}
+			this.autoPan.setValueAtTime(0, time);
+		}
 		this.panMode = mode;
 	}
 
@@ -902,8 +925,12 @@ class Channel extends AbstractChannel {
 		return this.panMode;
 	}
 
-	setStereoWidth(width) {
-		this.panRange = this.panDirection * width / 2;
+	setStereoWidth(width, time = 0, method = 'setValueAtTime') {
+		const range = this.panDirection * width / 2;
+		if (this.panMode === Pan.LFO) {
+			this.autoPan[method](-panningMap(range), time);
+		}
+		this.panRange = range;
 	}
 
 	getStereoWidth() {
@@ -913,8 +940,12 @@ class Channel extends AbstractChannel {
 	/**
 	 * @param {number} direction 1 = left to right, -1 = right to left
 	 */
-	setPanModulationDirection(direction) {
-		this.panRange = direction * Math.abs(this.panRange);
+	setPanModulationDirection(direction, time = 0) {
+		const range = direction * Math.abs(this.panRange);
+		if (this.panMode === Pan.LFO) {
+			this.autoPan.setValueAtTime(-panningMap(range), time);
+		}
+		this.panRange = range;
 		this.panDirection = direction;
 	}
 
