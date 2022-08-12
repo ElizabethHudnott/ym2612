@@ -50,6 +50,19 @@ document.body.addEventListener('keydown', function (event) {
 
 	const htmlInputType = document.activeElement.type;
 
+	switch (code) {
+	case 'NumpadMultiply':
+		if (transpose < 60 && notesOn.size === 0) {
+			transpose += 12;
+		}
+		return;
+	case 'NumpadDivide':
+		if (transpose > -48 && notesOn.size === 0) {
+			transpose -= 12;
+		}
+		return;
+	}
+
 	if (htmlInputType === 'number') {
 		if (
 			code.slice(0, 5) === 'Digit' ||
@@ -74,18 +87,6 @@ document.body.addEventListener('keydown', function (event) {
 	case 'NumpadAdd':
 		if (velocity < 127) {
 			velocity += 16;
-		}
-		return;
-
-	case 'NumpadMultiply':
-		if (transpose < 60 && notesOn.size === 0) {
-			transpose += 12;
-		}
-		return;
-
-	case 'NumpadDivide':
-		if (transpose > -48 && notesOn.size === 0) {
-			transpose -= 12;
 		}
 		return;
 
