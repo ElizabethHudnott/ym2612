@@ -162,7 +162,7 @@ class Operator {
 			this.frequencyParam.setValueAtTime(newFrequency, time);
 		} else {
 			const glideTime = Math.abs(Math.log2(newFrequency / currentFrequency)) * glideRate;
-			this.frequencyParam.exponentialRampToValueAtTime(newFrequency, time + glideTime);
+			this.frequencyParam.linearRampToValueAtTime(newFrequency, time + glideTime);
 			this.glideTime = glideTime;
 		}
 		this.glideFrom = currentFrequency;
@@ -184,7 +184,7 @@ class Operator {
 		if (prevGlideTime === 0 || time >= prevGlideStart + prevGlideTime) {
 			currentFrequency = glidingTo;
 		} else {
-			currentFrequency = glidingFrom * (glidingTo / glidingFrom) ** ((time - prevGlideStart) / prevGlideTime);
+			currentFrequency = glidingFrom + (glidingTo - glidingFrom) * (time - prevGlideStart) / prevGlideTime;
 		}
 		cancelAndHoldAtTime(this.frequencyParam, currentFrequency, time);
 		this.frequency = currentFrequency;
