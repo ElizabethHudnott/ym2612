@@ -48,7 +48,7 @@ Noise/S&H/sample as LFO source?
 Level scaling (per operator)
 	Breakpoint
 	Left and right depths (change in output level)
-	Left and right curves (+linear, -linear, +exponential, -exponential, +stepped (OPL style), -stepped)
+	Left and right curves (+linear, -linear, +exponential, -exponential, +stepped? (OPL style), -stepped)
 	Can be applied to filter resonance too
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4

@@ -133,23 +133,16 @@ class Channel extends AbstractChannel {
 
 		this.cutoffHz = cutoffValueToFrequency(91);	// 3662 Hz
 		this.resonance = 0;
-		this.filterSend = 120;
-		const filterWet = new GainNode(context);
-		const filterDry = new GainNode(context, {gain: 0});
-		this.filterWet = filterWet.gain;
-		this.filterDry = filterDry.gain;
-		shaper.connect(filterWet);
-		shaper.connect(filterDry);
 
 		const filter = new BiquadFilterNode(
 			context, {frequency: this.cutoffHz, Q: this.resonance}
 		);
 		this.filter = filter;
-		filterWet.connect(filter);
+		shaper.connect(filter);
+
 		const gain = new GainNode(context);
 		this.gainControl = gain.gain;
 		this.filter.connect(gain);
-		filterDry.connect(gain);
 
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
@@ -902,16 +895,6 @@ class Channel extends AbstractChannel {
 		if (this.lfo && this.lfoKeySync) {
 			this.lfo.stop(time);
 		}
-	}
-
-	/**
-	 * @param {number} amount Between 0 and 120.
-	 */
-	setFilterSend(amount, time = 0, method = 'setValueAtTime') {
-		const wet = (10 ** (-0.005 * amount) - 1) / (10 ** (-12 / 20) - 1);
-		this.filterWet[method](wet, time);
-		this.filterDry[method](1 - wet, time);
-		this.filterSend = amount;
 	}
 
 	/**
