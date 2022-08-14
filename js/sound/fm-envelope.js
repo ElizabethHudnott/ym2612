@@ -493,10 +493,10 @@ export default class Envelope {
 				level = Math.min(Math.max(level, 0), 126);
 			}
 		}
-		if (level === 127) {
-			this.totalLevelNode.offset[method](-1, time);
+		if (level === 0) {
+			this.totalLevelNode.offset[method](0, time);
 		} else {
-			this.totalLevelNode.offset[method](-level * 8 / 1023, time);
+			this.totalLevelNode.offset[method](-(level * 8 + 7) / 1023, time);
 		}
 	}
 

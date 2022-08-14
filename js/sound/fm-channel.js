@@ -1,5 +1,6 @@
 import {
-	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
+	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, cutoffValueToFrequency,
+	frequencyToCutoffValue, panningMap,
 	VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
@@ -129,9 +130,26 @@ class Channel extends AbstractChannel {
 		super();
 		this.synth = synth;
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
+
+		this.cutoffHz = cutoffValueToFrequency(91);	// 3662 Hz
+		this.resonance = 0;
+		this.filterSend = 120;
+		const filterWet = new GainNode(context);
+		const filterDry = new GainNode(context, {gain: 0});
+		this.filterWet = filterWet.gain;
+		this.filterDry = filterDry.gain;
+		shaper.connect(filterWet);
+		shaper.connect(filterDry);
+
+		const filter = new BiquadFilterNode(
+			context, {frequency: this.cutoffHz, Q: this.resonance}
+		);
+		this.filter = filter;
+		filterWet.connect(filter);
 		const gain = new GainNode(context);
-		shaper.connect(gain);
 		this.gainControl = gain.gain;
+		this.filter.connect(gain);
+		filterDry.connect(gain);
 
 		const panner = new StereoPannerNode(context);
 		this.pan = 0;
@@ -821,6 +839,10 @@ class Channel extends AbstractChannel {
 		}
 	}
 
+	applyFilter(time = 0) {
+		this.filter.frequency.setValueAtTime(this.cutoffHz, time);
+	}
+
 	/**
 	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} for that.
 	 */
@@ -850,6 +872,7 @@ class Channel extends AbstractChannel {
 			operators[3].keyOff(time);
 		}
 		this.scheduleOscillators();
+		this.applyFilter(time);
 	}
 
 	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
@@ -879,6 +902,38 @@ class Channel extends AbstractChannel {
 		if (this.lfo && this.lfoKeySync) {
 			this.lfo.stop(time);
 		}
+	}
+
+	/**
+	 * @param {number} amount Between 0 and 120.
+	 */
+	setFilterSend(amount, time = 0, method = 'setValueAtTime') {
+		const wet = (10 ** (-0.005 * amount) - 1) / (10 ** (-12 / 20) - 1);
+		this.filterWet[method](wet, time);
+		this.filterDry[method](1 - wet, time);
+		this.filterSend = amount;
+	}
+
+	/**
+	 * @param {number} amount Between 0 and 127.
+	 */
+	setFilterCutoff(amount, time = 0, method = 'setValueAtTime') {
+		const frequency = cutoffValueToFrequency(amount);
+		this.filter.frequency[method](frequency, time);
+		this.cutoffHz = frequency;
+	}
+
+	getFilterCutoff() {
+		return frequencyToCutoffValue(this.cutoffHz);
+	}
+
+	setFilterResonance(decibels, time = 0, method = 'setValueAtTime') {
+		this.filter.Q[method](decibels, time);
+		this.resonance = decibels;
+	}
+
+	getFilterResonance() {
+		return this.resonance;
 	}
 
 	/**

@@ -590,42 +590,30 @@
 				<fieldset class="panel">
 					<h1>Filter</h1>
 					<div class="row form-group">
-						<div class="col-auto">
-							<div class="custom-control custom-switch">
-								<input type="checkbox" class="custom-control-input" id="filter-enable" checked data-toggle="collapse" data-target="#filter-config" aria-expanded="true" aria-controls="filter-config">
-								<label class="custom-control-label" for="filter-enable">
-									Low Pass Filter
-								</label>
-							</div>
-						</div>
+
 					</div>
 					<div id="filter-config" class="collapse show">
 						<div class="row form-group">
 							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
 								Cutoff
 							</label>
-							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-								<input type="range" min="2900" max="4000" step="10" value="4000" class="form-control-range mt-1" id="filter-cutoff-slider">
+							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="0" max="127" value="91" class="form-control-range mt-1" id="filter-cutoff-slider">
 							</div>
-							<div class="col-6 col-sm-3 pr-md-4 ml-auto">
-								<div class="input-group">
-									<input type="number" min="0" max="22050" step="10" value="4000" class="form-control led-display" id="filter-cutoff">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">Hz</span>
-									</div>
-								</div>
+							<div class="col-4 col-sm-2 pr-md-4 ml-auto">
+								<input type="text" value="A#7" disabled class="form-control led-display text-center" id="filter-cutoff">
 							</div>
 						</div>
 						<div class="row form-group">
-							<label class="col-auto col-md-3 col-form-label" for="filter-q-slider">
+							<label class="col-auto col-md-3 col-form-label" for="filter-resonance-slider">
 								Resonance
 							</label>
 							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-								<input type="range" min="0" max="24" step="0.1" value="0" class="form-control-range mt-1" id="filter-q-slider">
+								<input type="range" min="0" max="25" step="0.25" value="0" class="form-control-range mt-1" id="filter-resonance-slider">
 							</div>
 							<div class="col-6 col-sm-3 pr-md-4 ml-auto">
 								<div class="input-group">
-									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-q">
+									<input type="number" min="-770.6" max="770.6" step="0.1" value="0" class="form-control led-display" id="filter-resonance">
 									<div class="input-group-append">
 										<span class="input-group-text led-label">dB</span>
 									</div>

@@ -9,6 +9,16 @@ const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
 
 const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+function getOctave(midiNote) {
+	return Math.trunc(midiNote / 12) - 1;
+}
+
+function getNoteName(midiNote) {
+	return NOTE_NAMES[midiNote % 12];
+}
+
 function cancelAndHoldAtTime(param, holdValue, time) {
 	if (param.cancelAndHoldAtTime) {
 		param.cancelAndHoldAtTime(time);
@@ -122,13 +132,33 @@ function modulationIndex(outputLevel) {
 }
 
 function outputLevelToGain(outputLevel) {
-	const level = dxToSYLevel(Math.abs(outputLevel));
-	return Math.sign(outputLevel) * logToLinear(level * 1023 / 127);
+	if (outputLevel === 0) {
+		return 0;
+	}
+	const level = dxToSYLevel(Math.abs(outputLevel)) * 8 + 7;
+	return Math.sign(outputLevel) * logToLinear(level);
 }
 
 function gainToOutputLevel(gain) {
-	const level = linearToLog(Math.abs(gain)) * 127 / 1023;
+	if (gain === 0) {
+		return 0;
+	}
+	const level = (linearToLog(Math.abs(gain)) - 7) / 8;
 	return Math.sign(gain) * syToDXLevel(level);
+}
+
+function cutoffValueToFrequency(amount) {
+	if (amount === 0) {
+		return 0;
+	}
+	return 22430 * (4/3) ** (-7 / 40 * (127 - amount));
+}
+
+function frequencyToCutoffValue(frequency) {
+	if (frequency === 0) {
+		return 0;
+	}
+	return 127 + 40 / 7 * Math.log(frequency / 22430) / Math.log(4 / 3);
 }
 
 function panningMap(value) {
@@ -277,11 +307,11 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 }
 
 export {
-	cancelAndHoldAtTime, decibelReductionToAmplitude, amplitudeToDecibels,
-	roundMicrotuning,
+	getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
+	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
-	gainToOutputLevel, panningMap,
+	gainToOutputLevel, cutoffValueToFrequency, frequencyToCutoffValue, panningMap,
 	makeMathyWave,
 	PROCESSING_TIME, NEVER, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
-	MICRO_TUNINGS,
+	NOTE_NAMES, MICRO_TUNINGS,
 }

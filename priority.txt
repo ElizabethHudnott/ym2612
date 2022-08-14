@@ -1,5 +1,6 @@
 Bugs
 ----
+Only respond to MIDI when visible/active?
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 delay stage should happen after dampening
@@ -9,7 +10,7 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 Necessary Improvements
 ----------------------
 add differentiation of log saw
-Renumber operators 2 & 3
+Renumber operators 2 & 3?
 Refactor operator UI
 Finish UI (prioritize: velocity, SSG, envelope reset)
 Icon/logo
@@ -19,7 +20,7 @@ graphics
 
 Lower Priority
 --------------
-Quick edit (DX11 manual p.13)
+Quick edit (DX11 manual p.13), including "tone" (all modulator levels, Ableton) and balance (between outputs, Digitone)
 on screen keyboard
 AM envelopes
 Use slider to control coarse and fine (detune2) ratios together

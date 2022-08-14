@@ -362,6 +362,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 			operator2.keyOff(time);
 		}
 		parent.scheduleOscillators();
+		parent.applyFilter(time);
 	}
 
 	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {

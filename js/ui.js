@@ -1,4 +1,7 @@
-import {PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS} from './sound/common.js';
+import {
+	PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
+	getOctave, getNoteName, cutoffValueToFrequency,
+} from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
@@ -27,7 +30,7 @@ const synth = soundSystem.fm;
 const psg = soundSystem.psg;
 const player = new Player(audioContext, synth);
 const recorder = new Recorder(audioContext);
-recorder.connectIn(soundSystem.filter);
+recorder.connectIn(soundSystem.compressor);
 
 const firstChannel = synth.getChannel(1);
 
@@ -104,7 +107,6 @@ MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide
 
 	if (velocity > 0) {
 		channel.keyOn(audioContext, velocity, time);
-		soundSystem.applyFilter();
 	}
 
 };
@@ -925,54 +927,36 @@ document.getElementById('btn-pan-range').addEventListener('click', function (eve
 	button.classList.add(highlight);
 });
 
-let filterFrequency, filterQ;
-
-document.getElementById('filter-enable').addEventListener('input', function (event) {
-	audioContext.resume();
-	if (this.checked) {
-		soundSystem.setFilterCutoff(filterFrequency);
-		soundSystem.setFilterResonance(filterQ);
-	} else {
-		filterFrequency = soundSystem.getFilterCutoff();
-		soundSystem.setFilterCutoff(21050);
-		filterQ = soundSystem.getFilterResonance();
-		soundSystem.setFilterResonance(0);
-	}
-});
-
 document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	filterFrequency = parseInt(this.value);
-	const box = document.getElementById('filter-cutoff');
-	box.value = filterFrequency;
-	soundSystem.setFilterCutoff(filterFrequency);
-});
-
-document.getElementById('filter-cutoff').addEventListener('input', function (event) {
-	audioContext.resume();
-	const value = parseFloat(this.value);
-	if (value >= 0) {
-		document.getElementById('filter-cutoff-slider').value = value;
-		soundSystem.setFilterCutoff(value);
-		filterFrequency = value;
+	const cutoff = parseInt(this.value);
+	const frequency = cutoffValueToFrequency(cutoff);
+	let description;
+	if (frequency === 0) {
+		description = '0 Hz';
+	} else {
+		const midiNote = Math.round(12 * Math.log2(frequency / 440) + 69);
+		description = getNoteName(midiNote).padEnd(2) + getOctave(midiNote);
 	}
+	const box = document.getElementById('filter-cutoff');
+	box.value = description;
+	eachChannel(channel => channel.setFilterCutoff(cutoff));
 });
 
-document.getElementById('filter-q-slider').addEventListener('input', function (event) {
+document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	filterQ = parseFloat(this.value);
-	const box = document.getElementById('filter-q');
-	box.value = filterQ.toFixed(1);
-	soundSystem.setFilterResonance(filterQ);
+	const resonance = parseFloat(this.value);
+	const box = document.getElementById('filter-resonance');
+	box.value = resonance.toFixed(2);
+	eachChannel(channel => channel.setFilterResonance(resonance));
 });
 
-document.getElementById('filter-q').addEventListener('input', function (event) {
+document.getElementById('filter-resonance').addEventListener('input', function (event) {
 	audioContext.resume();
 	const value = parseFloat(this.value);
-	if (value > -770.63678 && value < 770.63678) {
-		document.getElementById('filter-q-slider').value = value;
-		soundSystem.setFilterResonance(value);
-		filterQ = value;
+	if (value >= -758.5 && value < 770.63678) {
+		document.getElementById('filter-resonance-slider').value = value;
+		eachChannel(channel => channel.setFilterResonance(value));
 	}
 });
 

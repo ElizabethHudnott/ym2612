@@ -10,6 +10,7 @@ Algorithms on Other Systems (to consider)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
 fm-x waves
+Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
 Changing channel volume while PCM is in use doesn't work (problem?)
