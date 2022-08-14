@@ -1,6 +1,8 @@
 const PROCESSING_TIME = 0.001;
 const NEVER = 8388498;
 
+const MAX_FLOAT = 3.4028234663852886e38;
+
 const ClockRate = {PAL: 53203424, NTSC: 53693175};
 
 const LFO_DIVISORS = [109, 78, 72, 68, 63, 45, 9, 6];
@@ -312,6 +314,6 @@ export {
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
 	gainToOutputLevel, cutoffValueToFrequency, frequencyToCutoffValue, panningMap,
 	makeMathyWave,
-	PROCESSING_TIME, NEVER, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
+	PROCESSING_TIME, NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
 }

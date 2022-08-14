@@ -1,7 +1,7 @@
 import {
 	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, cutoffValueToFrequency,
 	frequencyToCutoffValue, panningMap,
-	VIBRATO_PRESETS, PROCESSING_TIME
+	MAX_FLOAT, VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
 
@@ -410,7 +410,8 @@ class Channel extends AbstractChannel {
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];
 			if (!operator.isDisabled()) {
-				const gain = maxLevel * currentGains[i] / total;
+				let gain = maxLevel * currentGains[i] / total;
+				gain = Math.max(Math.min(gain, MAX_FLOAT), -MAX_FLOAT);
 				operator.setGain(gain);
 			}
 		}

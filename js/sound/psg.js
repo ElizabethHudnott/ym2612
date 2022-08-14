@@ -1,6 +1,6 @@
 import {
 	decibelReductionToAmplitude, amplitudeToDecibels,
-	ClockRate, LFO_DIVISORS, VIBRATO_PRESETS,
+	ClockRate, MAX_FLOAT, LFO_DIVISORS, VIBRATO_PRESETS,
 } from './common.js';
 
 const AMPLITUDES = new Array(31);
@@ -404,7 +404,7 @@ class PSG {
 		maxFrequency = numSteps * step;
 		this.maxFrequency = maxFrequency;
 		const reciprocalTable = new Float32Array(numSteps + 1);
-		reciprocalTable[0] = (2 - 2 ** -23) * 2 ** 127;	// Max Float32 value
+		reciprocalTable[0] = MAX_FLOAT;
 		for (let i = 1; i <= numSteps; i++) {
 			reciprocalTable[i] = 1 / (i * step);
 		}
