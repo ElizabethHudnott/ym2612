@@ -260,6 +260,9 @@ const Waveform = {
 	SINE18:			OscillatorConfig.additiveSin([1, 0, 0, 0, 0, 0, 0, 1]),
 	COSINE18:		OscillatorConfig.additiveCos([1, 0, 0, 0, 0, 0, 0, 8]),
 
+	// Miscellaneous
+	STEPPED:			OscillatorConfig.am('square', false, 0, 'square', 2),
+
 }
 
 Waveform[0] = Waveform.SINE;

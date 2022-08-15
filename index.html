@@ -394,6 +394,29 @@
 							Shape
 						</label>
 						<div class="col-3 col-md-2 pl-md-0">
+							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-lfo-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								<img src="img/triangle-1.png" width="48" height="24" alt="LFO Waveform">
+							</button>
+							<div class="dropdown-menu p-0">
+								<div id="lfo-waveform" class="container btn-group-toggle w-100 p-0" data-toggle="buttons">
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="lfo-waveform" value="sine">
+										<img src="img/sine-1.png" width="48" height="24" alt="Sine">
+									</label>
+									<label class="btn btn-dark rounded-0 w-100 active">
+										<input type="radio" name="lfo-waveform" value="triangle" checked>
+										<img src="img/triangle-1.png" width="48" height="24" alt="Triangle">
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="lfo-waveform" value="sawtooth">
+										<img src="img/saw-1.png" width="48" height="24" alt="Sawtooth">
+									</label>
+									<label class="btn btn-dark rounded-0 w-100">
+										<input type="radio" name="lfo-waveform" value="square">
+										<img src="img/square-1.png" width="48" height="24" alt="Square">
+									</label>
+								</div>
+							</div>
 						</div>
 						<div class="col-6" style="margin-left: -3px">
 							<button type="button" class="btn btn-dark" data-toggle="button" aria-pressed="false" id="btn-key-sync">
@@ -589,9 +612,6 @@
 				</fieldset>
 				<fieldset class="panel">
 					<h1>Filter</h1>
-					<div class="row form-group">
-
-					</div>
 					<div id="filter-config" class="collapse show">
 						<div class="row form-group">
 							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
@@ -638,7 +658,7 @@
 								<img src="img/wave-sine.webp" width="200" height="32" alt="Waveform">
 								<span class="btn-led"></span>
 							</button>
-							<div class="dropdown-menu p-0" aria-labelled-by="btn-op$-waveform">
+							<div class="dropdown-menu p-0">
 								<div id="op$-waveform" class="container btn-group-toggle w-100 p-0" data-toggle="buttons">
 									<label class="btn btn-dark rounded-0 w-100 active">
 										<input type="radio" name="op$-waveform" value="sine" checked>

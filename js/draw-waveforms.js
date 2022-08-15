@@ -8,14 +8,20 @@ window.drawWaveform = function (waveform, canvasContext, numCycles = 1) {
 	const halfHeight = (height - 1) / 2 - 1;
 	let x = 0, total = 0, numSamples = 0, prevY;
 
-	const brightness = 64;
-	const shadowBrightness = 0;
+	const whiteness = 96;
+	const pinkness = 64;
 
 	function fillPixel(x, y) {
 		let offset = 4 * (y * width + x);
 		pixels[offset] = 255;
-		pixels[offset + 1] = brightness;
-		pixels[offset + 2] = brightness;
+		pixels[offset + 1] = whiteness;
+		pixels[offset + 2] = whiteness;
+		pixels[offset + 3] = 255;
+
+		offset = 4 * ((y + 1) * width + x);
+		pixels[offset] = 255;
+		pixels[offset + 1] = pinkness;
+		pixels[offset + 2] = pinkness;
 		pixels[offset + 3] = 255;
 	}
 
@@ -44,27 +50,28 @@ window.drawWaveform = function (waveform, canvasContext, numCycles = 1) {
 }
 
 window.drawWaveforms = function () {
-	const height = 32;
-	const width = 4 * Math.round(height * Math.PI / 2);
+	const height = 24;
+	//const width = 4 * Math.round(height * Math.PI / 2);
+	const width = 4 * Math.ceil(2 * height / 4);	// squashed version
 
 	const sine = new Array(1024);
 	const saw = new Array(1024);
 	for (let x = 0; x < 1024; x++) {
 		sine[x] = Math.sin(2 * Math.PI * (x + 0.5) / 1024);
-		saw[x] = x / 512 - 1;
+		saw[x] = ((x + 512) % 1024) / 512 - 1;
 	}
 
 	const waveforms = [sine];
-	const cycles = [2];
+	const cycles = [1];
 
 	const square = new Array(1024)
 	square.fill(1, 0, 512);
 	square.fill(-1, 512);
 	waveforms.push(square);
-	cycles.push(2);
+	cycles.push(1);
 
 	waveforms.push(saw);
-	cycles.push(2);
+	cycles.push(1);
 
 	const triangle = new Array(1024);
 	for (let x = 0; x < 512; x++) {
@@ -73,15 +80,7 @@ window.drawWaveforms = function () {
 		triangle[x + 256] = 1 - fraction;
 	}
 	waveforms.push(triangle);
-	cycles.push(2);
-
-	const stepped = new Array(1024)
-	stepped.fill(1, 0, 256);
-	stepped.fill(0, 256, 512);
-	stepped.fill(-1, 512, 768);
-	stepped.fill(0, 768);
-	waveforms.push(stepped);
-	cycles.push(2);
+	cycles.push(1);
 
 	for (let i = 0; i < waveforms.length; i++) {
 		const canvas = document.createElement('CANVAS');

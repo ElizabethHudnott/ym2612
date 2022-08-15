@@ -543,6 +543,22 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 	}
 });
 
+function lfoWaveform(event) {
+	const time = audioContext.currentTime + PROCESSING_TIME;
+	audioContext.resume();
+	const dropDown = document.getElementById('btn-lfo-waveform');
+	const dropDownImage = dropDown.children[0];
+	const option = this.parentElement;
+	const imageLabel = option.children[1];
+	dropDownImage.src = imageLabel.src;
+	const value = this.value;
+	eachChannel(channel => channel.setLFOShape(audioContext, value, time));
+}
+
+for (let element of document.querySelectorAll('input[name="lfo-waveform"]')) {
+	element.addEventListener('input', lfoWaveform);
+}
+
 document.getElementById('btn-key-sync').addEventListener('click', function (event) {
 	if (!this.classList.contains('active')) {
 		// Just clicked to make it active, CSS hasn't been updated yet.
