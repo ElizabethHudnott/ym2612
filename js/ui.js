@@ -335,7 +335,7 @@ function updateAlgorithmDetails() {
 			const gain = operator.getGain();
 			total += Math.abs(gain);
 			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(operator.getOutputLevel() * 100) / 100;
+			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
 		}
 	}
 	let distortion = 20 * Math.log10(Math.max(total, 1));
@@ -399,7 +399,6 @@ function outputLevel() {
 		const opNum = parseInt(this.id.slice(-1));
 		eachChannel(channel => channel.getOperator(opNum).setOutputLevel(value));
 	}
-	updateAlgorithmDetails();
 }
 
 for (let i = 1; i <= 4; i++) {

@@ -14,7 +14,7 @@ const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 function getOctave(midiNote) {
-	return Math.trunc(midiNote / 12);
+	return Math.trunc(midiNote / 12) - 1;
 }
 
 function getNoteName(midiNote) {
