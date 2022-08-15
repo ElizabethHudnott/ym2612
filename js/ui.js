@@ -1,6 +1,6 @@
 import {
 	PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
-	getOctave, getNoteName, cutoffValueToFrequency,
+	getOctave, getNoteName,
 } from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
@@ -178,6 +178,7 @@ document.getElementById('pregain-slider').addEventListener('input', function (ev
 document.getElementById('pregain').addEventListener('input', function (event) {
 	audioContext.resume();
 	const preGain = parseFloat(this.value);
+	const max = parseFloat(document.getElementById('pregain-slider').max);
 	if (preGain >= 1 && preGain <= 4) {
 		document.getElementById('pregain-slider').value = preGain;
 		soundSystem.setCompression(preGain, soundSystem.getCompressorRatio());
@@ -929,18 +930,11 @@ document.getElementById('btn-pan-range').addEventListener('click', function (eve
 
 document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	const cutoff = parseInt(this.value);
-	const frequency = cutoffValueToFrequency(cutoff);
-	let description;
-	if (frequency === 0) {
-		description = '0 Hz';
-	} else {
-		const midiNote = Math.round(12 * Math.log2(frequency / 440) + 69);
-		description = getNoteName(midiNote).padEnd(2) + getOctave(midiNote);
-	}
+	const midiNote = parseInt(this.value);
+	let description = getNoteName(midiNote).padEnd(2) + getOctave(midiNote);
 	const box = document.getElementById('filter-cutoff');
 	box.value = description;
-	eachChannel(channel => channel.setFilterCutoff(cutoff));
+	eachChannel(channel => channel.setFilterCutoff(midiNote));
 });
 
 document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {

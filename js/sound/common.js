@@ -14,7 +14,7 @@ const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 function getOctave(midiNote) {
-	return Math.trunc(midiNote / 12) - 1;
+	return Math.trunc(midiNote / 12);
 }
 
 function getNoteName(midiNote) {
@@ -147,20 +147,6 @@ function gainToOutputLevel(gain) {
 	}
 	const level = (linearToLog(Math.abs(gain)) - 7) / 8;
 	return Math.sign(gain) * syToDXLevel(level);
-}
-
-function cutoffValueToFrequency(amount) {
-	if (amount === 0) {
-		return 0;
-	}
-	return 22430 * (4/3) ** (-7 / 40 * (127 - amount));
-}
-
-function frequencyToCutoffValue(frequency) {
-	if (frequency === 0) {
-		return 0;
-	}
-	return 127 + 40 / 7 * Math.log(frequency / 22430) / Math.log(4 / 3);
 }
 
 function panningMap(value) {
@@ -312,8 +298,7 @@ export {
 	getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
-	gainToOutputLevel, cutoffValueToFrequency, frequencyToCutoffValue, panningMap,
-	makeMathyWave,
+	gainToOutputLevel, panningMap, makeMathyWave,
 	PROCESSING_TIME, NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
 }

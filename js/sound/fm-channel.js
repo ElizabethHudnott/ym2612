@@ -1,6 +1,5 @@
 import {
-	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, cutoffValueToFrequency,
-	frequencyToCutoffValue, panningMap,
+	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
 	MAX_FLOAT, VIBRATO_PRESETS, PROCESSING_TIME
 } from './common.js';
 import Operator from './operator.js';
@@ -129,9 +128,15 @@ class Channel extends AbstractChannel {
 	constructor(synth, context, output, dbCurve) {
 		super();
 		this.synth = synth;
+		this.tuneEqualTemperament();
+
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 
-		this.cutoffHz = cutoffValueToFrequency(91);	// 3662 Hz
+		const cutoffNote = 106;
+		this.cutoffNote = cutoffNote;
+		this.cutoffHz = this.componentsToFullFreq(
+			this.noteFreqBlockNumbers[cutoffNote + 12], this.noteFrequencyNumbers[cutoffNote + 12]
+		) * synth.frequencyStep;	// 3728 Hz
 		this.resonance = 0;
 
 		const filter = new BiquadFilterNode(
@@ -249,7 +254,6 @@ class Channel extends AbstractChannel {
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 
 		this.useAlgorithm(0);
-		this.tuneEqualTemperament();
 	}
 
 	copyOperator(from, to) {
@@ -899,16 +903,27 @@ class Channel extends AbstractChannel {
 	}
 
 	/**
-	 * @param {number} amount Between 0 and 127.
+	 * @param {number} midiNote MIDI notes scale, though can be higher than 127 in order to
+	 * refer to the higher harmonics
 	 */
-	setFilterCutoff(amount, time = 0, method = 'setValueAtTime') {
-		const frequency = cutoffValueToFrequency(amount);
+	setFilterCutoff(midiNote, time = 0, method = 'setValueAtTime') {
+		let tableIndex = midiNote + 12;
+		let octaveShift = 0;
+		if (tableIndex > 127) {
+			octaveShift = Math.ceil((tableIndex - 127) / 12);
+			tableIndex -= 12 * octaveShift;
+		}
+		const frequency = this.componentsToFullFreq(
+			this.noteFreqBlockNumbers[tableIndex], this.noteFrequencyNumbers[tableIndex]
+		) * this.synth.frequencyStep * (1 << octaveShift);
+
 		this.filter.frequency[method](frequency, time);
+		this.cutoffNote = midiNote;
 		this.cutoffHz = frequency;
 	}
 
 	getFilterCutoff() {
-		return frequencyToCutoffValue(this.cutoffHz);
+		return this.cutoffNote;
 	}
 
 	setFilterResonance(decibels, time = 0, method = 'setValueAtTime') {
