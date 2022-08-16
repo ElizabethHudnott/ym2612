@@ -81,8 +81,9 @@ class Operator {
 
 		this.keyCode = Synth.keyCode(this.freqBlockNumber, this.frequencyNumber);
 		this.frequencyMultiple = 1;
-		this.detune = 0;		// Fine detune, YM2612 specific
-		this.detune2 = 0;		// Arbitrary detuning
+		this.detune = 0;			// Fine detune
+		this.detune2 = 0;			// Used by OPM to implement fractional ratios
+		this.detuneOffset = 0;	// An amount of detuning that doesn't scale with pitch.
 		this.keyIsOn = false;
 		this.glideFrom = undefined;
 		this.glideStart = context.currentTime;
@@ -147,7 +148,8 @@ class Operator {
 		let fullFreqNumber =
 			this.channel.componentsToFullFreq(blockNumber, frequencyNumber) +
 			detuneSteps +
-			(this.detune2 >> (7 - blockNumber));
+			(this.detune2 >> (7 - blockNumber)) +
+			this.detuneOffset;
 
 		if (fullFreqNumber < 0) {
 			fullFreqNumber += 0x20000; // underflowing, 17 bits
@@ -229,25 +231,25 @@ class Operator {
 	 * Good values: 1/SQRT(2), Golden Ratio
 	 */
 	setDetune2Ratio(ratio, time = undefined) {
-		this.detune2 = Math.sign(ratio) * Math.round((Math.abs(ratio) % 1) * 2 ** 17);
+		this.detune2 = Math.round((ratio % 1) * 2 ** 17);
 		if (time !== undefined) {
 			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 
 	setDetune2Cents(cents, time = undefined) {
-		this.detune2 = Math.sign(cents) * Math.round((2 ** (Math.abs(cents) / 1200) - 1) * 2 ** 17);
+		this.detune2 = Math.round((2 ** (cents / 1200) - 1) * 2 ** 17);
 		if (time !== undefined) {
 			this.setFrequency(this.freqBlockNumber, this.frequencyNumber, this.frequencyMultiple, time);
 		}
 	}
 
-	getDetune2() {
-		if (this.detune2 === 0) {
-			return 0;
-		}
-		const multiplier = 1 + Math.abs(this.detune2) / 2 ** 17;
-		return Math.sign(this.detune2) * Math.round(Math.log2(multiplier) * 1200);
+	getDetune2Ratio() {
+		return this.detune2 / 2 ** 17;
+	}
+
+	getDetune2Cents() {
+		return Math.round(Math.log2(1 + this.getDetune2Ratio()) * 1200);
 	}
 
 	useDetune2Preset(presetNum, time = undefined) {
@@ -259,6 +261,14 @@ class Operator {
 
 	getDetune2Preset() {
 		return Operator.detune2Presets.indexOf(this.detune2);
+	}
+
+	setDetuneHertz(hertz) {
+		this.detuneOffset = Math.round(hertz / this.channel.synth.frequencyStep);
+	}
+
+	getDetuneHertz() {
+		return this.detuneOffset * this.channel.synth.frequencyStep;
 	}
 
 	/** Specifies the degree to which this operator's output undergoes amplitude
