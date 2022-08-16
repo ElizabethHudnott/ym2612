@@ -322,6 +322,11 @@ td.odd-col:nth-child(2n) {
 	font-weight: 500;
 }
 
+.dropdown-compact {
+	min-width: 0;
+	max-width: min-content;
+}
+
 .custom-switch .custom-control-label::before {
 	background-color: black;
 	border: 2px inset #3c3c3c;
