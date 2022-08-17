@@ -4,6 +4,11 @@ import {
 } from './common.js';
 import Operator from './operator.js';
 
+const FadeParameter = Object.freeze({
+	DEPTH: 0,
+	RATE: 1,
+});
+
 const Pan = Object.freeze({
 	FIXED: 0,
 	NOTE: 1,
@@ -165,6 +170,7 @@ class Channel extends AbstractChannel {
 		mute.connect(output);
 		this.muteControl = mute.gain;
 
+		this.lfoRateNode = new ConstantSourceNode(context, {offset: 0});
 		this.lfoRate = 0;
 		this.lfoShape = 'triangle';
 		this.lfoKeySync = false;
@@ -173,6 +179,7 @@ class Channel extends AbstractChannel {
 		this.lfoEnvelope = lfoEnvelope;
 		this.lfoDelay = 0;
 		this.lfoFade = 0;
+		this.fadeLFORate = false;	// false = fade LFO depth, true = fade LFO rate
 
 		const autoPan = new GainNode(context, {gain: 0});
 		this.autoPan = autoPan.gain;
@@ -293,12 +300,15 @@ class Channel extends AbstractChannel {
 		for (let operator of this.operators) {
 			operator.start(time);
 		}
+		this.lfoRateNode.start(time);
 	}
 
 	stop(time = 0) {
 		for (let operator of this.operators) {
 			operator.stop(time);
 		}
+		this.lfoRateNode.stop(time);
+		this.lfoRateNode = undefined;
 		if (this.lfo) {
 			this.lfo.stop(time);
 			this.lfo = undefined;
@@ -716,16 +726,34 @@ class Channel extends AbstractChannel {
 		return this.lfoFade;
 	}
 
+	setFadeParameter(mode, time = 0) {
+		if (this.lfoFade < 0) {
+			if (this.fadeLFORate && mode === FadeParameter.DEPTH) {
+				// Switch from slowing down the rate to reducing the depth
+				this.lfoRateNode.offset.setValueAtTime(this.lfoRate, time);
+			} else if (!this.fadeLFORate && mode === FadeParameter.RATE) {
+				// Switch from reducing the depth to slowing down the rate
+				this.lfoEnvelope.gain.setValueAtTime(1, time);
+			}
+		}
+		this.fadeLFORate = Boolean(mode);
+	}
+
+	getFadeParameter() {
+		return Number(this.fadeLFORate);
+	}
+
 	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
+		this.lfoRateNode.offset[method](frequency, time);
 		if (this.lfo) {
-			this.lfo.frequency[method](frequency, time);
 			if (frequency === 0) {
 				this.lfo.stop(time);
 				this.lfo = undefined;
 			}
 		} else if (frequency !== 0 && !this.lfoKeySync) {
 			// Start LFO running in the background.
-			const lfo = new OscillatorNode(context, {frequency: frequency, type: this.lfoShape});
+			const lfo = new OscillatorNode(context, {frequency: 0, type: this.lfoShape});
+			this.lfoRateNode.connect(lfo.frequency);
 			lfo.start(time);
 			lfo.connect(this.lfoEnvelope);
 			this.lfo = lfo;
@@ -740,7 +768,8 @@ class Channel extends AbstractChannel {
 		if (this.lfo && (time !== undefined || !this.lfoKeySync)) {
 			// Change LFO shape immediately.
 			// Frequency will never be 0 when this.lfo is defined.
-			const lfo = new OscillatorNode(context, {frequency: this.lfoRate, type: shape});
+			const lfo = new OscillatorNode(context, {frequency: 0, type: shape});
+			this.lfoRateNode.connect(lfo.frequency);
 			lfo.start(time);
 			lfo.connect(this.lfoEnvelope);
 			this.lfo.stop(time);
@@ -777,13 +806,35 @@ class Channel extends AbstractChannel {
 		return this.synth.frequencyToLFOPreset(this.lfoRate);
 	}
 
+	/**Gets the *effective* LFO fade time.
+	 */
+	getLFOFadeTime() {
+		const fadeTime = this.lfoFade;
+		if (!this.fadeLFORate || fadeTime >= 0 || !this.lfoKeySync) {
+			return Math.abs(fadeTime);
+		}
+
+		const rate = this.lfoRate;
+		const delay = this.lfoDelay;
+		let phase = rate * (delay + fadeTime * fadeTime / 6);
+		phase = Math.ceil(phase * 2) / 2;
+		return Math.sqrt(6 * (phase / rate - delay));
+	}
+
 	triggerLFO(context, time) {
-		const initialAmplitude = this.lfoFade >= 0 ? 0 : 1;
+		const rate = this.lfoRate;
+		if (rate === 0) {
+			return;
+		}
+
+		let initialAmount = this.lfoFade >= 0 ? 0 : 1;
 		const endDelay = time + this.lfoDelay;
-		if (this.lfoKeySync && this.lfoRate !== 0) {
+
+		if (this.lfoKeySync) {
 			// Reset LFO phase
-			const lfo = new OscillatorNode(context, {frequency: this.lfoRate, type: this.lfoShape});
-			lfo.start(initialAmplitude === 0 ? endDelay : time);
+			const lfo = new OscillatorNode(context, {frequency: 0, type: this.lfoShape});
+			this.lfoRateNode.connect(lfo.frequency);
+			lfo.start(initialAmount === 0 ? endDelay : time);
 			lfo.connect(this.lfoEnvelope);
 			if (this.lfo) {
 				this.lfo.stop(time);
@@ -791,13 +842,23 @@ class Channel extends AbstractChannel {
 			this.lfo = lfo;
 		}
 
-		const envelope = this.lfoEnvelope.gain;
-		cancelAndHoldAtTime(envelope, initialAmplitude, time);
-		envelope.setValueAtTime(initialAmplitude, endDelay)
-		envelope.linearRampToValueAtTime(1 - initialAmplitude, endDelay + Math.abs(this.lfoFade));
+		let finalAmount = 1 - initialAmount;
+		let fadeTime = this.getLFOFadeTime();
+		let param;
+		if (this.fadeLFORate) {
+			param = this.lfoRateNode.offset;
+			initialAmount *= rate;
+			finalAmount *= rate;
+		} else {
+			param = this.lfoEnvelope.gain;
+		}
+		cancelAndHoldAtTime(param, initialAmount, time);
+		param.setValueAtTime(initialAmount, endDelay)
+		param.linearRampToValueAtTime(finalAmount, endDelay + fadeTime);
 	}
 
 	applyLFO(time) {
+		cancelAndHoldAtTime(this.lfoRateNode.offset, this.lfoRate, time);
 		cancelAndHoldAtTime(this.lfoEnvelope.gain, 1, time);
 	}
 
@@ -1115,4 +1176,4 @@ class Channel extends AbstractChannel {
 
 }
 
-export {Pan, AbstractChannel, Channel as default};
+export {FadeParameter, Pan, AbstractChannel, Channel as default};
