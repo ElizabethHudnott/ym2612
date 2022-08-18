@@ -806,19 +806,20 @@ class Channel extends AbstractChannel {
 		return this.synth.frequencyToLFOPreset(this.lfoRate);
 	}
 
-	/**Gets the *effective* LFO fade time.
+	/**Gets the *effective* LFO delay time.
 	 */
-	getLFOFadeTime() {
-		const fadeTime = this.lfoFade;
+	getEffectiveLFODelay() {
+		let fadeTime = this.lfoFade;
 		if (!this.fadeLFORate || fadeTime >= 0 || !this.lfoKeySync) {
-			return Math.abs(fadeTime);
+			return this.lfoDelay;
 		}
 
 		const rate = this.lfoRate;
 		const delay = this.lfoDelay;
-		let phase = rate * (delay + fadeTime * fadeTime / 6);
+		fadeTime = -fadeTime;
+		let phase = rate * (delay + 0.5 * fadeTime);
 		phase = Math.ceil(phase * 2) / 2;
-		return Math.sqrt(6 * (phase / rate - delay));
+		return phase / rate - 0.5 * fadeTime;
 	}
 
 	triggerLFO(context, time) {
@@ -828,7 +829,18 @@ class Channel extends AbstractChannel {
 		}
 
 		let initialAmount = this.lfoFade >= 0 ? 0 : 1;
-		const endDelay = time + this.lfoDelay;
+		let finalAmount = 1 - initialAmount;
+		const endDelay = time + this.getEffectiveLFODelay();
+		let fadeTime = Math.abs(this.lfoFade);
+		let param;
+		if (this.fadeLFORate) {
+			param = this.lfoRateNode.offset;
+			initialAmount *= rate;
+			finalAmount *= rate;
+		} else {
+			param = this.lfoEnvelope.gain;
+		}
+		cancelAndHoldAtTime(param, initialAmount, time);
 
 		if (this.lfoKeySync) {
 			// Reset LFO phase
@@ -842,17 +854,6 @@ class Channel extends AbstractChannel {
 			this.lfo = lfo;
 		}
 
-		let finalAmount = 1 - initialAmount;
-		let fadeTime = this.getLFOFadeTime();
-		let param;
-		if (this.fadeLFORate) {
-			param = this.lfoRateNode.offset;
-			initialAmount *= rate;
-			finalAmount *= rate;
-		} else {
-			param = this.lfoEnvelope.gain;
-		}
-		cancelAndHoldAtTime(param, initialAmount, time);
 		param.setValueAtTime(initialAmount, endDelay)
 		param.linearRampToValueAtTime(finalAmount, endDelay + fadeTime);
 	}

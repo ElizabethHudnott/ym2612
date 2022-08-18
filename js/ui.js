@@ -427,9 +427,9 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('distortion').value = 0;
 });
 
-function updateLFOFade() {
-	const time = Math.sign(firstChannel.getLFOFade()) * firstChannel.getLFOFadeTime();
-	document.getElementById('lfo-fade').value = time.toFixed(2);
+function updateLFODelay() {
+	const time = firstChannel.getEffectiveLFODelay();
+	document.getElementById('lfo-delay').value = time.toFixed(2);
 }
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
@@ -446,7 +446,7 @@ document.getElementById('lfo-rate-slider').addEventListener('input', function (e
 	const precision = document.getElementById('fast-lfo').checked ? 1 : 2;
 	document.getElementById('lfo-rate').value = frequency.toFixed(precision);
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
-	updateLFOFade();
+	updateLFODelay();
 });
 
 function configureLFOFreqSlider(fast, free) {
@@ -491,7 +491,7 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 		}
 		document.getElementById('lfo-rate-slider').value = value;
 		eachChannel(channel => channel.setLFORate(audioContext, value, time));
-		updateLFOFade();
+		updateLFODelay();
 	}
 });
 
@@ -514,7 +514,7 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 	const frequency = free ? parseFloat(slider.value) : synth.lfoPresetToFrequency(6);
 	box.value = frequency.toFixed(precision);
 	eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
-	updateLFOFade();
+	updateLFODelay();
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
@@ -548,7 +548,7 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 		const precision = fast ? 1 : 2;
 		box.value = frequency.toFixed(precision);
 		eachChannel(channel => channel.setLFORate(audioContext, frequency, time));
-		updateLFOFade();
+		updateLFODelay();
 	}
 });
 
@@ -575,7 +575,7 @@ document.getElementById('btn-key-sync').addEventListener('click', function (even
 	} else {
 		synth.resetLFOs(audioContext);
 	}
-	updateLFOFade();
+	updateLFODelay();
 });
 
 /**The DX21 manual says that a value of 99 results in a delay of "approximately 15 seconds" and
@@ -598,7 +598,7 @@ document.getElementById('lfo-delay-slider').addEventListener('input', function (
 	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-delay').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFODelay(time));
-	updateLFOFade();
+	updateLFODelay();
 });
 
 document.getElementById('lfo-delay').addEventListener('input', function (event) {
@@ -608,7 +608,7 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 		const sliderValue = lfoDelayToYamaha(time * 13 / 7);
 		document.getElementById('lfo-delay-slider').value = sliderValue;
 		eachChannel(channel => channel.setLFODelay(time));
-		updateLFOFade();
+		updateLFODelay();
 	}
 });
 
@@ -618,7 +618,7 @@ document.getElementById('lfo-fade-slider').addEventListener('input', function (e
 	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-fade').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFOFade(time));
-	updateLFOFade();
+	updateLFODelay();
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
@@ -633,7 +633,7 @@ document.getElementById('lfo-fade').addEventListener('input', function (event) {
 			document.getElementById('lfo-fade-out').checked = true;
 		}
 		eachChannel(channel => channel.setLFOFade(time));
-		updateLFOFade();
+		updateLFODelay();
 	}
 });
 
@@ -642,7 +642,7 @@ function lfoFadeDirection(event) {
 	const time = parseInt(this.value) * duration;
 	document.getElementById('lfo-fade').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFOFade(time));
-	updateLFOFade();
+	updateLFODelay();
 }
 
 document.getElementById('lfo-fade-in').addEventListener('input', lfoFadeDirection);
@@ -652,7 +652,7 @@ function lfoFadeParameter(event) {
 	audioContext.resume();
 	const parameterNum = parseInt(this.value);
 	eachChannel(channel => channel.setFadeParameter(parameterNum));
-	updateLFOFade();
+	updateLFODelay();
 }
 
 document.getElementById('lfo-fade-depth').addEventListener('input', lfoFadeParameter);
