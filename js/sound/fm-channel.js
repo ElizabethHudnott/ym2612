@@ -809,17 +809,21 @@ class Channel extends AbstractChannel {
 	/**Gets the *effective* LFO delay time.
 	 */
 	getEffectiveLFODelay() {
+		const rate = this.lfoRate;
 		let fadeTime = this.lfoFade;
-		if (!this.fadeLFORate || fadeTime >= 0 || !this.lfoKeySync) {
+		if (!this.fadeLFORate || fadeTime >= 0 || !this.lfoKeySync || rate === 0) {
 			return this.lfoDelay;
 		}
 
-		const rate = this.lfoRate;
 		const delay = this.lfoDelay;
 		fadeTime = -fadeTime;
 		let phase = rate * (delay + 0.5 * fadeTime);
-		phase = Math.ceil(phase * 2) / 2;
-		return phase / rate - 0.5 * fadeTime;
+		phase = Math.round(phase * 2) / 2;
+		let newDelay = phase / rate - 0.5 * fadeTime;
+		if (newDelay < 0) {
+			newDelay = (phase + 0.5) / rate - 0.5 * fadeTime;
+		}
+		return newDelay;
 	}
 
 	triggerLFO(context, time) {
