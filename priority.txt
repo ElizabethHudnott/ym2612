@@ -1,6 +1,7 @@
 Bugs
 ----
 Bug: 2 into 1: inconsistent tone
+Bug: inconsistent tone (less frequent when soloed)
 Only respond to MIDI when visible/active?
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators

@@ -27,7 +27,6 @@ const audioContext = new AudioContext(
 const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, ClockRate.NTSC, 60, 15, 64);
 soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
 const synth = soundSystem.fm;
-const psg = soundSystem.psg;
 const player = new Player(audioContext, synth);
 const recorder = new Recorder(audioContext);
 recorder.connectIn(soundSystem.compressor);
@@ -52,7 +51,7 @@ window.soundSystem = soundSystem;
 window.player = player;
 window.recorder = recorder;
 window.synth = synth;
-window.psg = psg;
+window.psg = soundSystem.psg;
 window.ym2612 = new YM2612(soundSystem.fm, audioContext);
 window.eachChannel = eachChannel;
 window.OscillatorConfig = OscillatorConfig;

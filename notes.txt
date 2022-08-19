@@ -21,8 +21,7 @@ Add "Key On" and "Key Off" annotations to envelope diagram
 
 tremolo & auto pan phase offset
 Bug: feedback strength (when n=7)?
-
-choice between LFO depth or rate envelope
+Bug: inconsistent tone (less frequent when soloed)
 
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
