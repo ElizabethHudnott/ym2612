@@ -614,7 +614,7 @@ class Channel extends AbstractChannel {
 	}
 
 	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		const amount = n === 0 ? 0 : -this.synth.feedbackCallibration * 2 ** (n - 6);
+		const amount = n <= 0 ? 0 : -this.synth.feedbackCallibration * 2 ** (n - 6);
 		this.setFeedback(amount, operatorNum, time, method);
 	}
 

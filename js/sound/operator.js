@@ -362,6 +362,14 @@ class Operator {
 		return this.envelope.getVelocitySensitivity();
 	}
 
+	setVelocityOffset(offset) {
+		this.envelope.setVelocityOffset(offset);
+	}
+
+	getVelocityOffset() {
+		return this.envelope.getVelocityOffset();
+	}
+
 	setRateSensitivity(sensitivity) {
 		this.envelope.setRateSensitivity(sensitivity);
 	}

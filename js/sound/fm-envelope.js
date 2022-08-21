@@ -45,19 +45,19 @@ export default class Envelope {
 		totalLevelNode.connect(shaper);
 		shaper.connect(output.gain);
 
-		this.totalLevel = 0;
+		this.totalLevel = 0;		// Converted to an attenuation value, 0..1023
 		this.rateScaling = 1;
 		this.attackRate = 31;
 		this.decayRate = 0;
 		this.sustainRate = 0;
 		this.releaseRate = 31;
-		this.sustain = 1023;	// Already converted into an attenuation value.
+		this.sustain = 1023;		// Converted into an attenuation value.
 		this.envelopeRate = 1;
-		this.reset = false;	// Rapidly fade level to zero before retriggering
+		this.reset = false;		// Rapidly fade level to zero before retriggering
 
-		this.velocitySensitivity = 0;
+		this.velocitySensitivity = 0;		// Default to no velocity sensitivity
+		this.velocityOffset = 127;			// Default to highest maximum output level
 		this.rateSensitivity = 0;
-		this.velocity = 127;
 
 		this.inverted = false;
 		this.jump = false;	// Jump to high level at end of envelope (or low if inverted)
@@ -65,8 +65,8 @@ export default class Envelope {
 
 		// Values stored during key on.
 		this.wasInverted = false;
-		this.beginLevel = 0;
-		this.hasDampen = false;
+		this.keyOnLevel = 0;		// Equal to beginLevel unless a dampening phase is included
+		this.beginLevel = 0;		// Level at beginning of attack phase
 		this.hasAttack = true;
 		this.beginDampen = Infinity;
 		this.beginAttack = Infinity;
@@ -91,7 +91,6 @@ export default class Envelope {
 	}
 
 	copyTo(envelope) {
-		envelope.setTotalLevel(this.totalLevel);
 		envelope.rateScaling = this.rateScaling;
 		envelope.attackRate = this.attackRate;
 		envelope.decayRate = this.decayRate;
@@ -100,6 +99,7 @@ export default class Envelope {
 		envelope.releaseRate = this.releaseRate;
 		envelope.reset = this.reset;
 		envelope.velocitySensitivity = this.velocitySensitivity;
+		envelope.velocityOffset = this.velocityOffset;
 		envelope.rateSensitivity = this.rateSensitivity;
 		envelope.inverted = this.inverted;
 		envelope.jump = this.jump;
@@ -123,7 +123,7 @@ export default class Envelope {
 			return this.attackRate;
 		}
 		const attack = this.attackRate +
-			Math.round((this.velocity >> 3) / 15 * this.rateSensitivity);
+			Math.round((velocity >> 3) / 15 * this.rateSensitivity);
 		return Math.min(Math.max(attack, 2), 31);
 	}
 
@@ -140,7 +140,8 @@ export default class Envelope {
 	}
 
 	dampenTime(from, rateAdjust) {
-			const distance = Math.ceil(from / 2);	// OPL has 512 levels instead of 1024
+			// OPL has 512 levels instead of 1024
+			const distance = Math.ceil((from - this.totalLevel) / 2);
 			const rate = Math.min(48 + rateAdjust, 63);
 			const gradient = Envelope.increment[rate];
 			return OPL_ENVELOPE_TICK * Math.ceil(distance / gradient);
@@ -158,7 +159,6 @@ export default class Envelope {
 	/**Opens the envelope at a specified time.
 	 */
 	keyOn(context, velocity, operator, time) {
-		this.setVelocity(velocity, time);
 		const rateAdjust = this.rateAdjustment(operator.keyCode);
 		const tickRate = this.channel.synth.envelopeTick;
 		const gain = this.gain;
@@ -169,13 +169,18 @@ export default class Envelope {
 		let beginLevel = 0;
 		let postAttackLevel = 1023;
 		this.beginDampen = time;
-		this.hasDampen = false;
 		let endDampen = time;
 		const endRelease = this.endRelease;
+
+		const oldTotalLevel = this.totalLevel;
+		this.#setVelocity(velocity, time);
+		const newTotalLevel = this.totalLevel;
+
 		if (invert) {
+			// Special case 1: Jump to maximum level
+			this.keyOnLevel = 1023;
 			beginLevel = 1023;
 			postAttackLevel = 0;
-			this.beginLevel = 1023;
 		} else if (endRelease > 0) {
 			//I.e. it's not the first time the envelope ran.
 			if (time < endRelease) {
@@ -184,16 +189,18 @@ export default class Envelope {
 				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
 				beginLevel = this.releaseLevel * (1 - timeProportion);
 			}
-			this.beginLevel = beginLevel;
-			if (this.reset && beginLevel > 0) {
+			beginLevel = Math.min(Math.max(beginLevel - oldTotalLevel, 0) + newTotalLevel, 1023);
+			this.keyOnLevel = beginLevel;	// Level before dampening
+			if (this.reset && beginLevel > newTotalLevel) {
+				// Special case 2: Quickly fade to zero and then climb from zero.
 				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
 				endDampen += this.dampenTime(beginLevel, rateAdjust);
-				gain.linearRampToValueAtTime(0 / 1023, endDampen);
-				beginLevel = 0;
-				this.hasDampen = true;
+				gain.linearRampToValueAtTime(newTotalLevel / 1023, endDampen);
+				beginLevel = newTotalLevel;	// Level after dampening
 			}
 		}
 
+		this.beginLevel = beginLevel;
 		this.beginAttack = endDampen;
 		this.hasAttack = true;
 		let endAttack = endDampen;
@@ -203,7 +210,7 @@ export default class Envelope {
 		}
 		if (attackRate <= 1) {
 			// Level never changes
-			if (beginLevel === 0) {
+			if (beginLevel === newTotalLevel) {
 				this.endSustain = endDampen;
 				this.channel.scheduleSoundOff(operator, endDampen);
 			} else {
@@ -352,22 +359,23 @@ export default class Envelope {
 	}
 
 	linearValueAtTime(time) {
+		const beginLevel = this.beginLevel;
 		const endAttack = this.endAttack;
 		let linearValue;
 
 		if (time < this.beginAttack) {
 
-			return this.beginLevel *
+			const keyOnLevel = this.keyOnLevel;
+			return keyOnLevel - (keyOnLevel - beginLevel) *
 				(time - this.beginDampen) / (this.beginAttack - this.beginDampen);
 
 		} else if (!this.hasAttack) {
 
 			// Attack rate was 0.
-			return this.hasDampen ? 0 : this.beginLevel;
+			return beginLevel;
 
 		} else if (time <= this.endAttack) {
 
-			const beginLevel = this.beginLevel;
 			if (time === this.beginAttack) {
 				return beginLevel;
 			}
@@ -445,26 +453,23 @@ export default class Envelope {
 	/**Closes the envelope at a specified time.
 	 */
 	keyOff(operator, time) {
-		let currentValue;
-		if (time < this.beginAttack) {
-			// Switch from dampening to release
-			currentValue = this.beginLevel;
-			time = this.beginAttack;
-		} else {
-			currentValue = this.linearValueAtTime(time);
-		}
 
 		if (this.sampleNode) {
 			this.sampleNode.stop(time);
 			this.sampleNode = undefined;
 		}
+		const gain = this.gain;
+		const currentValue = this.linearValueAtTime(time);
+		cancelAndHoldAtTime(gain, currentValue / 1023, time);
+		const totalLevel = this.totalLevel;
 		const rateAdjust = this.rateAdjustment(operator.keyCode);
 		const envelopeRate = this.envelopeRate;
-		const releaseTime = this.decayTime(currentValue, 0, this.releaseRate, rateAdjust) / envelopeRate;
-		const gain = this.gain;
-		cancelAndHoldAtTime(gain, currentValue / 1023, time);
+		const releaseTime = this.decayTime(
+			currentValue, 0, this.releaseRate, rateAdjust
+		) / envelopeRate;
 		const endRelease = time + releaseTime;
 		gain.linearRampToValueAtTime(0, endRelease);
+
 		this.channel.scheduleSoundOff(operator, endRelease);
 		this.beginRelease = time;
 		this.releaseLevel = currentValue;
@@ -479,36 +484,19 @@ export default class Envelope {
 		this.endRelease = time;
 	}
 
-	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
-		this.totalLevel = level;
-		const sensitivity = this.velocitySensitivity;
-		if (sensitivity !== 0) {
-			const velocity = this.velocity;
-			if (velocity === 0) {
-				level = 127;
-			} else {
-				// Higher velocities result in less attenuation (subtraction) when a positive
-				// sensitivity setting is used.
-				level = ((level << 7) - 2 * sensitivity * velocity) >> 7;
-				level = Math.min(Math.max(level, 0), 126);
-			}
-		}
-		if (level === 0) {
-			this.totalLevelNode.offset[method](0, time);
-		} else {
-			this.totalLevelNode.offset[method](-(level * 8 + 7) / 1023, time);
-		}
+	#setTotalLevel(level, time = 0, method = 'setValueAtTime') {
+		this.totalLevel = level * 8;
+		this.totalLevelNode.offset[method](-this.totalLevel / 1023, time);
 	}
 
 	getTotalLevel() {
-		return this.totalLevel;
+		return this.totalLevel / 8;
 	}
 
 	/**
 	 * @param {number} sensitivity Range -127..127. The SY77 has a range -7..7 and the YC88, etc.
 	 * series of organs have a touch sensitivity depth range of 0..127 (see supplementary
-	 * manual). To emulate the organs' touch sensitivity offset parameter, set totalLevel equal
-	 * to 255 minus twice the offset.
+	 * manual).
 	 */
 	setVelocitySensitivity(sensitivity) {
 		this.velocitySensitivity = sensitivity;
@@ -518,9 +506,30 @@ export default class Envelope {
 		return this.velocitySensitivity;
 	}
 
-	setVelocity(velocity, time = 0, method = 'setValueAtTime') {
-		this.velocity = velocity;
-		this.setTotalLevel(this.totalLevel, time, method);
+	setVelocityOffset(offset) {
+		this.velocityOffset = offset;
+	}
+
+	getVelocityOffset() {
+		return this.velocityOffset;
+	}
+
+	#setVelocity(velocity, time) {
+		let depth = this.velocitySensitivity;
+		if (depth < 0) {
+			velocity = 128 - velocity;
+			depth = -depth;
+		}
+		const offset = this.velocityOffset;
+		let level = ((2 * velocity * depth) >> 7) + 2 * offset - 127;
+		level = Math.min(Math.max(level, 1), 127);
+		this.#setTotalLevel(127 - level, time);
+	}
+
+	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
+		this.#setTotalLevel(level, time, method);
+		this.velocitySensitivity = 0;
+		this.velocityOffset = (254 - level) / 2;
 	}
 
 	/**
