@@ -426,6 +426,63 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('distortion').value = 0;
 });
 
+document.getElementById('transpose-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	document.getElementById('transpose').value = value;
+	firstChannel.tuneEqualTemperament(value * 100);
+	for (let i = 2; i <= NUM_CHANNELS; i++) {
+		synth.copyTuning(1, i);
+	}
+});
+
+document.getElementById('transpose').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseFloat(this.value);
+	if (Number.isFinite(value)) {
+		document.getElementById('transpose-slider').value = value;
+		firstChannel.tuneEqualTemperament(value * 100);
+		for (let i = 2; i <= NUM_CHANNELS; i++) {
+			synth.copyTuning(1, i);
+		}
+	}
+});
+
+document.getElementById('poly-switch').addEventListener('input', function (event) {
+	audioContext.resume();
+	if (this.checked) {
+		for (let i = 2; i <= NUM_CHANNELS; i++) {
+			MUSIC_INPUT.armChannel(i);
+		}
+		firstChannel.setGlideRate(0);
+	} else {
+		MUSIC_INPUT.solo(1);
+		const glideRate = parseInt(document.getElementById('glide-slider').value);
+		firstChannel.setGlideRate(glideRate);
+	}
+});
+
+document.getElementById('glide-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const glideRate = parseInt(this.value);
+	document.getElementById('glide').value = glideRate;
+	firstChannel.setGlideRate(glideRate);
+});
+
+document.getElementById('glide').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	if (value >= 0 && value <= 99) {
+		document.getElementById('glide-slider').value = value;
+		firstChannel.setGlideRate(value);
+	}
+});
+
+document.getElementById('fingered-glide').addEventListener('input', function (event) {
+	audioContext.resume();
+	MUSIC_INPUT.fingeredPortamento = this.checked;
+});
+
 function updateLFODelay() {
 	const time = firstChannel.getEffectiveLFODelay();
 	document.getElementById('lfo-delay').value = time.toFixed(2);
@@ -877,18 +934,6 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 	} else {
 		slider.value = Math.trunc(tremoloSliderValue(depth));
 	}
-});
-
-document.getElementById('glide-slider').addEventListener('input', function (event) {
-	audioContext.resume();
-	const glideRate = parseInt(this.value);
-	document.getElementById('glide').value = glideRate;
-	eachChannel(channel => channel.setGlideRate(glideRate));
-});
-
-document.getElementById('fingered-glide').addEventListener('input', function (event) {
-	audioContext.resume();
-	MUSIC_INPUT.fingeredPortamento = this.checked;
 });
 
 document.getElementById('pan-source').addEventListener('input', function (event) {

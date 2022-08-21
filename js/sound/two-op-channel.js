@@ -8,14 +8,13 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		[0, [99, 99]], // Additive
 	];
 
-	constructor(parentChannel, startingOperator) {
-		super();
+	constructor(parentChannel, startingOperator, tuning) {
+		super(tuning);
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
 		this.glideRate = 0;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
-		this.tuneEqualTemperament();
 	}
 
 	copyOperator(from, to) {

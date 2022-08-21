@@ -34,6 +34,54 @@ class AbstractChannel {
 		  6,  5.5,  5, 4.5,   4,  3.5,  3,  2.5,  2,   1
 	].map(x => 10 / x));
 
+	constructor(tuning) {
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
+	/**Calculates frequency data for a scale of 128 MIDI notes.
+	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
+	 * @param {number} interval The default value of 2 separates consecutive copies of the root
+	 * note using a 2:1 frequency ratio (1 octave). Different values can produce stretched
+	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
+	 * produce unusual scales, such as Wendy Carlos' alpha, beta and gamma scales.
+	 * @param {number} divisions How many notes the chromatic scale should have.
+	 * @param {number[]} steps A pattern of scale increments used to move from one keyboard key
+	 * to the next. The pattern will be repeated up and down the keyboard from middle C.
+	 *
+	 * Examples:
+	 * [1] A regular equal tempered scale.
+	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
+	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
+	 * scale.
+	 * [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0] Equal tempered notes on the black keys only. White
+	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
+	 * scale.
+	 *
+	 * @param {number} startIndex The point to begin from within the sequence of intervals or
+	 * equivalently, which note to centre the scale on.
+	 */
+	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
+		const tuning = this.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
+	/**
+	 * @param {number[]} ratios
+	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
+	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
+	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
+	 */
+	tuneRatios(ratios, startNote = 0) {
+		const tuning = this.synth.ratioTuning(ratios, startNote);
+		this.octaveThreshold = tuning.octaveThreshold;
+		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
+		this.noteFrequencyNumbers = tuning.frequencyNumbers;
+	}
+
 	frequencyToNote(block, frequencyNum) {
 		let lb = 0;
 		let ub = 127;
@@ -130,17 +178,16 @@ class Channel extends AbstractChannel {
 		[[0, 0, 0, 99, 0, 99], [99, 0, 0, 99]],
 	];
 
-	constructor(synth, context, output, dbCurve) {
-		super();
+	constructor(synth, context, output, dbCurve, tuning) {
+		super(tuning);
 		this.synth = synth;
-		this.tuneEqualTemperament();
 
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 
 		const cutoffNote = 106;
 		this.cutoffNote = cutoffNote;
 		this.cutoffHz = this.componentsToFullFreq(
-			this.noteFreqBlockNumbers[cutoffNote + 12], this.noteFrequencyNumbers[cutoffNote + 12]
+			this.noteFreqBlockNumbers[cutoffNote], this.noteFrequencyNumbers[cutoffNote]
 		) * synth.frequencyStep;	// 3728 Hz
 		this.resonance = 0;
 
@@ -973,7 +1020,7 @@ class Channel extends AbstractChannel {
 	 * refer to the higher harmonics
 	 */
 	setFilterCutoff(midiNote, time = 0, method = 'setValueAtTime') {
-		let tableIndex = midiNote + 12;
+		let tableIndex = midiNote;
 		let octaveShift = 0;
 		if (tableIndex > 127) {
 			octaveShift = Math.ceil((tableIndex - 127) / 12);
@@ -1135,48 +1182,6 @@ class Channel extends AbstractChannel {
 
 	get numberOfOperators() {
 		return 4;
-	}
-
-	/**Calculates frequency data for a scale of 128 MIDI notes.
-	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
-	 * @param {number} interval The default value of 2 separates consecutive copies of the root
-	 * note using a 2:1 frequency ratio (1 octave). Different values can produce stretched
-	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
-	 * produce unusual scales, such as Wendy Carlos' alpha, beta and gamma scales.
-	 * @param {number} divisions How many notes the chromatic scale should have.
-	 * @param {number[]} steps A pattern of scale increments used to move from one keyboard key
-	 * to the next. The pattern will be repeated up and down the keyboard from middle C.
-	 *
-	 * Examples:
-	 * [1] A regular equal tempered scale.
-	 * [0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 1] Equal tempered notes on the white keys only. Black
-	 * keys have the same pitch as one of their adjacent white keys. Useful for creating a 7 EDO
-	 * scale.
-	 * [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0] Equal tempered notes on the black keys only. White
-	 * keys have the same pitch as one of their adjacent black keys. Useful for creating a 5 EDO
-	 * scale.
-	 *
-	 * @param {number} startIndex The point to begin from within the sequence of intervals or
-	 * equivalently, which note to centre the scale on.
-	 */
-	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
-		const tuning = this.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
-		this.octaveThreshold = tuning.octaveThreshold;
-		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
-		this.noteFrequencyNumbers = tuning.frequencyNumbers;
-	}
-
-	/**
-	 * @param {number[]} ratios
-	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
-	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
-	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
-	 */
-	tuneRatios(ratios, startNote = 0) {
-		const tuning = this.synth.ratioTuning(ratios, startNote);
-		this.octaveThreshold = tuning.octaveThreshold;
-		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
-		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
 }

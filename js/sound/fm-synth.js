@@ -19,7 +19,7 @@ export default class Synth {
 		clockDivider1 = 7, clockDivider2 = 144
 	) {
 		// Tuning data
-		this.referencePitch = 220;
+		this.referencePitch = 440;
 		this.referenceNote = 69;
 		this.feedbackCallibration = 2.5;
 		this.setClockRate(clockRate, clockDivider1, clockDivider2);
@@ -38,16 +38,17 @@ export default class Synth {
 		this.dcOffset = new ConstantSourceNode(context);
 
 		const channels = new Array(numChannels);
+		const tuning = this.equalTemperament();
 		for (let i = 0; i < numChannels; i++) {
-			channels[i] = new Channel(this, context, channelGain, dbCurve);
+			channels[i] = new Channel(this, context, channelGain, dbCurve, tuning);
 		}
 		this.channels = channels;
 
 		const twoOpChannels = new Array(numChannels * 2 - 2);
 		for (let i = 0; i < numChannels; i++) {
 			const channel = channels[i];
-			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1);
-			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3);
+			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1, tuning);
+			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3, tuning);
 		}
 		this.twoOpChannels = twoOpChannels;
 
@@ -198,13 +199,21 @@ export default class Synth {
 		this.channelGain[method](level / (Math.SQRT2 * this.channels.length), time);
 	}
 
+	copyTuning(fromChannel, toChannel) {
+		const source = this.channels[fromChannel - 1];
+		const destination = this.channels[toChannel - 1];
+		destination.octaveThreshold = source.octaveThreshold;
+		destination.noteFreqBlockNumbers = source.noteFreqBlockNumbers;
+		destination.noteFrequencyNumbers = source.noteFrequencyNumbers;
+	}
+
 	/**
 	 * @param {number} frequency The pitch to tune the reference note to, in Hertz.
 	 * @param {number} noteNumber The MIDI note number that gets tuned to the specified
 	 * frequency, usually 69 (A4).
 	 */
 	setReferencePitch(frequency, noteNumber = 69) {
-		this.referencePitch = frequency / 2;	// Account for high modulation index.
+		this.referencePitch = frequency;
 		this.referenceNote = noteNumber;
 	}
 
@@ -285,9 +294,6 @@ export default class Synth {
 					freqNum /= 2;
 					block++;
 				}
-				if (block > 7) {
-					break;
-				}
 				freqNum = Math.round(freqNum);
 			}
 			blocks[i] = block;
@@ -298,8 +304,8 @@ export default class Synth {
 		}
 		// Don't worry about frequencies outside the range of most acoustic instruments
 		let minIndex = 0;
-		const halfStandardA0 = 13.75 / this.frequencyStep;
-		while (frequencyData[minIndex + 1] <= halfStandardA0 && keyCodes[minIndex] === 0) {
+		const standardA0 = 27.5 / this.frequencyStep;
+		while (frequencyData[minIndex + 1] <= standardA0 && keyCodes[minIndex] === 0) {
 			numInstances[0]--;
 			minIndex++;
 		}
