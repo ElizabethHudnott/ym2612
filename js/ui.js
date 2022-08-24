@@ -1,3 +1,4 @@
+import {queryChecked, checkInput} from './util.js';
 import {
 	PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
 	getOctave, getNoteName,
@@ -40,6 +41,9 @@ function eachChannel(callback) {
 eachChannel(channel => {
 	channel.useAlgorithm(4)
 	for (let opNum = 1; opNum <= 4; opNum++) {
+		const operator = channel.getOperator(opNum);
+		operator.setVelocitySensitivity(32);
+		operator.setVelocityOffset(96);
 		channel.enableTremolo(opNum);
 	}
 });
@@ -1082,16 +1086,16 @@ function unfixFrequency(event) {
 function frequencyMultipleSlider(event) {
 	audioContext.resume();
 	const opNum = getOperator(this);
-	const opStr = 'op' + opNum;
+	const opStr = 'op' + opNum + '-';
 	let value = parseFloat(this.value);
 	if (value === 0) {
-		const free = document.getElementById(opStr + '-multiple-free').checked;
+		const free = document.getElementById(opStr + 'multiple-free').checked;
 		if (!free) {
 			value = 0.5;
 		}
 	}
-	document.getElementById(opStr + '-freq-unfixed').checked = true;
-	document.getElementById(opStr + '-multiple').value = value;
+	document.getElementById(opStr + 'freq-unfixed').checked = true;
+	document.getElementById(opStr + 'multiple').value = value;
 	eachChannel(channel => {
 		channel.setFrequencyMultiple(opNum, value);
 		channel.fixFrequency(opNum, false);
@@ -1173,6 +1177,61 @@ function rateScaling(event) {
 	const value = parseInt(this.value);
 	document.getElementById('op' + opNum + '-rate-scale').value = value;
 	eachChannel(channel => channel.getOperator(opNum).setRateScaling(value));
+}
+
+function velocityDepthSlider(event) {
+	audioContext.resume();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum + '-';
+	let value = parseInt(this.value);
+	const sign = parseInt(queryChecked(document.getElementById(opStr + 'velocity-direction'), opStr + 'velocity-direction').value);
+	value *= sign;
+	document.getElementById(opStr + 'velocity-depth').value = value;
+	eachChannel(channel => channel.getOperator(opNum).setVelocitySensitivity(value));
+}
+
+function velocityDepth(event) {
+	audioContext.resume();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum + '-';
+	let value = parseInt(this.value);
+	if (Number.isFinite(value)) {
+		document.getElementById(opStr + 'velocity-depth-slider').value = Math.abs(value);
+		if (value !== 0) {
+			checkInput(document.getElementById(opStr + 'velocity-direction'), opStr + 'velocity-direction', Math.sign(value));
+		}
+		eachChannel(channel => channel.getOperator(opNum).setVelocitySensitivity(value));
+	}
+}
+
+function velocityDirection(event) {
+	audioContext.resume();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum + '-';
+	let value = parseInt(this.value);
+	value *= Math.abs(firstChannel.getOperator(opNum).getVelocitySensitivity());
+	document.getElementById(opStr + 'velocity-depth').value = value;
+	eachChannel(channel => channel.getOperator(opNum).setVelocitySensitivity(value));
+}
+
+function velocityOffsetSlider(event) {
+	audioContext.resume();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum + '-';
+	const value = parseInt(this.value);
+	document.getElementById(opStr + 'velocity-offset').value = value;
+	eachChannel(channel => channel.getOperator(opNum).setVelocityOffset(value));
+}
+
+function velocityOffset(event) {
+	audioContext.resume();
+	const opNum = getOperator(this);
+	const opStr = 'op' + opNum + '-';
+	const value = parseInt(this.value);
+	if (value >= 0 && value <= 127) {
+		document.getElementById(opStr + 'velocity-offset-slider').value = value;
+		eachChannel(channel => channel.getOperator(opNum).setVelocityOffset(value));
+	}
 }
 
 function attackSlider(event) {
@@ -1291,25 +1350,35 @@ function createOperatorPage(n) {
 	let html = document.getElementById('operator-template').innerHTML;
 	html = html.replace(/\$/g, n);
 	const doc = domParser.parseFromString(html, 'text/html');
-	const opStr = 'op' + n;
-	doc.getElementById(opStr + '-freq-fixed').addEventListener('input', frequency);
-	doc.getElementById(opStr + '-freq-unfixed').addEventListener('input', unfixFrequency);
-	doc.getElementById(opStr + '-multiple-slider').addEventListener('input', frequencyMultipleSlider);
-	doc.getElementById(opStr + '-multiple').addEventListener('input', frequencyMultiple);
-	doc.getElementById(opStr + '-multiple-free').addEventListener('input', frequencyFreeMultiple);
-	doc.getElementById(opStr + '-block').addEventListener('input', frequency);
-	doc.getElementById(opStr + '-freq-num').addEventListener('input', frequency);
-	doc.getElementById(opStr + '-rate-scale-slider').addEventListener('input', rateScaling);
-	doc.getElementById(opStr + '-attack-slider').addEventListener('input', attackSlider);
-	doc.getElementById(opStr + '-decay-slider').addEventListener('input', decaySlider);
-	doc.getElementById(opStr + '-sustain-slider').addEventListener('input', sustainSlider);
-	doc.getElementById(opStr + '-sustain').addEventListener('input', sustain);
-	doc.getElementById(opStr + '-sustain-rate-slider').addEventListener('input', sustainRateSlider);
-	doc.getElementById(opStr + '-release-slider').addEventListener('input', releaseSlider);
-	doc.getElementById(opStr + '-rates-free').addEventListener('input', ratesFree);
-	doc.getElementById(opStr + '-levels-free').addEventListener('input', levelsFree);
+	const opStr = 'op' + n + '-';
+	doc.getElementById(opStr + 'freq-fixed').addEventListener('input', frequency);
+	doc.getElementById(opStr + 'freq-unfixed').addEventListener('input', unfixFrequency);
+	doc.getElementById(opStr + 'multiple-slider').addEventListener('input', frequencyMultipleSlider);
+	doc.getElementById(opStr + 'multiple').addEventListener('input', frequencyMultiple);
+	doc.getElementById(opStr + 'multiple-free').addEventListener('input', frequencyFreeMultiple);
+	doc.getElementById(opStr + 'block').addEventListener('input', frequency);
+	doc.getElementById(opStr + 'freq-num').addEventListener('input', frequency);
 
-	for (let element of doc.querySelectorAll(`input[name="${opStr}-waveform"]`)) {
+	doc.getElementById(opStr + 'rate-scale-slider').addEventListener('input', rateScaling);
+	doc.getElementById(opStr + 'velocity-depth-slider').addEventListener('input', velocityDepthSlider);
+	doc.getElementById(opStr + 'velocity-depth').addEventListener('input', velocityDepth);
+	doc.getElementById(opStr + 'velocity-offset-slider').addEventListener('input', velocityOffsetSlider);
+	doc.getElementById(opStr + 'velocity-offset').addEventListener('input', velocityOffset);
+	for (let element of doc.querySelectorAll(`input[name="${opStr}velocity-direction"]`)) {
+		element.addEventListener('input', velocityDirection);
+	}
+
+
+	doc.getElementById(opStr + 'attack-slider').addEventListener('input', attackSlider);
+	doc.getElementById(opStr + 'decay-slider').addEventListener('input', decaySlider);
+	doc.getElementById(opStr + 'sustain-slider').addEventListener('input', sustainSlider);
+	doc.getElementById(opStr + 'sustain').addEventListener('input', sustain);
+	doc.getElementById(opStr + 'sustain-rate-slider').addEventListener('input', sustainRateSlider);
+	doc.getElementById(opStr + 'release-slider').addEventListener('input', releaseSlider);
+	doc.getElementById(opStr + 'rates-free').addEventListener('input', ratesFree);
+	doc.getElementById(opStr + 'levels-free').addEventListener('input', levelsFree);
+
+	for (let element of doc.querySelectorAll(`input[name="${opStr}waveform"]`)) {
 		element.addEventListener('input', waveform);
 	}
 

@@ -388,7 +388,7 @@
 							</div>
 						</div>
 						<div class="row small">
-							<div class="d-sm-none d-md-block col-6 col-md-3"></div>
+							<div class="d-none d-md-block col-3"></div>
 							<div class="col-auto col-md-2 pl-md-0 mb-3">
 								<div class="form-check">
 									<input type="checkbox" id="fingered-glide" class="form-check-input">
@@ -431,7 +431,7 @@
 							<div class="form-check">
 								<input type="checkbox" id="lfo-rate-free" class="form-check-input">
 								<label for="lfo-rate-free" class="form-check-label">
-									Free Choice
+									Free choice
 								</label>
 							</div>
 						</div>
@@ -440,7 +440,7 @@
 						<label class="col-3 col-form-label" for="lfo-shape">
 							Shape
 						</label>
-						<div class="col-3 col-md-2 pl-md-0">
+						<div class="col-4 col-sm-3 col-md-2 pl-md-0">
 							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-lfo-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 								<img src="img/triangle-1.png" width="48" height="24" alt="LFO Waveform">
 							</button>
@@ -465,7 +465,7 @@
 								</div>
 							</div>
 						</div>
-						<div class="col-6" style="margin-left: -3px">
+						<div class="col-auto" style="margin-left: -3px">
 							<button type="button" class="btn btn-dark" data-toggle="button" aria-pressed="false" id="btn-key-sync">
 								Key Sync
 						</div>
@@ -559,7 +559,7 @@
 							<div class="form-check">
 								<input type="checkbox" id="vibrato-free" class="form-check-input">
 								<label for="vibrato-free" class="form-check-label">
-									Free Choice
+									Free choice
 								</label>
 							</div>
 						</div>
@@ -592,7 +592,7 @@
 							<div class="form-check">
 								<input type="checkbox" id="tremolo-free" class="form-check-input">
 								<label for="tremolo-free" class="form-check-label">
-									Free Choice
+									Free choice
 								</label>
 							</div>
 						</div>
@@ -810,7 +810,7 @@
 							<div class="form-check small">
 								<input type="checkbox" id="op$-multiple-free" class="form-check-input">
 								<label for="op$-multiple-free" class="form-check-label">
-									Free Choice
+									Free choice
 								</label>
 							</div>
 						</div>
@@ -865,32 +865,45 @@
 							<input type="number" min="-9.9" max="9.9" step="0.1" value="1" class="form-control led-display" id="op$-rate-scale" disabled>
 						</div>
 					</div>
-					<div class="row mb-1">
-						<label class="col-auto col-md-3 col-form-label pt-0" for="op$-total-level-slider">
-							Min Attenuation <small>(L1)</small>
-						</label>
-						<div class="col-12 col-md-7 pl-md-0">
-							<input type="range" min="0" max="127" value="0" class="form-control-range mt-1 mb-2" id="op$-total-level-slider">
-							<div class="form-check small">
-								<input type="checkbox" class="form-check-input" id="op$-total-level-large">
-								<label for="op$-total-level-large" class="form-check-label">
-									+128
-								</label>
-							</div>
-						</div>
-						<div class="col-4 col-sm-2 pl-md-0 ml-auto">
-							<input type="number" min="0" max="255" step="0.125" value="0" class="form-control led-display" id="op$-total-level" disabled>
-						</div>
-					</div>
 					<div class="row form-group">
-						<label class="col-auto col-md-3 col-form-label" for="op$-key-velocity-slider">
+						<label class="col-auto col-md-3 col-form-label" for="op$-velocity-depth-slider">
 							Velocity Sensitivity
 						</label>
 						<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="-127" max="127" value="0" class="form-control-range mt-1" id="op$-key-velocity-slider">
+							<input type="range" min="0" max="127" value="32" class="form-control-range mt-1 mb-2" id="op$-velocity-depth-slider">
 						</div>
 						<div class="col-4 col-sm-2 pl-md-0 ml-auto">
-							<input type="number" value="0" class="form-control led-display" id="op$-key-velocity" disabled>
+							<input type="number" min="-127" max="127" value="32" class="form-control led-display" id="op$-velocity-depth">
+						</div>
+					</div>
+					<div class="row mb-2">
+						<label class="col-auto col-md-3 col-form-label" for="op$-velocity-offset-slider">
+							Velocity Offset
+						</label>
+						<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="127" value="96" class="form-control-range mt-1" id="op$-velocity-offset-slider">
+						</div>
+						<div class="col-4 col-sm-2 pl-md-0 ml-auto">
+							<input type="number" value="96" class="form-control led-display" id="op$-velocity-offset">
+						</div>
+					</div>
+					<div class="row mb-4" id="op$-velocity-direction">
+						<div class="d-none d-md-block col-md-3"></div>
+						<div class="col-auto pl-md-0 small">
+							<div class="form-check form-check-inline">
+								<input type="radio" name="op$-velocity-direction" value="1" id="op$-velocity-direction-positive" class="form-check-input" checked>
+								<label for="op$-velocity-direction-positive" class="form-check-label">
+									High velocity &rarr; High level
+								</label>
+							</div>
+						</div>
+						<div class="col-auto small">
+							<div class="form-check form-check-inline">
+								<input type="radio" name="op$-velocity-direction" value="-1" id="op$-velocity-direction-negative" class="form-check-input">
+								<label for="op$-velocity-direction-negative" class="form-check-label">
+									High velocity &rarr; Low level
+								</label>
+							</div>
 						</div>
 					</div>
 					<div class="row form-group">

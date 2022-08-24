@@ -80,6 +80,7 @@ document.body.addEventListener('keydown', function (event) {
 	case 'NumpadSubtract':
 		if (velocity > 16) {
 			velocity -= 16;
+			console.log('Velocity: ' + velocity);
 		}
 		return;
 
@@ -87,6 +88,7 @@ document.body.addEventListener('keydown', function (event) {
 	case 'NumpadAdd':
 		if (velocity < 127) {
 			velocity += 16;
+			console.log('Velocity: ' + velocity);
 		}
 		return;
 

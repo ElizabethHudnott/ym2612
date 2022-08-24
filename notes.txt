@@ -25,7 +25,7 @@ Bug: inconsistent tone (less frequent when soloed)
 
 Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
-	delay stage should happen after dampening
+	delay stage should happen after dampening (but not have rate scaling applied?)
 	add initial phase parameter
 Sustain on/off envelope option (one shot)
 Add second release stage to envelopes (from -18db, interdependent across operators, see "reverb" in DX11 manual)
@@ -34,6 +34,8 @@ Operator ratio bend
 	Separate ratio node (so it works with pitch bend and glide)
 Operator frequency offset? (in frequency numbers) (can be combined with a ratio)
 Fixed operator with partial key tracking ("frequency key scaling") (as -200..200 with specified centre key) (FM-X & FS1R)
+Fixed operator level linked to velocity (FM-X)
+Pitch envelope amount linked to velocity
 add differentiation of log saw
 compressor doesn't support soft knee
 compressor doesn't work with pre-gain higher than 4

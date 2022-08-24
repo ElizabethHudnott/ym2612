@@ -529,7 +529,7 @@ export default class Envelope {
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.#setTotalLevel(level, time, method);
 		this.velocitySensitivity = 0;
-		this.velocityOffset = (254 - level) / 2;
+		this.velocityOffset = 127 - level / 2;
 	}
 
 	/**
