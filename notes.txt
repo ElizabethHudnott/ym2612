@@ -23,7 +23,6 @@ tremolo & auto pan phase offset
 Bug: feedback strength (when n=7)?
 Bug: inconsistent tone (less frequent when soloed)
 
-Correct beginLevel when there's a velocity change
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening (but not have rate scaling applied?)
 	add initial phase parameter

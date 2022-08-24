@@ -139,9 +139,9 @@ export default class Envelope {
 		return keyCode >> (4 - scaling);
 	}
 
-	dampenTime(from, rateAdjust) {
+	dampenTime(from, to, rateAdjust) {
 			// OPL has 512 levels instead of 1024
-			const distance = Math.ceil((from - this.totalLevel) / 2);
+			const distance = Math.ceil((from - to) / 2);
 			const rate = Math.min(48 + rateAdjust, 63);
 			const gradient = Envelope.increment[rate];
 			return OPL_ENVELOPE_TICK * Math.ceil(distance / gradient);
@@ -189,12 +189,19 @@ export default class Envelope {
 				const timeProportion = (time - beginRelease) / (endRelease - beginRelease);
 				beginLevel = this.releaseLevel * (1 - timeProportion);
 			}
-			beginLevel = Math.min(Math.max(beginLevel - oldTotalLevel, 0) + newTotalLevel, 1023);
+			beginLevel = Math.max(beginLevel - oldTotalLevel, 0) + newTotalLevel;
 			this.keyOnLevel = beginLevel;	// Level before dampening
-			if (this.reset && beginLevel > newTotalLevel) {
-				// Special case 2: Quickly fade to zero and then climb from zero.
+			if (beginLevel > 1023) {
+				// Special case 2: Current output is louder than maximum amplitude for the new
+				// lower velocity.
 				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
-				endDampen += this.dampenTime(beginLevel, rateAdjust);
+				endDampen += this.dampenTime(beginLevel, 1023, rateAdjust);
+				gain.linearRampToValueAtTime(1, endDampen);
+				beginLevel = 1023;	// Level after dampening
+			} else if (this.reset && beginLevel > newTotalLevel) {
+				// Special case 3: Quickly fade to zero and then climb from zero.
+				cancelAndHoldAtTime(gain, beginLevel / 1023, time);
+				endDampen += this.dampenTime(beginLevel, newTotalLevel, rateAdjust);
 				gain.linearRampToValueAtTime(newTotalLevel / 1023, endDampen);
 				beginLevel = newTotalLevel;	// Level after dampening
 			}
