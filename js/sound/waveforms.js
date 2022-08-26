@@ -203,7 +203,7 @@ const Waveform = {
 
 	ABS_ODD_SINE:	OscillatorConfig.am('sine', true, -1 / Math.PI, 'square', 1, 2),
 	SQUARE:			OscillatorConfig.mono('square'),
-	LOG_SAW: 		OscillatorConfig.am('sawtooth', false, 0, 'sine', 1, -2, -0.1),	// approximate
+	SPIKE: 			OscillatorConfig.am('sawtooth', false, 0, 'triangle', 1, -2),	// approximate log saw
 	PULSE:			new OscillatorConfig('square', false, -0.5, 'square', 1, 2, 1, 2/3, true),	// 25% duty cycle
 	SAWTOOTH:		OscillatorConfig.mono('sawtooth'),
 
@@ -261,7 +261,7 @@ const Waveform = {
 	COSINE18:		OscillatorConfig.additiveCos([1, 0, 0, 0, 0, 0, 0, 8]),
 
 	// Miscellaneous
-	STEPPED:			OscillatorConfig.am('square', false, 0, 'square', 2),
+	STEP:				OscillatorConfig.am('square', false, 0, 'square', 2),
 
 }
 

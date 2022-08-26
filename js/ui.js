@@ -420,7 +420,7 @@ function normalizeLevels(distortion = 0) {
 
 document.getElementById('distortion').addEventListener('input', function (event) {
 	const value = parseFloat(this.value);
-	if (value >= 0) {
+	if (value >= 0 && value <= 921) {
 		normalizeLevels(value);
 	}
 });

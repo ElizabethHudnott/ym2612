@@ -174,7 +174,8 @@ More Ideas
 Customizable damping time?
 
 UI
-	Quick edit (DX11 manual p.13)
+	Quick edit (DX11 manual p.13), including "tone" (all modulator levels, Ableton) and balance (between outputs, Digitone)
+		Ability to map LFO to balance
 	Tabindexes in the custom algorithm section
 	Warn user when attempting to apply an LFO effect and the LFO's frequency is zero.
 	2 op / 4 op selector UI

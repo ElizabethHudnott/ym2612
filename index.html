@@ -401,6 +401,38 @@
 					</div>
 				</fieldset>
 				<fieldset class="panel">
+					<h1>Filter</h1>
+					<div id="filter-config" class="collapse show">
+						<div class="row form-group">
+							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
+								Cutoff
+							</label>
+							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="27" max="137" value="106" class="form-control-range mt-1" id="filter-cutoff-slider">
+							</div>
+							<div class="col-4 col-sm-2 pr-md-4 ml-auto">
+								<input type="text" value="A#7" disabled class="form-control led-display text-center" id="filter-cutoff">
+							</div>
+						</div>
+						<div class="row form-group">
+							<label class="col-auto col-md-3 col-form-label" for="filter-resonance-slider">
+								Resonance
+							</label>
+							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="0" max="25" step="0.25" value="0" class="form-control-range mt-1" id="filter-resonance-slider">
+							</div>
+							<div class="col-6 col-sm-3 pr-md-4 ml-auto">
+								<div class="input-group">
+									<input type="number" min="-758.5" max="770.5" step="0.25" value="0" class="form-control led-display" id="filter-resonance">
+									<div class="input-group-append">
+										<span class="input-group-text led-label">dB</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</fieldset>
+				<fieldset class="panel">
 					<h1>LFO</h1>
 					<div class="row form-group">
 						<label class="col-auto col-md-3 col-form-label" for="lfo-rate-slider">
@@ -650,38 +682,6 @@
 						</div>
 					</div>
 				</fieldset>
-				<fieldset class="panel">
-					<h1>Filter</h1>
-					<div id="filter-config" class="collapse show">
-						<div class="row form-group">
-							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
-								Cutoff
-							</label>
-							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
-								<input type="range" min="27" max="137" value="106" class="form-control-range mt-1" id="filter-cutoff-slider">
-							</div>
-							<div class="col-4 col-sm-2 pr-md-4 ml-auto">
-								<input type="text" value="A#7" disabled class="form-control led-display text-center" id="filter-cutoff">
-							</div>
-						</div>
-						<div class="row form-group">
-							<label class="col-auto col-md-3 col-form-label" for="filter-resonance-slider">
-								Resonance
-							</label>
-							<div class="col-12 col-md-6 mb-3 my-md-auto pl-md-0">
-								<input type="range" min="0" max="25" step="0.25" value="0" class="form-control-range mt-1" id="filter-resonance-slider">
-							</div>
-							<div class="col-6 col-sm-3 pr-md-4 ml-auto">
-								<div class="input-group">
-									<input type="number" min="-758.5" max="770.5" step="0.25" value="0" class="form-control led-display" id="filter-resonance">
-									<div class="input-group-append">
-										<span class="input-group-text led-label">dB</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</fieldset>
 			</div>
 		</div>
 
@@ -855,17 +855,6 @@
 						</div>
 					</div>
 					<div class="row form-group">
-						<label class="col-auto col-md-3 col-form-label" for="op$-rate-scale-slider">
-							Rate Scaling
-						</label>
-						<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
-							<input type="range" min="-4" max="4" value="1" class="form-control-range mt-1" id="op$-rate-scale-slider">
-						</div>
-						<div class="col-4 col-sm-2 pl-md-0 ml-auto">
-							<input type="number" min="-9.9" max="9.9" step="0.1" value="1" class="form-control led-display" id="op$-rate-scale" disabled>
-						</div>
-					</div>
-					<div class="row form-group">
 						<label class="col-auto col-md-3 col-form-label" for="op$-velocity-depth-slider">
 							Velocity Sensitivity
 						</label>
@@ -904,6 +893,17 @@
 									High velocity &rarr; Low level
 								</label>
 							</div>
+						</div>
+					</div>
+					<div class="row form-group">
+						<label class="col-auto col-md-3 col-form-label" for="op$-rate-scale-slider">
+							Rate Scaling
+						</label>
+						<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="-4" max="4" value="1" class="form-control-range mt-1" id="op$-rate-scale-slider">
+						</div>
+						<div class="col-4 col-sm-2 pl-md-0 ml-auto">
+							<input type="number" min="-9.9" max="9.9" step="0.1" value="1" class="form-control led-display" id="op$-rate-scale" disabled>
 						</div>
 					</div>
 					<div class="row form-group">

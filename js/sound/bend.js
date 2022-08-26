@@ -116,12 +116,13 @@ class Bend {
 
 						let encodedFrom = this.encodeValue(from, initialValue);
 						if (encodedFrom === 0) {
+							// From zero to positive
 							encodedFrom = this.minNonZero;
 						}
 						param.setValueAtTime(encodedFrom, startTime + time[startStep]);
 
 						if (encodedValue === 0) {
-
+							// From negative to zero
 							encodedValue = -this.minNonZero;
 							const endTime = startTime + time[endStep];
 							param. exponentialRampToValueAtTime(encodedValue, endTime);
@@ -262,7 +263,7 @@ class PitchBend extends Bend {
 	static STEP_OPTIONS = [1, 16, 100];
 
 	constructor() {
-		super(0, 2);	// Default to 1/16 semitone increments
+		super(0, 1);	// Default to 1/16 semitone increments
 		this.maxUp = 2;
 		this.maxDown = 2;
 	}
@@ -312,7 +313,7 @@ class VolumeAutomation extends Bend {
 	}
 
 	get minNonZero() {
-		return 0.2;
+		return outputLevelToGain(0.5);
 	}
 
 }
@@ -336,7 +337,7 @@ class AttenuationAutomation extends Bend {
 	}
 
 	encodeValue(totalLevel) {
-		return -totalLevel / 128;
+		return -(totalLevel * 8) / 1023;
 	}
 
 }
