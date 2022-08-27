@@ -1,3 +1,11 @@
+/* This source code is copyright of Elizabeth Hudnott.
+ * © Elizabeth Hudnott 2021-2022. All rights reserved.
+ * Any redistribution or reproduction of part or all of the source code in any form is
+ * prohibited by law other than downloading the code for your own personal non-commercial use
+ * only. You may not distribute or commercially exploit the source code. Nor may you transmit
+ * it or store it in any other website or other form of electronic retrieval system. Nor may
+ * you translate it into another language.
+ */
 import {
 	cancelAndHoldAtTime, outputLevelToGain, gainToOutputLevel, PROCESSING_TIME, NEVER
 } from './common.js';
@@ -313,9 +321,8 @@ class Operator {
 	}
 
 	disable(time = 0) {
-		this.stopOscillator(time);
+		this.soundOff(time);
 		this.disabled = true;
-		this.keyIsOn = false;
 	}
 
 	enable() {
@@ -529,8 +536,12 @@ export default class FMOperator extends Operator {
 	}
 
 	newOscillator(context, time) {
-		const config = this.oscillatorConfig;
+		this.stopOscillator(time);	// Stop old oscillator
 
+		const config = this.oscillatorConfig;
+		this.frequencyMultiplier.gain.setValueAtTime(config.frequencyMultiplier, time);
+
+		// Create Oscillator 1
 		let oscillator1;
 		if (config.periodicWave !== undefined) {
 
@@ -557,14 +568,18 @@ export default class FMOperator extends Operator {
 
 		}
 
+		// Configure Oscillator 1's frequency
 		if (config.oscillator1FrequencyMult === 1) {
 			this.frequencyNode.connect(oscillator1.frequency);
 		} else {
 			this.frequencyMultiplier.connect(oscillator1.frequency);
 		}
-		this.frequencyMultiplier.gain.setValueAtTime(config.frequencyMultiplier, time);
+		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
 
 		const gain = config.gain;	// Overall gain
+		this.bias.setValueAtTime(gain * config.bias, time);
+
+		// Create Oscillator 2
 		let oscillator2;
 		if (config.oscillator2Shape !== undefined) {
 			oscillator2 = new OscillatorNode(context, {
@@ -589,11 +604,7 @@ export default class FMOperator extends Operator {
 		} else {
 			this.amMod.gain.setValueAtTime(1, time);
 		}
-
 		oscillator1.start(time);
-		this.stopOscillator(time);	// Stop old oscillator
-		this.bias.setValueAtTime(gain * config.bias, time);
-		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
 
 		this.oscillator1 = oscillator1;
 		this.oscillator2 = oscillator2;

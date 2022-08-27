@@ -10,7 +10,6 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 
 Necessary Improvements
 ----------------------
-add differentiation of log saw
 Renumber operators 2 & 3?
 Refactor operator UI
 Finish UI (prioritize: velocity, SSG, envelope reset)
