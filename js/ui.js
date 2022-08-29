@@ -1033,6 +1033,22 @@ document.getElementById('filter-cutoff-slider').addEventListener('input', functi
 	eachChannel(channel => channel.setFilterCutoff(midiNote));
 });
 
+document.getElementById('filter-key-track-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const amount = parseInt(this.value) * 3.125;
+	document.getElementById('filter-key-track').value = amount.toFixed(0);
+	eachChannel(channel => channel.setFilterKeyTracking(amount));
+});
+
+document.getElementById('filter-key-track').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	if (value >= -201 && value <= 201) {
+		document.getElementById('filter-key-track-slider').value = value / 3.125;
+		eachChannel(channel => channel.setFilterKeyTracking(value));
+	}
+});
+
 document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {
 	audioContext.resume();
 	const resonance = parseFloat(this.value);

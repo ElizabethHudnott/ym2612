@@ -131,6 +131,7 @@ class Operator {
 		this.envelope.stop(time);
 		this.centreFrequencyNode = undefined;
 		this.frequencyNode = undefined;
+		this.frequencyParam = undefined;
 	}
 
 	/**Changes the operator's frequency. This method is usually invoked by an instance of
@@ -489,10 +490,10 @@ export default class FMOperator extends Operator {
 		const amModAmp = new GainNode(context);
 		amModAmp.connect(amMod.gain);
 		this.amModAmp = amModAmp;
-		const bias = new GainNode(context, {gain: 0});
-		channel.synth.dcOffset.connect(bias);
+		const bias = new ConstantSourceNode(context, {offset: 0});
 		bias.connect(this.tremoloNode);
-		this.bias = bias.gain;
+		this.biasNode = bias;
+		this.bias = bias.offset;
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
@@ -517,6 +518,21 @@ export default class FMOperator extends Operator {
 		super.copyTo(operator);
 		operator.setVibratoDepth(this.vibratoDepth);
 		operator.oscillatorConfig = this.oscillatorConfig;
+	}
+
+	start(time) {
+		super.start(time);
+		this.biasNode.start(time);
+	}
+
+	stop(time = 0) {
+		super.stop(time);
+		this.stopOscillator(time);
+		this.oscillator1 = undefined;
+		this.oscillator2 = undefined;
+		this.biasNode.stop(time);
+		this.biasNode = undefined;
+		this.bias = undefined;
 	}
 
 	/**Configures this operator to modulate an external source (usually another operator).
@@ -620,13 +636,6 @@ export default class FMOperator extends Operator {
 		if (this.oscillator2) {
 			this.oscillator2.stop(time);
 		}
-	}
-
-	stop(time) {
-		super.stop(time);
-		this.stopOscillator(time);
-		this.oscillator1 = undefined;
-		this.oscillator2 = undefined;
 	}
 
 	setVibratoDepth(linearAmount, time = 0, method = 'setValueAtTime') {

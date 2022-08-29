@@ -42,9 +42,6 @@ export default class Synth {
 			dbCurve[i] = logToLinear(i - 1023);
 		}
 
-		// Used by the operators to remove the DC offset inherent in certain wave shapes.
-		this.dcOffset = new ConstantSourceNode(context);
-
 		const channels = new Array(numChannels);
 		const tuning = this.equalTemperament();
 		for (let i = 0; i < numChannels; i++) {
@@ -107,7 +104,6 @@ export default class Synth {
 		for (let channel of this.channels) {
 			channel.start(time);
 		}
-		this.dcOffset.start(time);
 	}
 
 	stop(time = 0) {
@@ -118,8 +114,6 @@ export default class Synth {
 			this.dacRegister.stop(time);
 			this.dacRegister = undefined;
 		}
-		this.dcOffset.stop(time);
-		this.dcOffset = undefined;
 	}
 
 	soundOff(time = 0) {
@@ -228,11 +222,11 @@ export default class Synth {
 	equalTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
 		const referencePitch = this.referencePitch;
 		const referenceNote = this.referenceNote;
-		const frequencyData = new Array(128);
+		const frequencyData = new Array(138);
 		const numIntervals = steps.length;
 		let noteNumber = 60;
 		let stepIndex = startIndex;
-		for (let i = 60; i < 128; i++) {
+		for (let i = 60; i < 138; i++) {
 			const frequency = referencePitch *
 				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
@@ -251,19 +245,21 @@ export default class Synth {
 			frequencyData[i] = frequency / this.frequencyStep;
 			stepIndex--;
 		}
-		return this.#spreadKeyCodes(frequencyData);
+		const ratio = interval ** (1 / divisions);
+		return this.#spreadKeyCodes(frequencyData, ratio);
 	}
 
 	ratioTuning(ratios, startNote = 0) {
-		const frequencyData = new Array(128);
+		const frequencyData = new Array(138);
 		const numRatios = ratios.length - 1;
 		const octaveInterval = ratios[numRatios];
 		let referencePitch = this.referencePitch;
 		let referenceNote = this.referenceNote;
+		// Start mapping from C by default (when startNote = 0)
 		referencePitch /= ratios[(referenceNote - startNote) % 12];
 		referenceNote = Math.trunc(referenceNote / 12) * 12 + startNote;
 		let ratioCycles = 0, ratioIndex = 0;
-		for (let i = referenceNote; i < 128; i++) {
+		for (let i = referenceNote; i < 138; i++) {
 			frequencyData[i] = referencePitch *
 				(octaveInterval ** ratioCycles * ratios[ratioIndex]) / this.frequencyStep;
 			ratioIndex++;
@@ -283,14 +279,16 @@ export default class Synth {
 				ratioIndex = numRatios - 1;
 			}
 		}
-		return this.#spreadKeyCodes(frequencyData);
+		// Filter key tracking has to use equal temperament :(
+		const ratio = octaveInterval ** (1 / numRatios);
+		return this.#spreadKeyCodes(frequencyData, ratio);
 	}
 
-	#spreadKeyCodes(frequencyData) {
+	#spreadKeyCodes(frequencyData, ratio) {
 		let blocks = [], freqNums = [], keyCodes = [];
 		const numInstances = new Array(32);
 		numInstances.fill(0);
-		for (let i = 0; i < 128; i++) {
+		for (let i = 0; i < 138; i++) {
 			let block;
 			let freqNum = frequencyData[i];
 			if (freqNum < 1023.5) {
@@ -317,7 +315,7 @@ export default class Synth {
 			numInstances[0]--;
 			minIndex++;
 		}
-		let maxIndex = blocks.length - 1;
+		let maxIndex = 127;
 		const standardC8 = 440 * (2 ** (39 / 12)) / this.frequencyStep;
 		while (frequencyData[maxIndex - 1] >= standardC8 && keyCodes[maxIndex] === 31) {
 			numInstances[31]--;
@@ -370,6 +368,7 @@ export default class Synth {
 
 		} while (newVariance < variance || !changes);
 		return {
+			ratio: ratio,
 			octaveThreshold: 	thresholdHistory[0] - 0.5,
 			freqBlockNumbers: blocks,
 			frequencyNumbers: freqNums,

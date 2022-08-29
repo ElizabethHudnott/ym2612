@@ -76,6 +76,7 @@ class NoiseChannel {
 
 	stop(time = 0) {
 		this.source.stop(time);
+		this.source = undefined;
 	}
 
 	setFrequency(frequency, time = 0) {
@@ -162,7 +163,7 @@ class ToneChannel {
 		this.saw = saw;
 		const frequency = new ConstantSourceNode(context, {offset: 0});
 		this.frequencyNode = frequency;
-		this.frequencyControl = frequency.offset;
+		this.frequencyParam = frequency.offset;
 		const vibratoAmp = new GainNode(context);
 		frequency.connect(vibratoAmp);
 		const vibratoDepth = new GainNode(context, {gain: (2 ** (this.vibratoDepth / 1200)) - 1});
@@ -242,10 +243,16 @@ class ToneChannel {
 			this.waveLFO.stop(time);
 			this.waveLFO = undefined;
 		}
+		this.saw = undefined;
+		this.frequencyNode = undefined;
+		this.dutyCycleNode = undefined;
+		this.dcOffset = undefined;
+		this.constantNode = undefined;
+		this.reciprocal = undefined;
 	}
 
 	setFrequency(frequency, time = 0, method = 'setValueAtTime') {
-		this.frequencyControl[method](frequency, time);
+		this.frequencyParam[method](frequency, time);
 		const limit = this.synth.maxFrequency;
 		if (frequency > limit) {
 			this.waveAmp[method](0, time);
@@ -456,12 +463,15 @@ class PSG {
 	}
 
 	stop(time = 0) {
+		this.minusOne.stop(time);
 		this.lfo.stop(time);
 		this.pwmLFO.stop(time);
-		this.minusOne.stop(time);
 		for (let channel of this.channels) {
 			channel.stop(time);
 		}
+		this.minusOne = undefined;
+		this.lfo = undefined;
+		this.pwmLFO = undefined;
 	}
 
 	setLFORate(frequency, time = 0, method = 'setValueAtTime') {

@@ -123,7 +123,9 @@ export default class Envelope {
 		this.gainNode.stop(time);
 		this.totalLevelNode.stop(time);
 		this.gainNode = undefined;
+		this.gain = undefined;
 		this.totalLevelNode = undefined;
+		this.totalLevelParam = undefined;
 	}
 
 	getScaledAttack(velocity) {

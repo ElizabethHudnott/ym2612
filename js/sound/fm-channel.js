@@ -43,12 +43,13 @@ class AbstractChannel {
 	].map(x => 10 / x));
 
 	constructor(tuning) {
+		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
-	/**Calculates frequency data for a scale of 128 MIDI notes.
+	/**Calculates frequency data for a scale of 128 MIDI notes (plus 10 extra ones for the filter).
 	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
 	 * @param {number} interval The default value of 2 separates consecutive copies of the root
 	 * note using a 2:1 frequency ratio (1 octave). Different values can produce stretched
@@ -72,6 +73,7 @@ class AbstractChannel {
 	 */
 	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
 		const tuning = this.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
@@ -85,6 +87,7 @@ class AbstractChannel {
 	 */
 	tuneRatios(ratios, startNote = 0) {
 		const tuning = this.synth.ratioTuning(ratios, startNote);
+		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
@@ -194,16 +197,25 @@ class Channel extends AbstractChannel {
 
 		const cutoffNote = 106;
 		this.cutoffNote = cutoffNote;
-		this.cutoffHz = this.componentsToFullFreq(
+		this.cutoffKeyTracking = 0;
+		this.filterTrackBreakpoint = 48;
+		const cutoffFrequency = this.componentsToFullFreq(
 			this.noteFreqBlockNumbers[cutoffNote], this.noteFrequencyNumbers[cutoffNote]
-		) * synth.frequencyStep;	// 3728 Hz
+		) * synth.frequencyStep;
 		this.resonance = 0;
 
 		const filter = new BiquadFilterNode(
-			context, {frequency: this.cutoffHz, Q: this.resonance}
+			context, {frequency: 0, Q: this.resonance}
 		);
 		this.filter = filter;
 		shaper.connect(filter);
+		const cutoffNode = new ConstantSourceNode(context, {offset: cutoffFrequency});
+		this.cutoffNode = cutoffNode;
+		this.cutoff = cutoffNode.offset;
+		const cutoffKeyTracker = new GainNode(context);
+		this.cutoffKeyTracker = cutoffKeyTracker.gain;
+		cutoffNode.connect(cutoffKeyTracker);
+		cutoffKeyTracker.connect(filter.frequency);
 
 		const gain = new GainNode(context);
 		this.gainControl = gain.gain;
@@ -356,6 +368,7 @@ class Channel extends AbstractChannel {
 			operator.start(time);
 		}
 		this.lfoRateNode.start(time);
+		this.cutoffNode.start(time);
 	}
 
 	stop(time = 0) {
@@ -368,6 +381,9 @@ class Channel extends AbstractChannel {
 			this.lfo.stop(time);
 			this.lfo = undefined;
 		}
+		this.cutoffNode.stop(time);
+		this.cutoffNode = undefined;
+		this.cutoff = undefined;
 	}
 
 	getOperator(operatorNum) {
@@ -584,6 +600,11 @@ class Channel extends AbstractChannel {
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		const glideRate = glide ? this.glideRate : 0;
 		this.setFrequency(block, freqNum, time, glideRate);
+
+		const cutoffTrackNotes = (noteNumber - this.filterTrackBreakpoint) * this.cutoffKeyTracking;
+		const cutoffTrackMultiple = this.tuningRatio ** cutoffTrackNotes;
+		this.cutoffKeyTracker.setValueAtTime(cutoffTrackMultiple, time);
+
 		if (this.panMode === Pan.NOTE) {
 			this.#adjustPan(noteNumber, time);
 		}
@@ -958,10 +979,6 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	applyFilter(time = 0) {
-		this.filter.frequency.setValueAtTime(this.cutoffHz, time);
-	}
-
 	/**
 	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} for that.
 	 */
@@ -991,7 +1008,6 @@ class Channel extends AbstractChannel {
 			operators[3].keyOff(time);
 		}
 		this.scheduleOscillators();
-		this.applyFilter(time);
 	}
 
 	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
@@ -1023,28 +1039,32 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	/**
-	 * @param {number} midiNote MIDI notes scale, though can be higher than 127 in order to
-	 * refer to the higher harmonics
-	 */
 	setFilterCutoff(midiNote, time = 0, method = 'setValueAtTime') {
-		let tableIndex = midiNote;
-		let octaveShift = 0;
-		if (tableIndex > 127) {
-			octaveShift = Math.ceil((tableIndex - 127) / 12);
-			tableIndex -= 12 * octaveShift;
-		}
-		const frequency = this.componentsToFullFreq(
-			this.noteFreqBlockNumbers[tableIndex], this.noteFrequencyNumbers[tableIndex]
-		) * this.synth.frequencyStep * (1 << octaveShift);
-
-		this.filter.frequency[method](frequency, time);
+		const block = this.noteFreqBlockNumbers[midiNote];
+		const freqNum = this.noteFrequencyNumbers[midiNote];
+		const frequency = this.componentsToFullFreq(block, freqNum) * this.synth.frequencyStep;
+		this.cutoff[method](frequency, time);
 		this.cutoffNote = midiNote;
-		this.cutoffHz = frequency;
 	}
 
 	getFilterCutoff() {
 		return this.cutoffNote;
+	}
+
+	setFilterKeyTracking(tracking = 100) {
+		this.cutoffKeyTracking = tracking / 100;
+	}
+
+	getFilterKeyTracking() {
+		return this.cutoffKeyTracking * 100;
+	}
+
+	setFilterBreakpoint(midiNote) {
+		this.filterTrackBreakpoint = midiNote;
+	}
+
+	getFilterTrackBreakpoint() {
+		return this.filterTrackBreakpoint;
 	}
 
 	setFilterResonance(decibels, time = 0, method = 'setValueAtTime') {
