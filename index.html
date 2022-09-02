@@ -403,15 +403,20 @@
 				<fieldset class="panel">
 					<h1>Filter</h1>
 					<div id="filter-config">
-						<div class="row form-group">
+						<div class="row mb-1">
 							<label class="col-auto col-md-3 col-form-label" for="filter-cutoff-slider">
 								Cutoff
 							</label>
 							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
-								<input type="range" min="27" max="137" value="106" class="form-control-range mt-1" id="filter-cutoff-slider">
+								<input type="range" min="-23" max="103" value="68" class="form-control-range mt-1" id="filter-cutoff-slider">
 							</div>
-							<div class="col-4 col-sm-2 pr-md-4 ml-auto">
+							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto">
 								<input type="text" value="A#7" disabled class="form-control led-display text-center" id="filter-cutoff">
+							</div>
+						</div>
+						<div class="row form-group small">
+							<div class="col-12 text-right pr-md-4">
+								Ratio: <span id="filter-ratio" class="text-monospace" style="white-space: pre;">28      </span>
 							</div>
 						</div>
 						<div class="row form-group">
@@ -428,6 +433,17 @@
 										<span class="input-group-text led-label">%</span>
 									</div>
 								</div>
+							</div>
+						</div>
+						<div class="row form-group">
+							<label class="col-auto col-md-3 col-form-label" for="filter-breakpoint-slider">
+								Breakpoint
+							</label>
+							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+								<input type="range" min="21" max="108" value="48" class="form-control-range mt-1" id="filter-breakpoint-slider">
+							</div>
+							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto">
+								<input type="text" value="C 3" disabled class="form-control led-display text-center" id="filter-breakpoint">
 							</div>
 						</div>
 						<div class="row form-group">

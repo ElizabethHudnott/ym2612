@@ -249,11 +249,11 @@ export default class Synth {
 		return this.#spreadKeyCodes(frequencyData, ratio);
 	}
 
-	ratioTuning(ratios, startNote = 0) {
+	ratioTuning(detune, ratios, startNote = 0) {
 		const frequencyData = new Array(138);
 		const numRatios = ratios.length - 1;
 		const octaveInterval = ratios[numRatios];
-		let referencePitch = this.referencePitch;
+		let referencePitch = this.referencePitch * 2 ** (detune / 1200);
 		let referenceNote = this.referenceNote;
 		// Start mapping from C by default (when startNote = 0)
 		referencePitch /= ratios[(referenceNote - startNote) % 12];

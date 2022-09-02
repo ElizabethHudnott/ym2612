@@ -9,7 +9,10 @@ Algorithms on Other Systems (to consider)
 	1->2&3, 2->3->4		(Digitone)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
+Negative "distortion"
+Filter key tracking and glide
 Bug: 2 into 1: inconsistent tone
+waveforms for first-N harmonics of saw and square
 fm-x waves
 Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
@@ -128,8 +131,11 @@ Combine sample with synth
 	Kawai Digital Multi Spectrum (K4)
 	Yamaha SY77, etc.
 
-Custom waveforms?
+Samples as operator waveforms
 	Only available for an operator that is not modulated by another operator or itself
+	Limited precision sine
+	Noise?
+	Custom waveforms?
 
 makeBasicWaveform
 	alternating / invert every x repetitions (see also SY-77 waveforms)

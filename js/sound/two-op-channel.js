@@ -401,8 +401,8 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
-	tuneRatios(ratios, startNote = 0) {
-		const tuning = this.parentChannel.synth.ratioTuning(ratios, startNote);
+	tuneRatios(detune, ratios, startNote = 0) {
+		const tuning = this.parentChannel.synth.ratioTuning(detune, ratios, startNote);
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;

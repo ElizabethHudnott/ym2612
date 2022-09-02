@@ -26,9 +26,6 @@ const Pan = Object.freeze({
 
 class AbstractChannel {
 
-	// 0db, 1.4db, 5.9db, 11.8db
-	static tremoloPresets = [0, 15, 63, 126].map(x => x / 2046);
-
 	static glideRates = [0].concat([
 		     254, 243, 232, 211, 202, 193, 185, 178, 171,
 		165, 159, 153, 147, 141, 135, 130, 125, 120, 115,
@@ -41,6 +38,25 @@ class AbstractChannel {
 		 11, 10.5, 10, 9.5,   9,  8.5,  8,  7.5,  7,   6.5,
 		  6,  5.5,  5, 4.5,   4,  3.5,  3,  2.5,  2,   1
 	].map(x => 10 / x));
+
+	// 0db, 1.4db, 5.9db, 11.8db
+	static tremoloPresets = [0, 15, 63, 126].map(x => x / 2046);
+
+	static filterSteps = [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30].map(
+		x => 1 + (x - 16) / 16
+	);
+
+	static filterStepNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F𝄲', 'F#', 'G', 'G#', 'A𝄳', 'A', 'A#', 'B'];
+
+	static decomposeFilterSteps(cutoffValue) {
+		// The filter uses a 14 note scale
+		const octave = Math.floor(cutoffValue / 14);
+		let note = cutoffValue % 14;
+		if (note < 0) {
+			note = 14 + note;
+		}
+		return [octave, note];
+	}
 
 	constructor(tuning) {
 		this.tuningRatio = tuning.ratio;
@@ -80,13 +96,14 @@ class AbstractChannel {
 	}
 
 	/**
+	 * @param {number} detune In cents of a 12 tone equal temperament scale.
 	 * @param {number[]} ratios
 	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
 	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
 	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
 	 */
-	tuneRatios(ratios, startNote = 0) {
-		const tuning = this.synth.ratioTuning(ratios, startNote);
+	tuneRatios(detune, ratios, startNote = 0) {
+		const tuning = this.synth.ratioTuning(detune, ratios, startNote);
 		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
@@ -195,13 +212,9 @@ class Channel extends AbstractChannel {
 
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 
-		const cutoffNote = 106;
-		this.cutoffNote = cutoffNote;
+		this.cutoffValue = 68;
 		this.cutoffKeyTracking = 0;
 		this.filterTrackBreakpoint = 48;
-		const cutoffFrequency = this.componentsToFullFreq(
-			this.noteFreqBlockNumbers[cutoffNote], this.noteFrequencyNumbers[cutoffNote]
-		) * synth.frequencyStep;
 		this.resonance = 0;
 
 		const filter = new BiquadFilterNode(
@@ -209,13 +222,14 @@ class Channel extends AbstractChannel {
 		);
 		this.filter = filter;
 		shaper.connect(filter);
-		const cutoffNode = new ConstantSourceNode(context, {offset: cutoffFrequency});
+		const cutoffNode = new ConstantSourceNode(context);
 		this.cutoffNode = cutoffNode;
 		this.cutoff = cutoffNode.offset;
 		const cutoffKeyTracker = new GainNode(context);
 		this.cutoffKeyTracker = cutoffKeyTracker.gain;
 		cutoffNode.connect(cutoffKeyTracker);
 		cutoffKeyTracker.connect(filter.frequency);
+		this.setFilterCutoff(this.cutoffValue);
 
 		const gain = new GainNode(context);
 		this.gainControl = gain.gain;
@@ -1039,16 +1053,19 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setFilterCutoff(midiNote, time = 0, method = 'setValueAtTime') {
-		const block = this.noteFreqBlockNumbers[midiNote];
-		const freqNum = this.noteFrequencyNumbers[midiNote];
-		const frequency = this.componentsToFullFreq(block, freqNum) * this.synth.frequencyStep;
+	setFilterCutoff(value, time = 0, method = 'setValueAtTime') {
+		const c3Block = this.noteFreqBlockNumbers[48];
+		const c3FreqNum = this.noteFrequencyNumbers[48];
+		const [octave, note] = AbstractChannel.decomposeFilterSteps(value);
+		const ratio = 2 ** octave * AbstractChannel.filterSteps[note];
+		const fullFreqNum = Math.round(ratio * this.componentsToFullFreq(c3Block, c3FreqNum));
+		const frequency = fullFreqNum * this.synth.frequencyStep;
 		this.cutoff[method](frequency, time);
-		this.cutoffNote = midiNote;
+		this.cutoffValue = value;
 	}
 
 	getFilterCutoff() {
-		return this.cutoffNote;
+		return this.cutoffValue;
 	}
 
 	setFilterKeyTracking(tracking = 100) {

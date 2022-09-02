@@ -9,7 +9,7 @@
 import {queryChecked, checkInput} from './util.js';
 import {
 	PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
-	getOctave, getNoteName,
+	getOctave, getNoteName
 } from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
@@ -1026,11 +1026,31 @@ document.getElementById('btn-pan-range').addEventListener('click', function (eve
 
 document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	const midiNote = parseInt(this.value);
-	let description = getNoteName(midiNote).padEnd(2) + getOctave(midiNote);
+	const value = parseInt(this.value);
+	const [octave, note] = AbstractChannel.decomposeFilterSteps(value);
+	const ratio = 2 ** octave * AbstractChannel.filterSteps[note];
+	const description = AbstractChannel.filterStepNames[note].padEnd(2) + String(octave + 3);
 	const box = document.getElementById('filter-cutoff');
 	box.value = description;
-	eachChannel(channel => channel.setFilterCutoff(midiNote));
+
+	let str;
+	const integer = Math.trunc(ratio);
+	const decimal = ratio - integer;
+	if (octave <= 3) {
+		let denominator = 16;
+		if (octave < 0) {
+			denominator = 64;
+			str = '   ';
+		} else {
+			str = String(integer).padStart(2) + ' ';
+		}
+		const numerator = decimal * denominator;
+		str += String(numerator).padStart(2) + '&sol;' + denominator;
+	} else {
+		str = String(ratio).padEnd(8);
+	}
+	document.getElementById('filter-ratio').innerHTML = str;
+	eachChannel(channel => channel.setFilterCutoff(value));
 });
 
 document.getElementById('filter-key-track-slider').addEventListener('input', function (event) {
@@ -1047,6 +1067,14 @@ document.getElementById('filter-key-track').addEventListener('input', function (
 		document.getElementById('filter-key-track-slider').value = value / 3.125;
 		eachChannel(channel => channel.setFilterKeyTracking(value));
 	}
+});
+
+document.getElementById('filter-breakpoint-slider').addEventListener('input', function (event) {
+	const midiNote = parseInt(this.value);
+	const octave = getOctave(midiNote);
+	const note = getNoteName(midiNote);
+	document.getElementById('filter-breakpoint').value = note.padEnd(2) + octave;
+	eachChannel(channel => channel.setFilterBreakpoint(midiNote));
 });
 
 document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {

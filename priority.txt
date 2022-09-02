@@ -10,6 +10,8 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 
 Necessary Improvements
 ----------------------
+Negative "distortion"
+Filter key tracking and glide
 Renumber operators 2 & 3?
 Refactor operator UI
 Finish UI (prioritize: velocity, SSG, envelope reset)

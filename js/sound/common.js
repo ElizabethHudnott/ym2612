@@ -60,15 +60,14 @@ const MICRO_TUNINGS = {
 };
 
 /**
- * @param {number} gradations Use 85 for the SY-77 family (approximate) or 64 for the DX11 and
- * TX81Z.
+ * @param {number} gradations Use 85+1/3 for the SY-77 family or 64 for the DX11 and TX81Z.
  */
 function roundMicrotuning(steps, gradations = 64) {
 	const numSteps = steps.length;
 	const newSteps = new Array(numSteps);
 	let error = 0, originalTotal = 0, roundedTotal = 0;
 	for (let i = 0; i < numSteps - 1; i++) {
-		const rounded = Math.round((steps[i] - error) * gradations) / gradations;
+		const rounded = Math.round((steps[i] - error - 1) * gradations) / gradations + 1;
 		newSteps[i] = rounded;
 		originalTotal += steps[i];
 		roundedTotal += rounded;
