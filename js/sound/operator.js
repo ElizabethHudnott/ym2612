@@ -497,7 +497,7 @@ export default class FMOperator extends Operator {
 
 		this.oscillator1 = undefined;
 		this.oscillator2 = undefined;
-		this.oscillatorConfig = Waveform.SINE;
+		this.oscillatorFactory = Waveform.SINE;
 
 		const fmOut = new GainNode(context, {gain: 0});
 		this.centreFrequencyNode.connect(fmOut.gain);
@@ -517,7 +517,7 @@ export default class FMOperator extends Operator {
 	copyTo(operator) {
 		super.copyTo(operator);
 		operator.setVibratoDepth(this.vibratoDepth);
-		operator.oscillatorConfig = this.oscillatorConfig;
+		operator.oscillatorFactory = this.oscillatorFactory;
 	}
 
 	start(time) {
@@ -554,76 +554,7 @@ export default class FMOperator extends Operator {
 	newOscillator(context, time) {
 		this.stopOscillator(time);	// Stop old oscillator
 
-		const config = this.oscillatorConfig;
-		this.frequencyMultiplier.gain.setValueAtTime(config.frequencyMultiplier, time);
-
-		// Create Oscillator 1
-		let oscillator1;
-		if (config.periodicWave !== undefined) {
-
-			oscillator1 = new OscillatorNode(
-				context,
-				{frequency: 0, periodicWave: config.periodicWave}
-			);
-
-		} else if (config.oscillator1Shape === 'custom') {
-
-			const periodicWave = new PeriodicWave(
-				context,
-				{real: config.cosines, imag: config.sines}
-			);
-			oscillator1 = new OscillatorNode(context, {frequency: 0, periodicWave: periodicWave});
-			config.periodicWave = periodicWave;
-
-		} else {
-
-			oscillator1 = new OscillatorNode(
-				context,
-				{frequency: 0, type: config.oscillator1Shape}
-			);
-
-		}
-
-		// Configure Oscillator 1's frequency
-		if (config.oscillator1FrequencyMult === 1) {
-			this.frequencyNode.connect(oscillator1.frequency);
-		} else {
-			this.frequencyMultiplier.connect(oscillator1.frequency);
-		}
-		oscillator1.connect(config.waveShaping ? this.shaper : this.amMod);
-
-		const gain = config.gain;	// Overall gain
-		this.bias.setValueAtTime(gain * config.bias, time);
-
-		// Create Oscillator 2
-		let oscillator2;
-		if (config.oscillator2Shape !== undefined) {
-			oscillator2 = new OscillatorNode(context, {
-				frequency: config.frequencyOffset, type: config.oscillator2Shape
-			});
-			if (config.oscillator1FrequencyMult !== 1) {
-				// Oscillator 1 has customized pitch, Oscillator 2 is the fundamental.
-				this.frequencyNode.connect(oscillator2.frequency);
-			} else {
-				// Oscillator 2 can have pitch customized.
-				this.frequencyMultiplier.connect(oscillator2.frequency);
-			}
-			oscillator2.connect(this.amModAmp);
-			if (config.additive) {
-				oscillator2.connect(this.amMod);
-			}
-
-			const amplitude = config.modDepth; // Amplitude of the modulator, before gain
-			this.amModAmp.gain.setValueAtTime(gain * amplitude, time);
-			this.amMod.gain.setValueAtTime(gain * (1 - Math.abs(amplitude)), time);
-			oscillator2.start(time);
-		} else {
-			this.amMod.gain.setValueAtTime(1, time);
-		}
-		oscillator1.start(time);
-
-		this.oscillator1 = oscillator1;
-		this.oscillator2 = oscillator2;
+		[this.oscillator1, this.oscillator2] = this.oscillatorFactory.newOscillators(context, this, time);
 	}
 
 	stopOscillator(time) {
@@ -658,11 +589,11 @@ export default class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, oscillatorConfig, time = context.currentTime + PROCESSING_TIME) {
-		if (oscillatorConfig == undefined) {
-			throw new Error('Parameters: setWaveform(context, oscillatorConfig, ?time');
+	setWaveform(context, oscillatorFactory, time = context.currentTime + PROCESSING_TIME) {
+		if (oscillatorFactory == undefined) {
+			throw new Error('Parameters: setWaveform(context, oscillatorFactory, ?time');
 		}
-		this.oscillatorConfig = oscillatorConfig;
+		this.oscillatorFactory = oscillatorFactory;
 		this.channel.newOscillators(context, time);
 	}
 
