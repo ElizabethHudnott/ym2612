@@ -10,7 +10,7 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 
 Necessary Improvements
 ----------------------
-Negative "distortion"
+Option to not reset phase
 Filter key tracking and glide
 Renumber operators 2 & 3?
 Refactor operator UI

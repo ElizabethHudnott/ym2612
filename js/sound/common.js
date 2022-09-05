@@ -60,7 +60,7 @@ const MICRO_TUNINGS = {
 };
 
 /**
- * @param {number} gradations Use 85+1/3 for the SY-77 family or 64 for the DX11 and TX81Z.
+ * @param {number} gradations Use 1200/1024 (=85+1/3) for the SY-77 family or 64 for OPZ.
  */
 function roundMicrotuning(steps, gradations = 64) {
 	const numSteps = steps.length;
@@ -149,10 +149,7 @@ function outputLevelToGain(outputLevel) {
 }
 
 function gainToOutputLevel(gain) {
-	if (gain === 0) {
-		return 0;
-	}
-	const level = (linearToLog(Math.abs(gain)) - 7) / 8;
+	const level = Math.max(linearToLog(Math.abs(gain)) - 7, 0) / 8;
 	return Math.sign(gain) * syToDXLevel(level);
 }
 
