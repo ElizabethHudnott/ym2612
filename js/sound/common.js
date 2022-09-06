@@ -60,7 +60,7 @@ const MICRO_TUNINGS = {
 };
 
 /**
- * @param {number} gradations Use 1200/1024 (=85+1/3) for the SY-77 family or 64 for OPZ.
+ * @param {number} gradations Use 1024 / 12 (=85+1/3) for the SY-77 family or 64 for OPZ.
  */
 function roundMicrotuning(steps, gradations = 64) {
 	const numSteps = steps.length;

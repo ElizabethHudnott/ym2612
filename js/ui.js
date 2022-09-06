@@ -438,27 +438,73 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('distortion').value = 0;
 });
 
-document.getElementById('transpose-slider').addEventListener('input', function (event) {
-	audioContext.resume();
-	const value = parseInt(this.value);
-	document.getElementById('transpose').value = value;
-	firstChannel.tuneEqualTemperament(value * 100);
+function tune(detune) {
+	firstChannel.tuneEqualTemperament(detune);
 	for (let i = 2; i <= NUM_CHANNELS; i++) {
 		synth.copyTuning(1, i);
 	}
+}
+
+document.getElementById('transpose-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const transpose = parseInt(this.value);
+	document.getElementById('transpose').value = transpose;
+	const detune = parseFloat(document.getElementById('detune').value) || 0;
+	tune(transpose * 100 + detune);
+});
+
+document.getElementById('detune-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const detune = parseInt(this.value);
+	document.getElementById('detune').value = detune;
+	const transpose = parseFloat(document.getElementById('transpose').value) || 0;
+	tune(transpose * 100 + detune);
 });
 
 document.getElementById('transpose').addEventListener('input', function (event) {
 	audioContext.resume();
-	const value = parseFloat(this.value);
-	if (Number.isFinite(value)) {
-		document.getElementById('transpose-slider').value = value;
-		firstChannel.tuneEqualTemperament(value * 100);
-		for (let i = 2; i <= NUM_CHANNELS; i++) {
-			synth.copyTuning(1, i);
-		}
+	const transpose = parseFloat(this.value);
+	if (Number.isFinite(transpose)) {
+		document.getElementById('transpose-slider').value = transpose;
+		const detune = parseFloat(document.getElementById('detune').value) || 0;
+		tune(transpose * 100 + detune);
 	}
 });
+
+document.getElementById('detune').addEventListener('input', function (event) {
+	audioContext.resume();
+	const detune = parseFloat(this.value);
+	if (Number.isFinite(detune)) {
+		document.getElementById('detune-slider').value = detune;
+		const transpose = parseFloat(document.getElementById('transpose').value) || 0;
+		tune(transpose * 100 + detune);
+	}
+});
+
+function decomposeDetune() {
+	let transpose = parseFloat(document.getElementById('transpose').value) || 0;
+	let detune = (parseFloat(document.getElementById('detune').value) || 0) / 100;
+	const intTranspose = Math.trunc(transpose);
+	if (intTranspose !== transpose) {
+		detune = transpose - intTranspose;
+	}
+	transpose = intTranspose;
+	const intDetune = Math.trunc(detune);
+	transpose += intDetune;
+	detune -= intDetune;
+	if (detune > 0.5) {
+		transpose++;
+		detune = detune - 1;
+	}
+	detune *= 100;
+	document.getElementById('transpose-slider').value = transpose;
+	document.getElementById('transpose').value = transpose;
+	document.getElementById('detune-slider').value = detune;
+	document.getElementById('detune').value = detune;
+}
+
+document.getElementById('transpose').addEventListener('change', decomposeDetune);
+document.getElementById('detune').addEventListener('change', decomposeDetune);
 
 document.getElementById('poly-switch').addEventListener('input', function (event) {
 	audioContext.resume();

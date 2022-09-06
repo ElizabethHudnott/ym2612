@@ -14,7 +14,7 @@ Option to not reset phase
 Filter key tracking and glide
 Renumber operators 2 & 3?
 Refactor operator UI
-Finish UI (prioritize: velocity, SSG, envelope reset)
+Finish UI (prioritize: SSG, envelope reset)
 Icon/logo
 OPN presets
 User presets
