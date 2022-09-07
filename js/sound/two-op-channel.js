@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {VIBRATO_PRESETS, PROCESSING_TIME} from './common.js';
+import {VIBRATO_PRESETS, nextQuantum} from './common.js';
 import {AbstractChannel} from './fm-channel.js';
 
 export default class TwoOperatorChannel extends AbstractChannel {
@@ -351,8 +351,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	keyOnOff(
-		context, velocity = 127, time = context.currentTime + PROCESSING_TIME,
-		op1 = velocity !== 0, op2 = op1
+		context, velocity = 127, time = nextQuantum(context),	op1 = velocity !== 0, op2 = op1
 	) {
 		const parent = this.parentChannel;
 		const offset = this.operatorOffset;
@@ -372,7 +371,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		parent.applyFilter(time);
 	}
 
-	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
+	keyOn(context, velocity = 127, time = nextQuantum(context)) {
 		this.keyOnOff(context, velocity, time);
 	}
 

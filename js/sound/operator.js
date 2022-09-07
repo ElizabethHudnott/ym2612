@@ -7,7 +7,7 @@
  * you translate it into another language.
  */
 import {
-	cancelAndHoldAtTime, outputLevelToGain, gainToOutputLevel, PROCESSING_TIME, NEVER
+	nextQuantum, cancelAndHoldAtTime, outputLevelToGain, gainToOutputLevel, NEVER
 } from './common.js';
 import {Waveform} from './waveforms.js';
 import Envelope from './fm-envelope.js';
@@ -593,7 +593,7 @@ export default class FMOperator extends Operator {
 		}
 	}
 
-	setWaveform(context, oscillatorFactory, time = context.currentTime + PROCESSING_TIME) {
+	setWaveform(context, oscillatorFactory, time = nextQuantum(context)) {
 		if (oscillatorFactory == undefined) {
 			throw new Error('Parameters: setWaveform(context, oscillatorFactory, ?time');
 		}

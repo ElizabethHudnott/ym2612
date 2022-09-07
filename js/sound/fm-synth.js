@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {logToLinear, outputLevelToGain, PROCESSING_TIME, ClockRate, LFO_DIVISORS} from './common.js';
+import {nextQuantum, logToLinear, outputLevelToGain, ClockRate, LFO_DIVISORS} from './common.js';
 import Channel from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
 
@@ -172,7 +172,7 @@ export default class Synth {
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
 	}
 
-	setLFORate(context, frequency, time = context.currentTime + PROCESSING_TIME, method = 'setValueAtTime') {
+	setLFORate(context, frequency, time = nextQuantum(context), method = 'setValueAtTime') {
 		for (let i = 0; i < this.channels.length; i++) {
 			const channel = this.channels[i];
 			if (!channel.getLFOKeySync()) {
@@ -181,7 +181,7 @@ export default class Synth {
 		}
 	}
 
-	resetLFOs(context, frequency = this.channels[0].getLFORate(), time = context.currentTime + PROCESSING_TIME) {
+	resetLFOs(context, frequency = this.channels[0].getLFORate(), time = nextQuantum(context)) {
 		const numChannels = this.channels.length;
 		for (let i = 0; i < numChannels; i++) {
 			const channel = this.channels[i];

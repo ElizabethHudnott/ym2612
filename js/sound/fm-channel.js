@@ -7,8 +7,8 @@
  * you translate it into another language.
  */
 import {
-	modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
-	MAX_FLOAT, VIBRATO_PRESETS, PROCESSING_TIME
+	nextQuantum, modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
+	MAX_FLOAT, VIBRATO_PRESETS
 } from './common.js';
 import Operator from './operator.js';
 
@@ -999,7 +999,7 @@ class Channel extends AbstractChannel {
 	 * N.B. Doesn't fade in the LFO if a delay has been set. Use {@link Channel.keyOn} for that.
 	 */
 	keyOnOff(
-		context, velocity = 127, time = context.currentTime + PROCESSING_TIME,
+		context, velocity = 127, time = nextQuantum(context),
 		op1 = velocity !== 0, op2 = op1, op3 = op1, op4 = op1
 	) {
 		const operators = this.operators;
@@ -1026,7 +1026,7 @@ class Channel extends AbstractChannel {
 		this.scheduleOscillators();
 	}
 
-	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
+	keyOn(context, velocity = 127, time = nextQuantum(context)) {
 		this.triggerLFO(context, time);
 		this.keyOnOff(context, velocity, time);
 		if (this.panMode === Pan.VELOCITY) {

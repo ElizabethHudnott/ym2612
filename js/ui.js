@@ -8,8 +8,8 @@
  */
 import {queryChecked, checkInput} from './util.js';
 import {
-	PROCESSING_TIME, ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
-	getOctave, getNoteName
+	ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
+	nextQuantum, getOctave, getNoteName
 } from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
@@ -34,7 +34,7 @@ const audioContext = new AudioContext(
 	{ latencyHint: 'interactive', sampleRate: Synth.sampleRate(ClockRate.NTSC, 15, 64) }
 );
 const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, ClockRate.NTSC, 60, 15, 64);
-soundSystem.start(audioContext.currentTime + PROCESSING_TIME);
+soundSystem.start(nextQuantum(audioContext));
 const synth = soundSystem.fm;
 const player = new Player(audioContext, synth);
 const recorder = new Recorder(audioContext);
@@ -109,7 +109,7 @@ class InputHook {
 const inputHook = new InputHook();
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	inputHook.call(note, velocity);
 
@@ -547,7 +547,7 @@ function updateLFODelay() {
 }
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const value = parseFloat(this.value);
 	const free = document.getElementById('lfo-rate-free').checked;
@@ -591,7 +591,7 @@ function configureLFOFreqSlider(fast, free) {
 }
 
 document.getElementById('lfo-rate').addEventListener('input', function (event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	const value = parseFloat(this.value);
 	if (value >= 0) {
 		const fastCheckbox = document.getElementById('fast-lfo');
@@ -610,7 +610,7 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 });
 
 document.getElementById('fast-lfo').addEventListener('input', function (event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
@@ -632,7 +632,7 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
@@ -667,7 +667,7 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 });
 
 function lfoWaveform(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const dropDown = document.getElementById('btn-lfo-waveform');
 	const dropDownImage = dropDown.children[0];
@@ -1150,7 +1150,7 @@ function getOperator(element) {
 }
 
 function waveform(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
@@ -1225,7 +1225,7 @@ function frequencyMultiple(event) {
 }
 
 function frequencyFreeMultiple(event) {
-	const time = audioContext.currentTime + PROCESSING_TIME;
+	const time = nextQuantum(audioContext);
 	audioContext.resume();
 	const opNum = getOperator(this);
 	const slider = document.getElementById('op' + opNum + '-multiple-slider');

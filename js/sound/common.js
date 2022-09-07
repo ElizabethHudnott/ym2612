@@ -6,7 +6,6 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-const PROCESSING_TIME = 0.001;
 const NEVER = 8388498;
 
 const MAX_FLOAT = 3.4028234663852886e38;
@@ -20,6 +19,10 @@ const VIBRATO_RANGES = [5, 10, 20, 50, 100, 400, 700]
 const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+function nextQuantum(context) {
+	return context.currentTime + 128 / context.sampleRate;
+}
 
 function getOctave(midiNote) {
 	return Math.trunc(midiNote / 12) - 1;
@@ -299,10 +302,10 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 }
 
 export {
-	getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
+	nextQuantum, getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
 	gainToOutputLevel, panningMap, makeMathyWave,
-	PROCESSING_TIME, NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
+	NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
 }

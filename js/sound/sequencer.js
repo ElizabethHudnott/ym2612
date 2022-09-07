@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {PROCESSING_TIME, VIBRATO_PRESETS} from './common.js';
+import {VIBRATO_PRESETS, nextQuantum} from './common.js';
 import {EffectNumbers, Effects} from './effect-commands.js';
 
 class Cell {
@@ -241,7 +241,7 @@ class Pattern {
 		this.cachedCells[trackNum] = undefined;
 	}
 
-	play(player, time = player.context.currentTime + PROCESSING_TIME) {
+	play(player, time = nextQuantum(player.context)) {
 		const context = player.context;
 		const numTracks = this.phrases.length;
 		const numRows = this.length;

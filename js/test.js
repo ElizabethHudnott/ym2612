@@ -1,4 +1,4 @@
-import {PROCESSING_TIME} from './sound/common.js';
+import {nextQuantum} from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 
 function assert(value) {
@@ -34,7 +34,7 @@ class FMTestCase extends TestCase {
 
 	play(execOrDuration = 1) {
 		const channel = this.runtime.channel;
-		const time = audioContext.currentTime + PROCESSING_TIME;
+		const time = nextQuantum(audioContext);
 		let duration;
 		if (typeof(execOrDuration) === 'function') {
 			duration = execOrDuration(time) || 1;
@@ -97,7 +97,7 @@ class FMTestSuite extends TestSuite {
 
 	setup() {
 		const synth = new Synth(audioContext, audioContext.destination, 1);
-		synth.start(audioContext.currentTime + PROCESSING_TIME);
+		synth.start(nextQuantum(audioContext));
 		const channel = synth.getChannel(1);
 		return {
 			target: channel,

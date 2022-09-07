@@ -7,7 +7,7 @@
  * you translate it into another language.
  */
 import {
-	decibelReductionToAmplitude, amplitudeToDecibels,
+	nextQuantum, decibelReductionToAmplitude, amplitudeToDecibels,
 	ClockRate, MAX_FLOAT, LFO_DIVISORS, VIBRATO_PRESETS,
 } from './common.js';
 
@@ -372,7 +372,7 @@ class ToneChannel {
 	}
 
 
-	keyOn(context, velocity = 127, time = context.currentTime + PROCESSING_TIME) {
+	keyOn(context, velocity = 127, time = nextQuantum(time)) {
 		switch (this.sequenceMode) {
 		case WaveSequence.ONE_SHOT:
 			this.waveParam.setValueAtTime(-this.waveform, time);
