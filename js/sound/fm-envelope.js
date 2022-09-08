@@ -381,10 +381,13 @@ export default class Envelope {
 		let linearValue;
 
 		if (time < this.beginAttack) {
-
 			const keyOnLevel = this.keyOnLevel;
+			const dampenTime = (this.beginAttack - this.beginDampen);
+			if (dampenTime === 0) {
+				return keyOnLevel;
+			}
 			return keyOnLevel - (keyOnLevel - beginLevel) *
-				(time - this.beginDampen) / (this.beginAttack - this.beginDampen);
+				(time - this.beginDampen) / dampenTime;
 
 		} else if (!this.hasAttack) {
 

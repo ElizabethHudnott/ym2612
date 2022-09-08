@@ -67,6 +67,7 @@ class AbstractChannel {
 
 	/**Calculates frequency data for a scale of 128 MIDI notes (plus 10 extra ones for the filter).
 	 * @param {number} detune The amount of detuning to apply, in 1/100ths of a half step
+	 * @param {number} precision In frequency number units.
 	 * @param {number} interval The default value of 2 separates consecutive copies of the root
 	 * note using a 2:1 frequency ratio (1 octave). Different values can produce stretched
 	 * octaves, which can help mimic instruments such as the piano. More dramatic variations can
@@ -87,8 +88,10 @@ class AbstractChannel {
 	 * @param {number} startIndex The point to begin from within the sequence of intervals or
 	 * equivalently, which note to centre the scale on.
 	 */
-	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
-		const tuning = this.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+	tuneEqualTemperament(
+		detune = 0, precision = 1, interval = 2, divisions = 12, steps = [1], startIndex = 0
+	) {
+		const tuning = this.synth.equalTemperament(detune, precision, interval, divisions, steps, startIndex);
 		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
@@ -101,9 +104,10 @@ class AbstractChannel {
 	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
 	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
 	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
+	 * @param {number} precision In frequency number units.
 	 */
-	tuneRatios(detune, ratios, startNote = 0) {
-		const tuning = this.synth.ratioTuning(detune, ratios, startNote);
+	tuneRatios(detune, ratios, startNote = 0, precision = 1) {
+		const tuning = this.synth.ratioTuning(detune, ratios, startNote, precision);
 		this.tuningRatio = tuning.ratio;
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
@@ -409,6 +413,7 @@ class Channel extends AbstractChannel {
 			this.setVolume(this.outputLevel / 2, time);
 			this.setLFOKeySync(context, false, time);
 			this.applyLFO(time);
+			this.#trackFilter(this.cutoffKeyTracking < 0 ? 21 : 108, time);
 		} else {
 			this.setVolume(this.outputLevel, time);
 			this.setLFOKeySync(context, this.lfoKeySync, time);
@@ -611,15 +616,18 @@ class Channel extends AbstractChannel {
 		return this.frequencyMultiples[operatorNum - 1];
 	}
 
+	#trackFilter(midiNote, time) {
+		const cutoffTrackNotes = (midiNote - this.filterTrackBreakpoint) * this.cutoffKeyTracking;
+		const cutoffTrackMultiple = this.tuningRatio ** cutoffTrackNotes;
+		this.cutoffKeyTracker.setValueAtTime(cutoffTrackMultiple, time);
+	}
+
 	setMIDINote(noteNumber, time = 0, glide = true) {
 		const block = this.noteFreqBlockNumbers[noteNumber];
 		const freqNum = this.noteFrequencyNumbers[noteNumber];
 		const glideRate = glide ? this.glideRate : 0;
 		this.setFrequency(block, freqNum, time, glideRate);
-
-		const cutoffTrackNotes = (noteNumber - this.filterTrackBreakpoint) * this.cutoffKeyTracking;
-		const cutoffTrackMultiple = this.tuningRatio ** cutoffTrackNotes;
-		this.cutoffKeyTracker.setValueAtTime(cutoffTrackMultiple, time);
+		this.#trackFilter(noteNumber, time);
 
 		if (this.panMode === Pan.NOTE) {
 			this.#adjustPan(noteNumber, time);

@@ -248,7 +248,7 @@ class Operator {
 
 	/**
 	 * @param {number} cents Use values of form N * 1200/1024 where N is an integer and is
-	 * between -7 and +7 for the DX or -15 and +15 for the SY series.
+	 * between -7 and +7 for the DX7 or -15 and +15 for the SY series.
 	 */
 	setDetune2Cents(cents, time = undefined) {
 		this.detune2 = Math.round((2 ** (cents / 1200) - 1) * 2 ** 17);

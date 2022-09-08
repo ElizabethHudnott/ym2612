@@ -13,9 +13,9 @@ import {PSG} from './psg.js';
 export default class GenesisSound {
 
 	constructor(
-		context, numFMChannels = 6, numPulseChannels = 3, masterClockRate = ClockRate.NTSC,
-		fps = 60, fmClockDivider1 = 7, fmClockDivider2 = 144, psgClockRate = masterClockRate / 15,
-		output = context.destination
+		context, numFMChannels = 6, numPulseChannels = 3, tuningPrecision = 1,
+		masterClockRate = ClockRate.NTSC, fps = 60, fmClockDivider1 = 7, fmClockDivider2 = 144,
+		psgClockRate = masterClockRate / 15, output = context.destination
 	) {
 
 		this.compressRelease = 250;
@@ -23,7 +23,7 @@ export default class GenesisSound {
 		this.compressor = compressor;
 		compressor.connect(output);
 
-		this.fm = new Synth(context, numFMChannels, compressor, masterClockRate, fmClockDivider1, fmClockDivider2);
+		this.fm = new Synth(context, numFMChannels, compressor, tuningPrecision, masterClockRate, fmClockDivider1, fmClockDivider2);
 		this.psg = new PSG(context, numPulseChannels, compressor, psgClockRate, 1, fps);
 		this.setCompression(1.44, 10);
 	}

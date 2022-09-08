@@ -22,8 +22,12 @@ export default class Synth {
 		return (blockNumber << 2) + (f11 << 1) + lsb;
 	}
 
+	/**
+	 * @param {number} tuningPrecision The highest precision supported by OPN is 1. For OPZ it's
+	 * 0.5 and for OPL it's 2.
+	 */
 	constructor(
-		context, numChannels = 6, output = context.destination, clockRate = ClockRate.NTSC,
+		context, numChannels = 6, output = context.destination, tuningPrecision = 1, clockRate = ClockRate.NTSC,
 		clockDivider1 = 7, clockDivider2 = 144
 	) {
 		// Tuning data
@@ -43,7 +47,7 @@ export default class Synth {
 		}
 
 		const channels = new Array(numChannels);
-		const tuning = this.equalTemperament();
+		const tuning = this.equalTemperament(0, tuningPrecision);
 		for (let i = 0; i < numChannels; i++) {
 			channels[i] = new Channel(this, context, channelGain, dbCurve, tuning);
 		}
@@ -219,14 +223,16 @@ export default class Synth {
 		this.referenceNote = noteNumber;
 	}
 
-	equalTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
+	equalTemperament(
+		detune = 0, precision = 1, interval = 2, divisions = 12, steps = [1], startIndex = 0
+	) {
 		const referencePitch = this.referencePitch;
 		const referenceNote = this.referenceNote;
-		const frequencyData = new Array(138);
+		const frequencyData = new Array(127);
 		const numIntervals = steps.length;
 		let noteNumber = 60;
 		let stepIndex = startIndex;
-		for (let i = 60; i < 138; i++) {
+		for (let i = 60; i < 127; i++) {
 			const frequency = referencePitch *
 				(interval ** ((noteNumber - referenceNote + detune / 100) / divisions));
 			frequencyData[i] = frequency / this.frequencyStep;
@@ -246,11 +252,11 @@ export default class Synth {
 			stepIndex--;
 		}
 		const ratio = interval ** (1 / divisions);
-		return this.#spreadKeyCodes(frequencyData, ratio);
+		return this.#spreadKeyCodes(frequencyData, ratio, precision);
 	}
 
-	ratioTuning(detune, ratios, startNote = 0) {
-		const frequencyData = new Array(138);
+	ratioTuning(detune, ratios, startNote = 0, precision = 1) {
+		const frequencyData = new Array(127);
 		const numRatios = ratios.length - 1;
 		const octaveInterval = ratios[numRatios];
 		let referencePitch = this.referencePitch * 2 ** (detune / 1200);
@@ -259,7 +265,7 @@ export default class Synth {
 		referencePitch /= ratios[(referenceNote - startNote) % 12];
 		referenceNote = Math.trunc(referenceNote / 12) * 12 + startNote;
 		let ratioCycles = 0, ratioIndex = 0;
-		for (let i = referenceNote; i < 138; i++) {
+		for (let i = referenceNote; i < 127; i++) {
 			frequencyData[i] = referencePitch *
 				(octaveInterval ** ratioCycles * ratios[ratioIndex]) / this.frequencyStep;
 			ratioIndex++;
@@ -281,26 +287,29 @@ export default class Synth {
 		}
 		// Filter key tracking has to use equal temperament :(
 		const ratio = octaveInterval ** (1 / numRatios);
-		return this.#spreadKeyCodes(frequencyData, ratio);
+		return this.#spreadKeyCodes(frequencyData, ratio, precision);
 	}
 
-	#spreadKeyCodes(frequencyData, ratio) {
+	#spreadKeyCodes(frequencyData, ratio, precision) {
 		let blocks = [], freqNums = [], keyCodes = [];
 		const numInstances = new Array(32);
 		numInstances.fill(0);
-		for (let i = 0; i < 138; i++) {
+		const maxFreqNum = 2048 - 0.5 * precision;
+		const lowOctavePrecision = Math.max(1, precision);
+		for (let i = 0; i < 127; i++) {
 			let block;
 			let freqNum = frequencyData[i];
-			if (freqNum < 1023.5) {
+			let roundedFreqNum = Math.round(freqNum / lowOctavePrecision) * lowOctavePrecision;
+			if (roundedFreqNum < 1023) {
 				block = 0;
-				freqNum = Math.round(freqNum) * 2;
+				freqNum = roundedFreqNum * 2;
 			} else {
 				block = 1;
-				while (freqNum >= 2047.5) {
+				while (freqNum >= maxFreqNum) {
 					freqNum /= 2;
 					block++;
 				}
-				freqNum = Math.round(freqNum);
+				freqNum = Math.round(freqNum / precision) * precision;
 			}
 			blocks[i] = block;
 			freqNums[i] = freqNum;

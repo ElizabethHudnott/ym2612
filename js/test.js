@@ -96,7 +96,7 @@ class FMTestSuite extends TestSuite {
 	}
 
 	setup() {
-		const synth = new Synth(audioContext, audioContext.destination, 1);
+		const synth = new Synth(audioContext, 1);
 		synth.start(nextQuantum(audioContext));
 		const channel = synth.getChannel(1);
 		return {

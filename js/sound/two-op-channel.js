@@ -393,15 +393,19 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		}
 	}
 
-	tuneEqualTemperament(detune = 0, interval = 2, divisions = 12, steps = [1], startIndex = 0) {
-		const tuning = this.parentChannel.synth.equalTemperament(detune, interval, divisions, steps, startIndex);
+	tuneEqualTemperament(
+		detune = 0, precision = 1, interval = 2, divisions = 12, steps = [1], startIndex = 0
+	) {
+		const tuning = this.parentChannel.synth.equalTemperament(
+			detune, precision, interval, divisions, steps, startIndex
+		);
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
-	tuneRatios(detune, ratios, startNote = 0) {
-		const tuning = this.parentChannel.synth.ratioTuning(detune, ratios, startNote);
+	tuneRatios(detune, ratios, startNote = 0, precision = 1) {
+		const tuning = this.parentChannel.synth.ratioTuning(detune, ratios, startNote, precision);
 		this.octaveThreshold = tuning.octaveThreshold;
 		this.noteFreqBlockNumbers = tuning.freqBlockNumbers;
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;

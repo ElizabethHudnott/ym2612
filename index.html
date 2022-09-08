@@ -87,7 +87,7 @@
 				<fieldset class="panel">
 					<h1>MIDI</h1>
 					<div class="row form-group">
-						<div class="col-5 col-md-2 my-2">
+						<div class="col-5 col-sm-3 col-md-2 my-2">
 							<button type="button" class="btn btn-secondary w-100" id="btn-enable-midi">
 								<span id="midi-led" class="led">&#x25CF;</span> MIDI
 							</button>
@@ -116,7 +116,7 @@
 				<fieldset class="panel">
 					<h1>Audio Recorder</h1>
 					<div class="row form-group">
-						<div class="col-5 col-md-2 my-auto">
+						<div class="col-5 col-sm-3 col-md-2 my-auto">
 							<button type="button" class="btn btn-secondary w-100" id="btn-record-audio">
 								<span id="record-led" class="led">&#x25CF;</span> Record
 							</button>
@@ -129,7 +129,7 @@
 				<fieldset class="panel">
 					<h1>File Operations</h1>
 					<div class="row form-group">
-						<div class="col-5 col-md-2">
+						<div class="col-5 col-sm-3 col-md-2">
 							<input type="file" id="upload" accept="text/csv" class="visually-hidden">
 							<label for="upload" class="btn btn-secondary w-100 px-2">
 								<img src="img/upload.png" width="16" height="16" alt="">
@@ -375,6 +375,45 @@
 						</div>
 						<div class="col-4 col-sm-2 pr-md-4 ml-auto">
 							<input type="number" value="0" class="form-control led-display" id="detune">
+						</div>
+					</div>
+					<div class="row" id="micro-tuning-row">
+						<label class="col-5 col-sm-3 col-form-label" for="micro-tuning">
+							Micro Tuning
+						</label>
+						<div class="col-7 col-sm-4 pl-md-0 mb-3">
+							<select class="form-control led-display led-text" id="micro-tuning">
+								<option value="12EDO" selected>Equal Temperament</option>
+								<option value="PURE_MAJOR">Pure Major</option>
+								<option value="PURE_MINOR">Pure Minor</option>
+								<option value="MEAN_TONE">Mean Tone</option>
+								<option value="PYTHAGOREAN">Pythagorean</option>
+								<option value="WERCKMEISTER">Werckmeister</option>
+								<option value="KIRNBERGER">Kirnberger</option>
+								<option value="VALLOTTI">Vallotti &amp; Young</option>
+								<option value="HARMONIC">Harmonic Scale</option>
+								<option value="24EDO">1/4 Tone</option>
+								<option value="CUSTOM" disabled>Custom</option>
+							</select>
+						</div>
+						<label class="col-5 col-sm-auto col-md-1 col-form-label" for="tuning-key" hidden>
+							Key
+						</label>
+						<div class="col-7 col-sm-2 mb-3" hidden>
+							<select class="form-control led-display led-text" id="tuning-key">
+								<option value="0" selected>C</option>
+								<option value="1">C#</option>
+								<option value="2">D</option>
+								<option value="3">D#</option>
+								<option value="4">E</option>
+								<option value="5">F</option>
+								<option value="6">F#</option>
+								<option value="7">G</option>
+								<option value="8">G#</option>
+								<option value="9">A</option>
+								<option value="10">A#</option>
+								<option value="11">B</option>
+							</select>
 						</div>
 					</div>
 					<div class="row mb-2">

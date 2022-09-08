@@ -8,8 +8,8 @@
  */
 import {queryChecked, checkInput} from './util.js';
 import {
-	ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS,
-	nextQuantum, getOctave, getNoteName
+	ClockRate, VIBRATO_RANGES, VIBRATO_PRESETS, MICRO_TUNINGS,
+	nextQuantum, getOctave, getNoteName, roundMicrotuning
 } from './sound/common.js';
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
@@ -33,7 +33,7 @@ import {parsePattern} from './storage/csv.js';
 const audioContext = new AudioContext(
 	{ latencyHint: 'interactive', sampleRate: Synth.sampleRate(ClockRate.NTSC, 15, 64) }
 );
-const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, ClockRate.NTSC, 60, 15, 64);
+const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, 0.5, ClockRate.NTSC, 60, 15, 64);
 soundSystem.start(nextQuantum(audioContext));
 const synth = soundSystem.fm;
 const player = new Player(audioContext, synth);
@@ -109,8 +109,8 @@ class InputHook {
 const inputHook = new InputHook();
 
 MUSIC_INPUT.pitchChange = function (timeStamp, channelNum, note, velocity, glide) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	inputHook.call(note, velocity);
 
 	const channel = synth.getChannel(channelNum);
@@ -439,7 +439,34 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 });
 
 function tune(detune) {
-	firstChannel.tuneEqualTemperament(detune);
+	const microTuning = document.getElementById('micro-tuning').value;
+	const key = parseInt(document.getElementById('tuning-key').value);
+	let hideKey = false;
+	let steps;
+	switch (microTuning) {
+	case '12EDO':
+		firstChannel.tuneEqualTemperament(detune, 0.5);
+		hideKey = true;
+		break;
+	case '24EDO':
+		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 24);
+		hideKey = true;
+		break;
+	case 'HARMONIC':
+		const harmonicScale = [
+			1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2
+		];
+		firstChannel.tuneRatios(detune, harmonicScale, key, 0.5);
+		break;
+	case 'CUSTOM':
+		break;
+	default:
+		steps = roundMicrotuning(MICRO_TUNINGS[microTuning]);
+		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps, key);
+	}
+	const row = document.getElementById('micro-tuning-row');
+	row.children[2].hidden = hideKey;
+	row.children[3].hidden = hideKey;
 	for (let i = 2; i <= NUM_CHANNELS; i++) {
 		synth.copyTuning(1, i);
 	}
@@ -506,6 +533,16 @@ function decomposeDetune() {
 document.getElementById('transpose').addEventListener('change', decomposeDetune);
 document.getElementById('detune').addEventListener('change', decomposeDetune);
 
+function retune() {
+	audioContext.resume();
+	const transpose = parseFloat(document.getElementById('transpose').value) || 0;
+	const detune = (parseFloat(document.getElementById('detune').value) || 0) / 100;
+	tune(transpose + detune);
+}
+
+document.getElementById('micro-tuning').addEventListener('input', retune);
+document.getElementById('tuning-key').addEventListener('input', retune);
+
 document.getElementById('poly-switch').addEventListener('input', function (event) {
 	audioContext.resume();
 	if (this.checked) {
@@ -547,8 +584,8 @@ function updateLFODelay() {
 }
 
 document.getElementById('lfo-rate-slider').addEventListener('input', function (event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const value = parseFloat(this.value);
 	const free = document.getElementById('lfo-rate-free').checked;
 	let frequency;
@@ -610,8 +647,8 @@ document.getElementById('lfo-rate').addEventListener('input', function (event) {
 });
 
 document.getElementById('fast-lfo').addEventListener('input', function (event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
 	const fast = this.checked;
@@ -632,8 +669,8 @@ document.getElementById('fast-lfo').addEventListener('input', function (event) {
 });
 
 document.getElementById('lfo-rate-free').addEventListener('input', function (event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const slider = document.getElementById('lfo-rate-slider');
 	const box = document.getElementById('lfo-rate');
 	const value = firstChannel.getLFORate();
@@ -667,8 +704,8 @@ document.getElementById('lfo-rate-free').addEventListener('input', function (eve
 });
 
 function lfoWaveform(event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const dropDown = document.getElementById('btn-lfo-waveform');
 	const dropDownImage = dropDown.children[0];
 	const option = this.parentElement;
@@ -1150,8 +1187,8 @@ function getOperator(element) {
 }
 
 function waveform(event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const opNum = getOperator(this);
 	const dropDown = document.getElementById('btn-op' + opNum + '-waveform');
 	const dropDownImage = dropDown.children[0];
@@ -1225,8 +1262,8 @@ function frequencyMultiple(event) {
 }
 
 function frequencyFreeMultiple(event) {
-	const time = nextQuantum(audioContext);
 	audioContext.resume();
+	const time = nextQuantum(audioContext);
 	const opNum = getOperator(this);
 	const slider = document.getElementById('op' + opNum + '-multiple-slider');
 	const box = document.getElementById('op' + opNum + '-multiple');

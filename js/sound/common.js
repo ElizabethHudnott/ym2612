@@ -65,14 +65,15 @@ const MICRO_TUNINGS = {
 /**
  * @param {number} gradations Use 1024 / 12 (=85+1/3) for the SY-77 family or 64 for OPZ.
  */
-function roundMicrotuning(steps, gradations = 64) {
-	const numSteps = steps.length;
+function roundMicrotuning(steps, gradations = 64, numSteps = steps.length) {
 	const newSteps = new Array(numSteps);
 	let error = 0, originalTotal = 0, roundedTotal = 0;
 	for (let i = 0; i < numSteps - 1; i++) {
-		const rounded = Math.round((steps[i] - error - 1) * gradations) / gradations + 1;
+		const step = steps[i % steps.length];
+		// Subtract and add one to centre on the note.
+		const rounded = Math.round((step - error - 1) * gradations) / gradations + 1;
 		newSteps[i] = rounded;
-		originalTotal += steps[i];
+		originalTotal += step;
 		roundedTotal += rounded;
 		error = roundedTotal - originalTotal;
 	}
