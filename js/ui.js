@@ -290,7 +290,6 @@ document.getElementById('btn-enable-midi').addEventListener('click', function (e
 		alert('The browser blocked access to MIDI.')
 	}
 	MIDI.requestAccess(midiGranted, midiRejected);
-
 });
 
 function midiOctaveShift(event) {
@@ -462,16 +461,23 @@ function tune(detune) {
 		firstChannel.tuneRatios(detune, harmonicScale, key, 0.5);
 		break;
 	case 'USER_OCTAVE':
-		detune += customOctave[0] * 100;
-		steps = [customOctave[1] - customOctave[0]];
-		let totalSteps = steps[0];
-		for (let i = 2; i < 12; i++) {
-			const step = customOctave[i] - customOctave[i - 1];
+		let lastValue = customOctave[key];
+		detune += (lastValue - key) * 100;
+		steps = [];
+		let totalSteps = 0;
+		for (let i = 1; i < 12; i++) {
+			const index = (key + i) % 12;
+			let value = customOctave[index];
+			if (index === 0) {
+				lastValue -= 12;
+			}
+			const step =  value - lastValue;
 			steps[i - 1] = step;
 			totalSteps += step;
+			lastValue = value;
 		}
 		steps[11] = 12 - totalSteps;
-		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps, key);
+		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps);
 		customVisibility = 'show';
 		break;
 	default:
