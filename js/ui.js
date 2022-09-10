@@ -438,10 +438,13 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('distortion').value = 0;
 });
 
+let customOctave = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
 function tune(detune) {
 	const microTuning = document.getElementById('micro-tuning').value;
 	const key = parseInt(document.getElementById('tuning-key').value);
 	let hideKey = false;
+	let customVisibility = 'hide';
 	let steps;
 	switch (microTuning) {
 	case '12EDO':
@@ -458,12 +461,24 @@ function tune(detune) {
 		];
 		firstChannel.tuneRatios(detune, harmonicScale, key, 0.5);
 		break;
-	case 'CUSTOM':
+	case 'USER_OCTAVE':
+		detune += customOctave[0] * 100;
+		steps = [customOctave[1] - customOctave[0]];
+		let totalSteps = steps[0];
+		for (let i = 2; i < 12; i++) {
+			const step = customOctave[i] - customOctave[i - 1];
+			steps[i - 1] = step;
+			totalSteps += step;
+		}
+		steps[11] = 12 - totalSteps;
+		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps, key);
+		customVisibility = 'show';
 		break;
 	default:
 		steps = roundMicrotuning(MICRO_TUNINGS[microTuning]);
 		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps, key);
 	}
+	$('#custom-micro-tuning').collapse(customVisibility);
 	const row = document.getElementById('micro-tuning-row');
 	row.children[2].hidden = hideKey;
 	row.children[3].hidden = hideKey;
@@ -542,6 +557,41 @@ function retune() {
 
 document.getElementById('micro-tuning').addEventListener('input', retune);
 document.getElementById('tuning-key').addEventListener('input', retune);
+
+let microTuningNote = 0;
+
+function chooseMicroTuningNote(event) {
+	const rows = this.parentElement.children;
+	for (let i = 0; i < rows.length; i++) {
+		if (rows[i] === this) {
+			const value = customOctave[i];
+			const coarse = Math.round(value);
+			const fine = (value - coarse) * 64;
+			document.getElementById('micro-tuning-coarse').value = coarse;
+			document.getElementById('micro-tuning-fine').value = fine;
+			microTuningNote = i;
+			return;
+		}
+	}
+}
+
+for (let row of document.getElementById('micro-tuning-table').children) {
+	row.addEventListener('click', chooseMicroTuningNote);
+}
+
+function microTuneNote() {
+	const coarse = parseInt(document.getElementById('micro-tuning-coarse').value);
+	const fine = parseInt(document.getElementById('micro-tuning-fine').value);
+	let value = coarse + fine / 64;
+	customOctave[microTuningNote] = value;
+	const row = document.getElementById('micro-tuning-table').children[microTuningNote];
+	const cell = row.children[1];
+	cell.innerHTML = (value * 100).toFixed(1);
+	retune();
+}
+
+document.getElementById('micro-tuning-coarse').addEventListener('input', microTuneNote);
+document.getElementById('micro-tuning-fine').addEventListener('input', microTuneNote);
 
 document.getElementById('poly-switch').addEventListener('input', function (event) {
 	audioContext.resume();

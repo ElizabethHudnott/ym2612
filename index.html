@@ -393,10 +393,10 @@
 								<option value="VALLOTTI">Vallotti &amp; Young</option>
 								<option value="HARMONIC">Harmonic Scale</option>
 								<option value="24EDO">1/4 Tone</option>
-								<option value="CUSTOM" disabled>Custom</option>
+								<option value="USER_OCTAVE">Custom Octave</option>
 							</select>
 						</div>
-						<label class="col-5 col-sm-auto col-md-1 col-form-label" for="tuning-key" hidden>
+						<label class="col-5 col-sm-1 col-form-label" for="tuning-key" hidden>
 							Key
 						</label>
 						<div class="col-7 col-sm-2 mb-3" hidden>
@@ -414,6 +414,87 @@
 								<option value="10">A#</option>
 								<option value="11">B</option>
 							</select>
+						</div>
+					</div>
+					<div id="custom-micro-tuning" class="collapse">
+						<div class="row">
+							<div class="d-none d-md-block col-3"></div>
+							<div class="col-6 col-sm-3 pl-md-0">
+								<table class="table table-hover w-fit">
+									<thead class="thead-light">
+										<tr>
+											<th>Note</th>
+											<th>Cents</th>
+										</tr>
+									</thead>
+									<tbody id="micro-tuning-table">
+										<tr>
+											<td>C</td>
+											<td data-field="micro-tuning" data-index="0" class="text-right text-monospace">0.0</td>
+										</tr>
+										<tr>
+											<td>C#</td>
+											<td data-field="micro-tuning" data-index="1" class="text-right text-monospace">100.0</td>
+										</tr>
+										<tr>
+											<td>D</td>
+											<td data-field="micro-tuning" data-index="2" class="text-right text-monospace">200.0</td>
+										</tr>
+										<tr>
+											<td>D#</td>
+											<td data-field="micro-tuning" data-index="3" class="text-right text-monospace">300.0</td>
+										</tr>
+										<tr>
+											<td>E</td>
+											<td data-field="micro-tuning" data-index="4" class="text-right text-monospace">400.0</td>
+										</tr>
+										<tr>
+											<td>F</td>
+											<td data-field="micro-tuning" data-index="5" class="text-right text-monospace">500.0</td>
+										</tr>
+										<tr>
+											<td>F#</td>
+											<td data-field="micro-tuning" data-index="6" class="text-right text-monospace">600.0</td>
+										</tr>
+										<tr>
+											<td>G</td>
+											<td data-field="micro-tuning" data-index="7" class="text-right text-monospace">700.0</td>
+										</tr>
+										<tr>
+											<td>G#</td>
+											<td data-field="micro-tuning" data-index="8" class="text-right text-monospace">800.0</td>
+										</tr>
+										<tr>
+											<td>A</td>
+											<td data-field="micro-tuning" data-index="9" class="text-right text-monospace">900.0</td>
+										</tr>
+										<tr>
+											<td>A#</td>
+											<td data-field="micro-tuning" data-index="10" class="text-right text-monospace">1000.0</td>
+										</tr>
+										<tr>
+											<td>B</td>
+											<td data-field="micro-tuning" data-index="11" class="text-right text-monospace">1100.0</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<div class="col-3 col-sm-2 col-md-1 ml-3" style="touch-action: none; height: 691px">
+								<input type="range" min="0" max="12" value="0" class="form-control-range" id="micro-tuning-coarse" style="width: 638px; transform: translate(-47%, 362px) rotate(90deg)">
+							</div>
+							<div class="col-1 ml-md-3" style="touch-action: none">
+								<input type="range" min="-32" max="32" value="0" class="form-control-range" id="micro-tuning-fine" style="width: 638px; transform: translate(-50%, 362px) rotate(90deg)">
+							</div>
+						</div>
+						<div class="row text-center">
+							<div class="d-none d-md-block col-3"></div>
+							<div class="col-6 col-sm-3"></div>
+							<label class="col-3 col-sm-2 col-md-1 ml-3 px-0" for="micro-tuning-coarse">
+								Coarse
+							</label>
+							<label class="col-1 px-0" for="micro-tuning-fine">
+								Fine
+							</label>
 						</div>
 					</div>
 					<div class="row mb-2">
