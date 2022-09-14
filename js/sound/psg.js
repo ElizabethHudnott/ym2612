@@ -108,7 +108,7 @@ class NoiseChannel {
 	/**
 	 * @param {number} value 0 = pulse wave, 1 = noise
 	 */
-	setWave(context, value, time = 0) {
+	setWave(context, value, time = nextQuantum(context)) {
 		this.waveform = value;										// Used by makeSource()
 		const newSource = this.makeSource(context);
 		newSource.connect(this.envelopeGain);

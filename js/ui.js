@@ -14,7 +14,7 @@ import {
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
-import {Pan, AbstractChannel} from './sound/fm-channel.js';
+import {KeySync, FadeParameter, Pan, AbstractChannel} from './sound/fm-channel.js';
 import {OscillatorFactory, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import {Effects} from './sound/effect-commands.js';
@@ -775,12 +775,11 @@ for (let element of document.querySelectorAll('input[name="lfo-waveform"]')) {
 	element.addEventListener('input', lfoWaveform);
 }
 
-document.getElementById('btn-key-sync').addEventListener('click', function (event) {
-	if (!this.classList.contains('active')) {
-		// Just clicked to make it active, CSS hasn't been updated yet.
-		eachChannel(channel => channel.setLFOKeySync(audioContext, true));
-	} else {
-		synth.resetLFOs(audioContext);
+document.getElementById('key-sync').addEventListener('input', function (event) {
+	const value = KeySync[this.value.toUpperCase()];
+	eachChannel(channel => channel.setLFOKeySync(audioContext, value));
+	if (value === KeySync.OFF) {
+		synth.syncFreeLFOs(audioContext);
 	}
 	updateLFODelay();
 });
@@ -857,7 +856,7 @@ document.getElementById('lfo-fade-out').addEventListener('input', lfoFadeDirecti
 
 function lfoFadeParameter(event) {
 	audioContext.resume();
-	const parameterNum = parseInt(this.value);
+	const parameterNum = FadeParameter[this.value.toUpperCase()];
 	eachChannel(channel => channel.setFadeParameter(parameterNum));
 	updateLFODelay();
 }
@@ -1089,7 +1088,7 @@ document.getElementById('tremolo-range').addEventListener('input', function (eve
 
 document.getElementById('pan-source').addEventListener('input', function (event) {
 	audioContext.resume();
-	const source = parseInt(this.value);
+	const source = Pan[this.value.toUpperCase()];
 	eachChannel(channel => channel.setPanModulationSource(source));
 });
 

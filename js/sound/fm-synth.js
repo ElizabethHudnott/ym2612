@@ -7,7 +7,7 @@
  * you translate it into another language.
  */
 import {nextQuantum, logToLinear, outputLevelToGain, ClockRate, LFO_DIVISORS} from './common.js';
-import Channel from './fm-channel.js';
+import {KeySync, Channel} from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
 
 export default class Synth {
@@ -34,6 +34,8 @@ export default class Synth {
 		this.referencePitch = 440;
 		this.referenceNote = 69;
 		this.feedbackCallibration = 2.5;
+		this.lfoFirstOnEnabled = 0;
+		this.keysOn = 0;
 		this.setClockRate(clockRate, clockDivider1, clockDivider2);
 
 		const channelGain = new GainNode(context, {gain: 1 / (2 * numChannels)});
@@ -49,15 +51,15 @@ export default class Synth {
 		const channels = new Array(numChannels);
 		const tuning = this.equalTemperament(0, tuningPrecision);
 		for (let i = 0; i < numChannels; i++) {
-			channels[i] = new Channel(this, context, channelGain, dbCurve, tuning);
+			channels[i] = new Channel(this, context, channelGain, dbCurve, tuning, 1 << i);
 		}
 		this.channels = channels;
 
 		const twoOpChannels = new Array(numChannels * 2 - 2);
 		for (let i = 0; i < numChannels; i++) {
 			const channel = channels[i];
-			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1, tuning);
-			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3, tuning);
+			twoOpChannels[2 * i] = new TwoOperatorChannel(channel, 1, tuning, 1 << i);
+			twoOpChannels[2 * i + 1] = new TwoOperatorChannel(channel, 3, tuning, 1 << i);
 		}
 		this.twoOpChannels = twoOpChannels;
 
@@ -102,6 +104,54 @@ export default class Synth {
 		const divisor = Math.round(this.lfoRateDividend / frequency);
 		const index = LFO_DIVISORS.indexOf(divisor);
 		return index === -1 ? -1 : index + 1;
+	}
+
+	setFreeLFORate(context, frequency, time = nextQuantum(context), method = 'setValueAtTime') {
+		for (let i = 0; i < this.channels.length; i++) {
+			const channel = this.channels[i];
+			if (channel.getLFOKeySync() === KeySync.OFF) {
+				channel.setLFORate(context, frequency, time, method);
+			}
+		}
+	}
+
+	syncFreeLFOs(context, frequency = this.channels[0].getLFORate(), time = nextQuantum(context)) {
+		const numChannels = this.channels.length;
+		let channelMask = 0;
+		for (let i = 0; i < numChannels; i++) {
+			const channel = this.channels[i];
+			if (channel.getLFOKeySync() === KeySync.OFF) {
+				channelMask |= 1 << i;
+				channel.setLFORate(context, 0, time);	// Destroy current LFO
+			}
+		}
+		for (let i = 0; i < numChannels; i++) {
+			if (channelMask & (1 << i)) {
+				this.channels[i].setLFORate(context, frequency, time);
+			}
+		}
+	}
+
+	setKeySyncFirstOn(channelID, enabled) {
+		let channelMask = this.lfoFirstOnEnabled;
+		this.lfoFirstOnEnabled = (channelMask & ~channelID) | (channelID * enabled);
+	}
+
+	keyOn(context, channelID, time) {
+		const firstOnMask = this.lfoFirstOnEnabled;
+		if (!(this.keysOn & firstOnMask) && (firstOnMask & channelID)) {
+			const numChannels = this.channels.length;
+			for (let i = 0; i < numChannels; i++) {
+				if (firstOnMask & (1 << i)) {
+					this.channels[i].resetLFO(context, time);
+				}
+			}
+		}
+		this.keysOn |= channelID;
+	}
+
+	keyOff(channelID) {
+		this.keysOn &= ~channelID;
 	}
 
 	start(time) {
@@ -174,29 +224,6 @@ export default class Synth {
 	writePCM(value, time) {
 		const floatValue = (value - 128) / 128;
 		this.dacRegister.offset.setValueAtTime(floatValue, time);
-	}
-
-	setLFORate(context, frequency, time = nextQuantum(context), method = 'setValueAtTime') {
-		for (let i = 0; i < this.channels.length; i++) {
-			const channel = this.channels[i];
-			if (!channel.getLFOKeySync()) {
-				channel.setLFORate(context, frequency, time, method);
-			}
-		}
-	}
-
-	resetLFOs(context, frequency = this.channels[0].getLFORate(), time = nextQuantum(context)) {
-		const numChannels = this.channels.length;
-		for (let i = 0; i < numChannels; i++) {
-			const channel = this.channels[i];
-			channel.setLFORate(context, 0, time);	// Destroy current LFO
-			channel.setLFOKeySync(context, false, time);
-		}
-		if (frequency !== 0) {
-			for (let i = 0; i < numChannels; i++) {
-				this.channels[i].setLFORate(context, frequency, time);
-			}
-		}
 	}
 
 	setChannelGain(level, time = 0, method = 'setValueAtTime') {

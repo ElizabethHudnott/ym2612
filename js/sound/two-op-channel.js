@@ -16,10 +16,11 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		[0, [99, 99]], // Additive
 	];
 
-	constructor(parentChannel, startingOperator, tuning) {
+	constructor(parentChannel, startingOperator, tuning, lfoGroup) {
 		super(tuning);
 		this.parentChannel = parentChannel;
 		this.operatorOffset = startingOperator - 1;
+		this.lfoGroup = lfoGroup;
 		this.glideRate = 0;
 		this.tremoloDepth = 0;
 		this.vibratoDepth = 0;
@@ -334,7 +335,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.isVibratoEnabled(this.operatorOffset + operatorNum);
 	}
 
-	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
+	setLFORate(context, frequency, time = nextQuantum(context), method = 'setValueAtTime') {
 		this.parentChannel.setLFORate(context, frequency, time, method);
 	}
 
@@ -342,7 +343,7 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		return this.parentChannel.getLFORate();
 	}
 
-	useLFOPreset(context, presetNum, time = 0, method = 'setValueAtTime') {
+	useLFOPreset(context, presetNum, time = nextQuantum(context), method = 'setValueAtTime') {
 		this.parentChannel.useLFOPreset(context, presetNum, time, method);
 	}
 
@@ -372,11 +373,13 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	}
 
 	keyOn(context, velocity = 127, time = nextQuantum(context)) {
+		this.parentChannel.synth.keyOn(context, this.lfoGroup, time);
 		this.keyOnOff(context, velocity, time);
 	}
 
 	keyOff(context, time = context.currentTime) {
 		this.keyOnOff(context, 0, time);
+		this.parentChannel.synth.keyOff(this.lfoGroup);
 	}
 
 	setOperatorDelay(operatorNum, delay) {

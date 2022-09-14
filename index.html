@@ -632,10 +632,10 @@
 						</div>
 					</div>
 					<div class="row mb-4">
-						<label class="col-3 col-form-label" for="lfo-shape">
+						<label class="col-6 col-sm-3 col-form-label" for="lfo-shape">
 							Shape
 						</label>
-						<div class="col-4 col-sm-3 col-md-2 pl-md-0">
+						<div class="col-6 col-sm-3 col-md-2 pl-md-0 mb-3">
 							<button class="btn btn-dark dropdown-toggle rounded-0" type="button" id="btn-lfo-waveform" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
 								<img src="img/triangle-1.png" width="48" height="24" alt="LFO Waveform">
 							</button>
@@ -660,9 +660,15 @@
 								</div>
 							</div>
 						</div>
-						<div class="col-auto" style="margin-left: -3px">
-							<button type="button" class="btn btn-dark" data-toggle="button" aria-pressed="false" id="btn-key-sync">
-								Key Sync
+						<label class="col-6 col-sm-3 col-md-auto col-form-label" for="key-sync">
+							Key Sync
+						</label>
+						<div class="col-6 col-sm-3 col-md-auto mb-3">
+								<select id="key-sync" class="form-control led-display text-left">
+									<option value="off" selected>Off</option>
+									<option value="on">On</option>
+									<option value="first-on">First On</option>
+								</select>
 						</div>
 					</div>
 					<div class="row form-group">
@@ -717,7 +723,7 @@
 						</div>
 						<div class="col-5 col-sm-auto small">
 							<div class="form-check form-check-inline">
-								<input type="radio" name="lfo-fade-parameter" value="0" id="lfo-fade-depth" class="form-check-input" checked>
+								<input type="radio" name="lfo-fade-parameter" value="depth" id="lfo-fade-depth" class="form-check-input" checked>
 								<label for="lfo-fade-depth" class="form-check-label">
 									Fade depth
 								</label>
@@ -725,7 +731,7 @@
 						</div>
 						<div class="col-5 col-sm-auto small">
 							<div class="form-check form-check-inline">
-								<input type="radio" name="lfo-fade-parameter" value="1" id="lfo-fade-rate" class="form-check-input">
+								<input type="radio" name="lfo-fade-parameter" value="rate" id="lfo-fade-rate" class="form-check-input">
 								<label for="lfo-fade-rate" class="form-check-label">
 									Fade rate
 								</label>
@@ -807,10 +813,10 @@
 						</label>
 						<div class="col-auto pl-md-0 pr-1">
 							<select class="form-control led-display led-text" id="pan-source">
-								<option value="0" selected>Fixed</option>
-								<option value="1">Note</option>
-								<option value="2">Velocity</option>
-								<option value="3">LFO</option>
+								<option value="fixed" selected>Fixed</option>
+								<option value="note">Note</option>
+								<option value="velocity">Velocity</option>
+								<option value="lfo">LFO</option>
 							</select>
 						</div>
 						<div class="col-auto pl-1">

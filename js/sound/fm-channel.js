@@ -8,9 +8,15 @@
  */
 import {
 	nextQuantum, modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
-	MAX_FLOAT, VIBRATO_PRESETS
+	MAX_FLOAT, NEVER, VIBRATO_PRESETS
 } from './common.js';
 import Operator from './operator.js';
+
+const KeySync = Object.freeze({
+	OFF: 0,
+	ON: 1,
+	FIRST_ON: 2,
+});
 
 const FadeParameter = Object.freeze({
 	DEPTH: 0,
@@ -210,9 +216,10 @@ class Channel extends AbstractChannel {
 		[[0, 0, 0, 99, 0, 99], [99, 0, 0, 99]],
 	];
 
-	constructor(synth, context, output, dbCurve, tuning) {
+	constructor(synth, context, output, dbCurve, tuning, id) {
 		super(tuning);
 		this.synth = synth;
+		this.id = id;	// IDs are powers of 2
 
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
 
@@ -258,7 +265,7 @@ class Channel extends AbstractChannel {
 		this.lfoRateNode = new ConstantSourceNode(context, {offset: 0});
 		this.lfoRate = 0;
 		this.lfoShape = 'triangle';
-		this.lfoKeySync = false;
+		this.lfoKeySync = KeySync.OFF;
 		this.lfo = undefined;
 		const lfoEnvelope = new GainNode(context);
 		this.lfoEnvelope = lfoEnvelope;
@@ -408,10 +415,12 @@ class Channel extends AbstractChannel {
 		return this.operators[operatorNum - 1];
 	}
 
-	splitChannel(context, split, time = 0) {
+	splitChannel(context, split, time = nextQuantum(context)) {
 		if (split) {
 			this.setVolume(this.outputLevel / 2, time);
-			this.setLFOKeySync(context, false, time);
+			if (this.lfoKeySync === KeySync.ON) {
+				this.setLFOKeySync(context, KeySync.OFF, time);
+			}
 			this.applyLFO(time);
 			this.#trackFilter(this.cutoffKeyTracking < 0 ? 21 : 108, time);
 		} else {
@@ -843,14 +852,14 @@ class Channel extends AbstractChannel {
 		return Number(this.fadeLFORate);
 	}
 
-	setLFORate(context, frequency, time = 0, method = 'setValueAtTime') {
+	setLFORate(context, frequency, time = nextQuantum(time), method = 'setValueAtTime') {
 		this.lfoRateNode.offset[method](frequency, time);
 		if (this.lfo) {
 			if (frequency === 0) {
 				this.lfo.stop(time);
 				this.lfo = undefined;
 			}
-		} else if (frequency !== 0 && !this.lfoKeySync) {
+		} else if (frequency !== 0) {
 			// Start LFO running in the background.
 			const lfo = new OscillatorNode(context, {frequency: 0, type: this.lfoShape});
 			this.lfoRateNode.connect(lfo.frequency);
@@ -861,11 +870,22 @@ class Channel extends AbstractChannel {
 		this.lfoRate = frequency;
 	}
 
+	resetLFO(context, time = nextQuantum(context)) {
+		if (this.lfo) {
+			this.lfo.stop(time);
+		}
+		const lfo = new OscillatorNode(context, {frequency: 0, type: this.lfoShape});
+		this.lfoRateNode.connect(lfo.frequency);
+		lfo.start(time);
+		lfo.connect(this.lfoEnvelope);
+		this.lfo = lfo;
+	}
+
 	setLFOShape(context, shape, time = undefined) {
 		if (shape === this.lfoShape) {
 			return;
 		}
-		if (this.lfo && (time !== undefined || !this.lfoKeySync)) {
+		if (this.lfo && (time !== undefined || this.lfoKeySync == KeySync.OFF)) {
 			// Change LFO shape immediately.
 			// Frequency will never be 0 when this.lfo is defined.
 			const lfo = new OscillatorNode(context, {frequency: 0, type: shape});
@@ -878,11 +898,12 @@ class Channel extends AbstractChannel {
 		this.lfoShape = shape;
 	}
 
-	setLFOKeySync(context, enabled, time = 0) {
-		if (!enabled && this.lfo) {
+	setLFOKeySync(context, mode) {
+		if (mode !== KeySync.ON && this.lfo) {
 			this.lfo.stop(context.currentTime + NEVER);
 		}
-		this.lfoKeySync = enabled;
+		this.synth.setKeySyncFirstOn(this.id, mode === KeySync.FIRST_ON);
+		this.lfoKeySync = mode;
 	}
 
 	getLFORate() {
@@ -897,7 +918,7 @@ class Channel extends AbstractChannel {
 		return this.lfoKeySync;
 	}
 
-	useLFOPreset(context, presetNum, time = 0, method = 'setValueAtTime') {
+	useLFOPreset(context, presetNum, time = nextQuantum(context), method = 'setValueAtTime') {
 		const rate = this.synth.lfoPresetToFrequency(presetNum);
 		this.setLFORate(context, rate, time, method);
 	}
@@ -911,10 +932,12 @@ class Channel extends AbstractChannel {
 	getEffectiveLFODelay() {
 		const rate = this.lfoRate;
 		let fadeTime = this.lfoFade;
-		if (!this.fadeLFORate || fadeTime >= 0 || !this.lfoKeySync || rate === 0) {
+		if (!this.fadeLFORate || fadeTime >= 0 || this.lfoKeySync === KeySync.OFF || rate === 0) {
 			return this.lfoDelay;
 		}
 
+		// If we're slowing the LFO to a stop then make sure we're ending on a zero crossing
+		// point so that the pitch isn't left permanently "off".
 		const delay = this.lfoDelay;
 		fadeTime = -fadeTime;
 		let phase = rate * (delay + 0.5 * fadeTime);
@@ -926,7 +949,7 @@ class Channel extends AbstractChannel {
 		return newDelay;
 	}
 
-	triggerLFO(context, time) {
+	#triggerLFO(context, time) {
 		const rate = this.lfoRate;
 		if (rate === 0) {
 			return;
@@ -946,7 +969,7 @@ class Channel extends AbstractChannel {
 		}
 		cancelAndHoldAtTime(param, initialAmount, time);
 
-		if (this.lfoKeySync) {
+		if (this.lfoKeySync === KeySync.ON) {
 			// Reset LFO phase
 			const lfo = new OscillatorNode(context, {frequency: 0, type: this.lfoShape});
 			this.lfoRateNode.connect(lfo.frequency);
@@ -988,7 +1011,7 @@ class Channel extends AbstractChannel {
 		for (let i = 4; i >= lastOpOff; i--) {
 			this.operators[i - 1].stopOscillator(stopTime);
 		}
-		if (lastOpOff === 1 && this.lfo && this.lfoKeySync) {
+		if (lastOpOff === 1 && this.lfo && this.lfoKeySync === KeySync.ON) {
 			this.lfo.stop(stopTime);
 		}
 		this.oldStopTime = stopTime;
@@ -1035,7 +1058,8 @@ class Channel extends AbstractChannel {
 	}
 
 	keyOn(context, velocity = 127, time = nextQuantum(context)) {
-		this.triggerLFO(context, time);
+		this.synth.keyOn(context, this.id, time);
+		this.#triggerLFO(context, time);
 		this.keyOnOff(context, velocity, time);
 		if (this.panMode === Pan.VELOCITY) {
 			this.#adjustPan(velocity, time);
@@ -1044,6 +1068,7 @@ class Channel extends AbstractChannel {
 
 	keyOff(context, time = context.currentTime) {
 		this.keyOnOff(context, 0, time);
+		this.synth.keyOff(this.id);
 	}
 
 	setOperatorDelay(operatorNum, delay) {
@@ -1058,7 +1083,7 @@ class Channel extends AbstractChannel {
 		for (let operator of this.operators) {
 			operator.soundOff(time);
 		}
-		if (this.lfo && this.lfoKeySync) {
+		if (this.lfo && this.lfoKeySync === KeySync.ON) {
 			this.lfo.stop(time);
 		}
 	}
@@ -1127,17 +1152,6 @@ class Channel extends AbstractChannel {
 			this.autoPan.setValueAtTime(-panningMap(this.panRange), time);
 			this.pan = 0;
 		} else {
-			if (mode === Pan.FIXED) {
-				if (this.panMode !== Pan.FIXED) {
-					// Switching from another mode to fixed position mode places panning in the
-					// centre.
-					this.panner.pan.setValueAtTime(0, time);
-				}
-			} else {
-				// Switching to a mode other than fixed resets the fixed panning position to the
-				// centre.
-				this.pan = 0;
-			}
 			this.autoPan.setValueAtTime(0, time);
 		}
 		this.panMode = mode;
@@ -1241,4 +1255,4 @@ class Channel extends AbstractChannel {
 
 }
 
-export {FadeParameter, Pan, AbstractChannel, Channel as default};
+export {KeySync, FadeParameter, Pan, AbstractChannel, Channel};
