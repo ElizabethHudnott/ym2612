@@ -1,9 +1,11 @@
 Bugs
 ----
+Transpose at input layer, not via detuning
+
 Bug: 2 into 1: inconsistent tone
 Bug: inconsistent tone (less frequent when soloed)
 Only respond to MIDI when visible/active?
-When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
+When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all (reset) operators
 delay stage should happen after dampening
 SSG loop should include attack phase (modes 0 and 4)
 Oscillator phase should reset on each SSG loop for modes 0 and 4
@@ -18,7 +20,6 @@ Finish UI (prioritize: SSG, envelope reset)
 Icon/logo
 OPN presets
 User presets
-graphics
 
 Lower Priority
 --------------

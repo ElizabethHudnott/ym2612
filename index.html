@@ -393,7 +393,7 @@
 								<option value="VALLOTTI">Vallotti &amp; Young</option>
 								<option value="HARMONIC">Harmonic Scale</option>
 								<option value="24EDO">1/4 Tone</option>
-								<option value="USER_OCTAVE">Custom Octave</option>
+								<option value="USER_OCTAVE">Custom</option>
 							</select>
 						</div>
 						<label class="col-5 col-sm-1 col-form-label" for="tuning-key" hidden>
@@ -414,6 +414,9 @@
 								<option value="10">A#</option>
 								<option value="11">B</option>
 							</select>
+						</div>
+						<div class="col-2">
+							<button type="button" class="btn btn-secondary" id="btn-micro-tuning-init">Edit</button>
 						</div>
 					</div>
 					<div id="custom-micro-tuning" class="collapse">
@@ -541,7 +544,7 @@
 							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
 								<input type="range" min="-23" max="103" value="68" class="form-control-range mt-1" id="filter-cutoff-slider">
 							</div>
-							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto">
+							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto pl-md-0">
 								<input type="text" value="A#7" disabled class="form-control led-display text-center" id="filter-cutoff">
 							</div>
 						</div>
@@ -573,7 +576,7 @@
 							<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
 								<input type="range" min="21" max="108" value="48" class="form-control-range mt-1" id="filter-breakpoint-slider">
 							</div>
-							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto">
+							<div class="col-6 col-sm-3 col-md-2 pr-md-4 ml-auto pl-md-0">
 								<input type="text" value="C 3" disabled class="form-control led-display text-center" id="filter-breakpoint">
 							</div>
 						</div>

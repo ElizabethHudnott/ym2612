@@ -217,15 +217,17 @@ const OscillatorFactory = {
 		}
 	},
 
-	additive: function (cosines, waveShaping = false, bias = 0, frequencyMultiple = undefined) {
-		sines = Float32Array.from([0].concat(sines));
-		cosines = Float32Array.from([0].concat(cosines));
-		const oscillator1Factory = new PeriodicOscillatorFactory(sines, cosines, waveShaping, bias);
-		if (frequencyMultiple === undefined) {
-			return oscillator1Factory;
-		} else {
-			return new DualOscillatorFactory(oscillator1Factory, 'square', frequencyMultiple);
+	additive: function (magnitudes, phases) {
+		const numHarmonics = magnitudes.length;
+		const sines = new Float32Array(numHarmonics + 1);
+		const cosines = new Float32Array(numHarmonics + 1);
+		for (let i = 0; i < numHarmonics; i++) {
+			const magnitude = magnitudes[i];
+			const phase = phases[i] / (2 * Math.PI);
+			sines[i + 1] = magnitude * Math.sin(phase);
+			cosines[i + 1] = magnitude * Math.cos(phase);
 		}
+		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
 	// Waveforms from FS1R and FM-X, although the same concept exists in Ableton but by a
@@ -239,10 +241,9 @@ const OscillatorFactory = {
 	all1: function (skirt) {
 		const length = skirt + 2;
 		const coefficients = new Float32Array(length);
-		coefficients[1] = 1;
 		let sign = -1;
-		// E.g. skirt = 1 => 1st and 2nd harmonics present, array indices 0..2, length 3
-		for (let i = 2; i <= skirt + 1; i++) {
+		// E.g. skirt = 1 means the 1st and 2nd harmonics are present, array indices 0..2, length 3
+		for (let i = 1; i <= skirt + 1; i++) {
 			coefficients[i] = sign / i;
 			sign *= -1;
 		}
@@ -252,7 +253,7 @@ const OscillatorFactory = {
 	coAll1: function (skirt) {
 		const length = skirt + 2;
 		const coefficients = new Float32Array(length);
-		let sign = 1;
+		let sign = -1;
 		for (let i = 1; i <= skirt + 1; i++) {
 			coefficients[i] = sign;
 			sign *= -1;
@@ -267,7 +268,7 @@ const OscillatorFactory = {
 	odd1: function (skirt) {
 		const length = 2 + 2 * skirt;
 		const coefficients = new Float32Array(length);
-		// E.g. skirt = 1 => 1st and 3rd harmonics present, array indices 0..3, length 4
+		// E.g. skirt = 1 means the 1st and 3rd are harmonics present, array indices 0..3, length 4
 		for (let i = 0; i <= skirt; i++) {
 			coefficients[2 * i + 1] = 1 / (2 * i + 1);
 		}

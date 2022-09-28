@@ -9,10 +9,11 @@ Algorithms on Other Systems (to consider)
 	1->2&3, 2->3->4		(Digitone)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
+Transpose at input layer, not via detuning
+
 Option to not reset phase
 Filter key tracking and glide
 Bug: 2 into 1: inconsistent tone
-waveforms for first-N harmonics of saw and square
 fm-x waves
 Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
@@ -26,11 +27,14 @@ tremolo & auto pan phase offset
 Bug: feedback strength (when n=7)?
 Bug: inconsistent tone (less frequent when soloed)
 
+Option to glide by a fixed number of semitones (better for poly)
+	See Pre-Glide on Novation Peak
+
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening (but not have rate scaling applied?)
 	add initial phase parameter
 Sustain on/off envelope option (one shot)
-Add second release stage to envelopes (from -18db, interdependent across operators, see "reverb" in DX11 manual)
+Add second release stage to envelopes (applied from when Operator 1 reaches -18db and then takes effect across operators, see "reverb" in DX11 manual)
 AM envelopes
 Operator ratio bend
 	Separate ratio node (so it works with pitch bend and glide)
@@ -46,8 +50,6 @@ linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. distortion, filter envelope amount, resonance (FS1R))
 envelopes synced to tempo?
 attenuation bend and velocity?
-
-lfo key sync: on/off/first on
 
 Noise/S&H/sample as LFO source?
 Level scaling (per operator)

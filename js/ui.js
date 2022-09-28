@@ -30,6 +30,8 @@ import {Phrase, Transform, Pattern, Player} from './sound/sequencer.js';
 import Recorder from './sound/recorder.js';
 import {parsePattern} from './storage/csv.js';
 
+const tuningPrecision = 1024 / 12;	// SY-77 accuracy (see roundMicrotuning)
+
 const audioContext = new AudioContext(
 	{ latencyHint: 'interactive', sampleRate: Synth.sampleRate(ClockRate.NTSC, 15, 64) }
 );
@@ -395,7 +397,7 @@ function feedback(event) {
 	if (Number.isFinite(value)) {
 		// 0	1	2	3	4	5	6	7
 		// 0	14	28	42	56	70	84	98
-		eachChannel(channel => channel.useFeedbackPreset(value / 14));
+		eachChannel(channel => channel.useFeedbackPreset(value / 14, opNum));
 	}
 }
 
@@ -440,10 +442,12 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 let customOctave = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 function tune(detune) {
+	const tuningStep = 100 / tuningPrecision;
+	detune = Math.round(detune / tuningStep) * tuningStep;
 	const microTuning = document.getElementById('micro-tuning').value;
 	const key = parseInt(document.getElementById('tuning-key').value);
 	let hideKey = false;
-	let customVisibility = 'hide';
+	let hideEdit = false;
 	let steps;
 	switch (microTuning) {
 	case '12EDO':
@@ -453,6 +457,7 @@ function tune(detune) {
 	case '24EDO':
 		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 24);
 		hideKey = true;
+		hideEdit = true;
 		break;
 	case 'HARMONIC':
 		const harmonicScale = [
@@ -478,13 +483,13 @@ function tune(detune) {
 		}
 		steps[11] = 12 - totalSteps;
 		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps);
-		customVisibility = 'show';
+		hideEdit = true;
 		break;
 	default:
-		steps = roundMicrotuning(MICRO_TUNINGS[microTuning]);
+		steps = roundMicrotuning(MICRO_TUNINGS[microTuning], tuningPrecision);
 		firstChannel.tuneEqualTemperament(detune, 0.5, 2, 12, steps, key);
 	}
-	$('#custom-micro-tuning').collapse(customVisibility);
+	document.getElementById('btn-micro-tuning-init').hidden = hideEdit;
 	const row = document.getElementById('micro-tuning-row');
 	row.children[2].hidden = hideKey;
 	row.children[3].hidden = hideKey;
@@ -492,6 +497,36 @@ function tune(detune) {
 		synth.copyTuning(1, i);
 	}
 }
+
+document.getElementById('btn-micro-tuning-init').addEventListener('click', function (event) {
+	const microTuning = document.getElementById('micro-tuning').value;
+	const key = parseInt(document.getElementById('tuning-key').value);
+	let steps;
+	switch (microTuning) {
+	case '12EDO':
+		customOctave = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+		break;
+	case 'HARMONIC':
+
+		break;
+	default:
+		steps = roundMicrotuning(MICRO_TUNINGS[microTuning], tuningPrecision);
+	}
+	this.hidden = true;
+	if (steps !== undefined) {
+		// Convert incremental to absolute
+		customOctave[0] = 0;
+		for (let i = 0; i < 12; i++) {
+			customOctave[i + 1] = customOctave[i] + steps[i];
+		}
+	}
+	const rows = document.getElementById('micro-tuning-table').children;
+
+	$('#custom-micro-tuning').collapse('show');
+	const row = document.getElementById('micro-tuning-row');
+	row.children[2].hidden = false;
+	row.children[3].hidden = false;
+});
 
 document.getElementById('transpose-slider').addEventListener('input', function (event) {
 	audioContext.resume();
@@ -557,11 +592,14 @@ document.getElementById('detune').addEventListener('change', decomposeDetune);
 function retune() {
 	audioContext.resume();
 	const transpose = parseFloat(document.getElementById('transpose').value) || 0;
-	const detune = (parseFloat(document.getElementById('detune').value) || 0) / 100;
-	tune(transpose + detune);
+	const detune = parseFloat(document.getElementById('detune').value) || 0;
+	tune(transpose * 100 + detune);
 }
 
-document.getElementById('micro-tuning').addEventListener('input', retune);
+document.getElementById('micro-tuning').addEventListener('input', function (event) {
+	$('#custom-micro-tuning').collapse(this.value.startsWith('USER_') ? 'show' : 'hide');
+	retune();
+});
 document.getElementById('tuning-key').addEventListener('input', retune);
 
 let microTuningNote = 0;
