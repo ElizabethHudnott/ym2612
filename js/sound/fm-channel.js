@@ -18,6 +18,11 @@ const KeySync = Object.freeze({
 	FIRST_ON: 2,
 });
 
+const Direction = Object.freeze({
+	INCREASING: 1,
+	DECREASING: -1,
+});
+
 const FadeParameter = Object.freeze({
 	DEPTH: 0,
 	RATE: 1,
@@ -270,7 +275,8 @@ class Channel extends AbstractChannel {
 		const lfoEnvelope = new GainNode(context);
 		this.lfoEnvelope = lfoEnvelope;
 		this.lfoDelay = 0;
-		this.lfoFade = 0;
+		this.lfoFadeTime = 0;
+		this.lfoFadeDirection = Direction.INCREASING;
 		this.fadeLFORate = false;	// false = fade LFO depth, true = fade LFO rate
 
 		const autoPan = new GainNode(context, {gain: 0});
@@ -824,26 +830,29 @@ class Channel extends AbstractChannel {
 		return this.lfoDelay;
 	}
 
-	/**
-	 * @param {number} seconds Positive values create an attack, negative values create a decay
-	 */
-	setLFOFade(seconds) {
-		this.lfoFade = seconds;
+	setFadeTime(seconds) {
+		this.lfoFadeTime = seconds;
 	}
 
-	getLFOFade() {
-		return this.lfoFade;
+	getFadeTime() {
+		return this.lfoFadeTime;
+	}
+
+	setFadeDirection(direction) {
+		this.lfoFadeDirection = direction;
+	}
+
+	getFadeDirection() {
+		return this.lfoFadeDirection;
 	}
 
 	setFadeParameter(mode, time = 0) {
-		if (this.lfoFade < 0) {
-			if (this.fadeLFORate && mode === FadeParameter.DEPTH) {
-				// Switch from slowing down the rate to reducing the depth
-				this.lfoRateNode.offset.setValueAtTime(this.lfoRate, time);
-			} else if (!this.fadeLFORate && mode === FadeParameter.RATE) {
-				// Switch from reducing the depth to slowing down the rate
-				this.lfoEnvelope.gain.setValueAtTime(1, time);
-			}
+		if (this.fadeLFORate && mode === FadeParameter.DEPTH) {
+			// Switch from slowing down the rate to reducing the depth
+			this.lfoRateNode.offset.setValueAtTime(this.lfoRate, time);
+		} else if (!this.fadeLFORate && mode === FadeParameter.RATE) {
+			// Switch from reducing the depth to slowing down the rate
+			this.lfoEnvelope.gain.setValueAtTime(1, time);
 		}
 		this.fadeLFORate = Boolean(mode);
 	}
@@ -931,15 +940,17 @@ class Channel extends AbstractChannel {
 	 */
 	getEffectiveLFODelay() {
 		const rate = this.lfoRate;
-		let fadeTime = this.lfoFade;
-		if (!this.fadeLFORate || fadeTime >= 0 || this.lfoKeySync === KeySync.OFF || rate === 0) {
+		if (
+			!this.fadeLFORate || this.lfoFadeDirection === Direction.INCREASING ||
+			this.lfoKeySync === KeySync.OFF || rate === 0
+		) {
 			return this.lfoDelay;
 		}
 
 		// If we're slowing the LFO to a stop then make sure we're ending on a zero crossing
 		// point so that the pitch isn't left permanently "off".
 		const delay = this.lfoDelay;
-		fadeTime = -fadeTime;
+		const fadeTime = this.lfoFadeTime;
 		let phase = rate * (delay + 0.5 * fadeTime);
 		phase = Math.round(phase * 2) / 2;
 		let newDelay = phase / rate - 0.5 * fadeTime;
@@ -955,10 +966,9 @@ class Channel extends AbstractChannel {
 			return;
 		}
 
-		let initialAmount = this.lfoFade >= 0 ? 0 : 1;
+		let initialAmount = this.lfoFadeDirection === Direction.INCREASING ? 0 : 1;
 		let finalAmount = 1 - initialAmount;
 		const endDelay = time + this.getEffectiveLFODelay();
-		let fadeTime = Math.abs(this.lfoFade);
 		let param;
 		if (this.fadeLFORate) {
 			param = this.lfoRateNode.offset;
@@ -982,7 +992,7 @@ class Channel extends AbstractChannel {
 		}
 
 		param.setValueAtTime(initialAmount, endDelay)
-		param.linearRampToValueAtTime(finalAmount, endDelay + fadeTime);
+		param.linearRampToValueAtTime(finalAmount, endDelay + this.lfoFadeTime);
 	}
 
 	applyLFO(time) {
@@ -1255,4 +1265,4 @@ class Channel extends AbstractChannel {
 
 }
 
-export {KeySync, FadeParameter, Pan, AbstractChannel, Channel};
+export {KeySync, Direction, FadeParameter, Pan, AbstractChannel, Channel};

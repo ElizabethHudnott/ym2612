@@ -683,7 +683,7 @@
 						</div>
 						<div class="col-6 col-sm-3 pr-md-4 ml-auto">
 							<div class="input-group">
-								<input type="number" min="0" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
+								<input type="number" min="0" step="0.1" value="0" class="form-control led-display" id="lfo-delay">
 								<div class="input-group-append">
 									<span class="input-group-text led-label">s</span>
 								</div>
@@ -699,7 +699,7 @@
 						</div>
 						<div class="col-6 col-sm-3 pr-md-4 ml-auto">
 							<div class="input-group">
-								<input type="number" min="-9.9" max="9.9" step="0.1" value="0" class="form-control led-display" id="lfo-fade">
+								<input type="number" min="0" step="0.1" value="0" class="form-control led-display" id="lfo-fade">
 								<div class="input-group-append">
 									<span class="input-group-text led-label">s</span>
 								</div>
@@ -710,7 +710,7 @@
 						<div class="d-none d-md-block col-md-3"></div>
 						<div class="col-5 col-sm-auto pl-md-0 small">
 							<div class="form-check form-check-inline">
-								<input type="radio" name="lfo-fade-direction" value="1" id="lfo-fade-in" class="form-check-input" checked>
+								<input type="radio" name="lfo-fade-direction" value="increasing" id="lfo-fade-in" class="form-check-input" checked>
 								<label for="lfo-fade-in" class="form-check-label">
 									Fade in
 								</label>
@@ -718,7 +718,7 @@
 						</div>
 						<div class="col-5 col-sm-auto small">
 							<div class="form-check form-check-inline">
-								<input type="radio" name="lfo-fade-direction" value="-1" id="lfo-fade-out" class="form-check-input">
+								<input type="radio" name="lfo-fade-direction" value="decreasing" id="lfo-fade-out" class="form-check-input">
 								<label for="lfo-fade-out" class="form-check-label">
 									Fade out
 								</label>

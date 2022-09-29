@@ -14,7 +14,7 @@ import {
 import Synth from './sound/fm-synth.js';
 import GenesisSound from './sound/genesis.js';
 import YM2612 from './sound/ym2612.js';
-import {KeySync, FadeParameter, Pan, AbstractChannel} from './sound/fm-channel.js';
+import {KeySync, Direction, FadeParameter, Pan, AbstractChannel} from './sound/fm-channel.js';
 import {OscillatorFactory, Waveform} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
 import {Effects} from './sound/effect-commands.js';
@@ -829,17 +829,17 @@ document.getElementById('key-sync').addEventListener('input', function (event) {
  * how the scale 1..99 gets mapped onto an internal scale of 1..127 in this case though. It
  * seems different from the calculation used for the operator output levels.
  */
-function lfoDelayToSeconds(x) {
-	return Math.sign(x) * (2 ** (Math.abs(x) / 32) - 0.5);
+function lfoFadeToSeconds(x) {
+	return x === 0 ? 0 : 2 ** (x / 32) - 0.5;
 }
 
-function lfoDelayToYamaha(time) {
+function lfoFadeToYamaha(time) {
 	return time === 0 ? 0 : Math.log2(time + 0.5) * 32;
 }
 
 document.getElementById('lfo-delay-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	const time = 7 / 13 * lfoDelayToSeconds(parseFloat(this.value));
+	const time = 7 / 13 * lfoFadeToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-delay').value = time.toFixed(2);
 	eachChannel(channel => channel.setLFODelay(time));
 	updateLFODelay();
@@ -849,7 +849,7 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 	audioContext.resume();
 	const time = parseFloat(this.value);
 	if (time >= 0) {
-		const sliderValue = lfoDelayToYamaha(time * 13 / 7);
+		const sliderValue = lfoFadeToYamaha(time * 13 / 7);
 		document.getElementById('lfo-delay-slider').value = sliderValue;
 		eachChannel(channel => channel.setLFODelay(time));
 		updateLFODelay();
@@ -858,34 +858,26 @@ document.getElementById('lfo-delay').addEventListener('input', function (event) 
 
 document.getElementById('lfo-fade-slider').addEventListener('input', function (event) {
 	audioContext.resume();
-	const direction = document.getElementById('lfo-fade-in').checked ? 1 : -1;
-	const time = direction * 6 / 13 * lfoDelayToSeconds(parseFloat(this.value));
+	const time = 6 / 13 * lfoFadeToSeconds(parseFloat(this.value));
 	document.getElementById('lfo-fade').value = time.toFixed(2);
-	eachChannel(channel => channel.setLFOFade(time));
+	eachChannel(channel => channel.setFadeTime(time));
 	updateLFODelay();
 });
 
 document.getElementById('lfo-fade').addEventListener('input', function (event) {
 	audioContext.resume();
 	const time = parseFloat(this.value);
-	if (Number.isFinite(time)) {
-		const sliderValue = lfoDelayToYamaha(Math.abs(time) * 13 / 6);
+	if (time >= 0) {
+		const sliderValue = lfoFadeToYamaha(time * 13 / 6);
 		document.getElementById('lfo-fade-slider').value = sliderValue;
-		if (time > 0) {
-			document.getElementById('lfo-fade-in').checked = true;
-		} else if (time < 0) {
-			document.getElementById('lfo-fade-out').checked = true;
-		}
-		eachChannel(channel => channel.setLFOFade(time));
+		eachChannel(channel => channel.setFadeTime(time));
 		updateLFODelay();
 	}
 });
 
 function lfoFadeDirection(event) {
-	const duration = Math.abs(firstChannel.getLFOFade());
-	const time = parseInt(this.value) * duration;
-	document.getElementById('lfo-fade').value = time.toFixed(2);
-	eachChannel(channel => channel.setLFOFade(time));
+	const direction = Direction[this.value.toUpperCase()];
+	eachChannel(channel => channel.setFadeDirection(direction));
 	updateLFODelay();
 }
 
