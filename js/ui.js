@@ -1152,8 +1152,9 @@ document.getElementById('btn-pan-centre').addEventListener('click', function (ev
 	const button = this;
 	const callback = function (note, velocity) {
 		button.classList.remove(highlight);
+		const source = Pan[document.getElementById('pan-source').value.toUpperCase()];
 		let value;
-		if (firstChannel.getPanModulationSource() === Pan.NOTE) {
+		if (source === Pan.NOTE) {
 			value = note;
 		} else {
 			value = velocity;
@@ -1172,18 +1173,27 @@ document.getElementById('btn-pan-range').addEventListener('click', function (eve
 		inputHook.clear();
 		return;
 	}
+	const source = Pan[document.getElementById('pan-source').value.toUpperCase()];
 	const button = this;
 	const callback = function (note, velocity) {
 		button.classList.remove(highlight);
 		let value;
-		if (firstChannel.getPanModulationSource() === Pan.NOTE) {
+		if (source === Pan.NOTE) {
 			value = note;
 		} else {
 			value = velocity;
 		}
 		const range = Math.abs(value - firstChannel.getPanControllerCentre());
-		if (range > 0) {
-			eachChannel(channel => channel.setPanControllerRange(range));
+		if (range === 0) {
+			eachChannel(channel => {
+				channel.setPanModulationSource(Pan.FIXED);
+				channel.setPan(0);
+			});
+		} else {
+			eachChannel(channel => {
+				channel.setPanModulationSource(source);
+				channel.setPanControllerRange(range);
+			});
 		}
 		inputHook.clear();
 	};
