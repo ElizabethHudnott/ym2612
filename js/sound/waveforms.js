@@ -132,19 +132,15 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
 const OscillatorFactory = {
 
 	mono: function (shape, waveShaping = false) {
-		let bias;
-		if (!waveShaping) {
-			bias = 0;
-		} else if (shape === 'sine' || shape === 'cosine') {
-			bias = -2 / Math.PI;
-		} else {
-			bias = -0.5;	// Triangle or sawtooth
-		}
+		/*The offset needed is calculated for a sine or cosine wave. There's no point in shaping
+		  the other basic shapes. Inverting the negative portion of a square wave produces a
+		  flat line, triangle transforms into itself, and sawtooth transforms into triangle. */
+		const bias = waveShaping * -2 / Math.PI ;
 		return singleOscillatorFactory(shape, waveShaping, bias);
 	},
 
 	/**
-	 * @param {Object} oscillator1Factory E.g. obtained via singleOscillatorFactory()
+	 * @param {Object} oscillator1Factory
 	 * @param {string} oscillator2Shape The waveform used for the modulator oscillator:
 	 * 'sine', 'sawtooth', square' or 'triangle'.
 	 * @param {number} frequencyMultiple The frequency of one oscillator relative to the other.
@@ -320,7 +316,7 @@ const Waveform = {
 	),
 	SAWTOOTH:		OscillatorFactory.mono('sawtooth'),
 
-	// From the Yamaha DX11 and TX81Z (OP Z)
+	// From the Yamaha DX11 and TX81Z (OPZ)
 	W2:				OscillatorFactory.additiveSin(W2_COEFFICIENTS),
 	COW2:				OscillatorFactory.additiveCos(COW2_COEFFICIENTS),
 

@@ -604,7 +604,7 @@ export default class Envelope {
 	setSustain(level) {
 		let gain = level === 0 ? 1023 : 1024 - level * 32;
 		if (level > 14) {
-			gain -= 512;
+			gain -= Math.min(level - 14, 1) * 512;
 		}
 		this.sustain = gain;
 	}
@@ -613,8 +613,10 @@ export default class Envelope {
 		let gain = this.sustain;
 		if (gain === 1023) {
 			return 0;
-		} else if (gain < 512) {
+		} else if (gain <= 32) {
 			gain += 512;
+		} else if (gain < 576) {
+			gain += (576 - gain) * 512 / 544;
 		}
 		return (1024 - gain) / 32;
 	}

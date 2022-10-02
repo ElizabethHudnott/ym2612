@@ -252,7 +252,7 @@ function lcm(values) {
 	return lcmSoFar;
 }
 
-/**
+/**Creates an AudioBuffer containing the sum of several individual waves.
  * @param {number} sampleBits Defaults to 25 bit precision (mantissa length + sign bit of an
  * IEEE 754 single precision number). Each sample has one of 2**sampleBits + 1 values.
  */

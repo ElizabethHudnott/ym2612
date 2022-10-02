@@ -69,6 +69,7 @@ window.psg = soundSystem.psg;
 window.ym2612 = new YM2612(soundSystem.fm, audioContext);
 window.eachChannel = eachChannel;
 window.OscillatorFactory = OscillatorFactory;
+window.Waveform = Waveform;
 window.PitchBend = PitchBend;
 window.VolumeAutomation = VolumeAutomation;
 window.Effects = Effects;
@@ -333,7 +334,9 @@ document.getElementById('upload').addEventListener('input', async function (even
 	window.pattern = parsePattern('', content, NUM_CHANNELS);
 });
 
-function updateAlgorithmDetails() {
+let chosenDistortion = 1;	// Default 1db
+
+function updateAlgorithmDetails(updatedOpNum) {
 	for (let i = 1; i <= 3; i++) {
 		for (let j = i + 1; j <= 4; j++) {
 			const depth = firstChannel.getModulationDepth(i, j);
@@ -346,18 +349,22 @@ function updateAlgorithmDetails() {
 		if (!operator.disabled) {
 			const gain = operator.getGain();
 			total += Math.abs(gain);
-			const box = document.getElementById('output-level-' + i);
-			box.value = Math.round(operator.getOutputLevel() * 2) / 2;
+			if (i !== updatedOpNum) {
+				const box = document.getElementById('output-level-' + i);
+				box.value = Math.round(operator.getOutputLevel() * 2) / 2;
+			}
 		}
 	}
-	let distortion = 20 * Math.log10(Math.max(total, 1));
-	distortion = Math.trunc(distortion * 10) / 10;
-	document.getElementById('distortion').value = distortion;
+	if (total > 0) {
+		let distortion = 20 * Math.log10(total);
+		distortion = Math.round(distortion * 10) / 10;
+		document.getElementById('distortion').value = distortion;
+	}
 }
 
 function algorithmRadio(event) {
 	audioContext.resume();
-	for (let i = 1; i <=4; i++) {
+	for (let i = 1; i <= 4; i++) {
 		const checkbox = document.getElementById('op' + i + '-enabled');
 		if (!checkbox.checked) {
 			checkbox.click();
@@ -407,9 +414,10 @@ document.getElementById('modulation-3-3').addEventListener('input', feedback);
 function outputLevel() {
 	audioContext.resume();
 	const value = parseFloat(this.value);
-	if (Number.isFinite(value)) {
+	if (Math.abs(value) <= 2146.9) {
 		const opNum = parseInt(this.id.slice(-1));
 		eachChannel(channel => channel.getOperator(opNum).setOutputLevel(value));
+		updateAlgorithmDetails(opNum);
 	}
 }
 
@@ -431,6 +439,9 @@ document.getElementById('distortion').addEventListener('input', function (event)
 	const value = parseFloat(this.value);
 	if (value <= 921) {
 		normalizeLevels(value);
+		if (value !== 0) {
+			chosenDistortion = value;
+		}
 	}
 });
 
@@ -439,6 +450,14 @@ document.getElementById('btn-normalize-levels').addEventListener('click', functi
 	document.getElementById('distortion').value = 0;
 });
 
+document.getElementById('btn-distort').addEventListener('click', function (event) {
+	normalizeLevels(chosenDistortion);
+	document.getElementById('distortion').value = chosenDistortion;
+});
+
+const HARMONIC_SCALE_RATIOS = [
+	1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2
+];
 let customOctave = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 function tune(detune) {
@@ -460,10 +479,7 @@ function tune(detune) {
 		hideEdit = true;
 		break;
 	case 'HARMONIC':
-		const harmonicScale = [
-			1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2
-		];
-		firstChannel.tuneRatios(detune, harmonicScale, key, 0.5);
+		firstChannel.tuneRatios(detune, HARMONIC_SCALE_RATIOS, key, 0.5);
 		break;
 	case 'USER_OCTAVE':
 		let lastValue = customOctave[key];
@@ -507,7 +523,11 @@ document.getElementById('btn-micro-tuning-init').addEventListener('click', funct
 		customOctave = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 		break;
 	case 'HARMONIC':
-
+		customOctave = new Array(12);
+		for (let i = 0; i < 12; i++) {
+			let semitones = 12 * Math.log2(HARMONIC_SCALE_RATIOS[i]);
+			customOctave[i] = Math.round(semitones * tuningPrecision) / tuningPrecision;
+		}
 		break;
 	default:
 		steps = roundMicrotuning(MICRO_TUNINGS[microTuning], tuningPrecision);
@@ -971,7 +991,7 @@ document.getElementById('vibrato').addEventListener('input', function (event) {
 		do {
 			rangeNum++;
 			vibratoRange = VIBRATO_RANGES[rangeNum];
-		} while (vibratoRange < absCents);
+		} while (vibratoRange < absCents && rangeNum < VIBRATO_RANGES.length - 1);
 		document.getElementById('vibrato-slider').value = absCents / vibratoRange * 127;
 		document.getElementById('vibrato-range').value = rangeNum + 1;
 		document.getElementById('vibrato-max').innerHTML = vibratoRange;
