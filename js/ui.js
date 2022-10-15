@@ -427,7 +427,11 @@ for (let i = 1; i <= 4; i++) {
 
 function normalizeLevels(distortion = 0) {
 	audioContext.resume();
-	eachChannel(channel => channel.normalizeLevels(distortion));
+	const symmetry = (parseFloat(document.getElementById('symmetry').value) || 50) / 100;
+	eachChannel(channel => {
+		channel.setDistortion(distortion, symmetry);
+		channel.normalizeLevels();
+	});
 
 	for (let i = 1; i <= 4; i++) {
 		const box = document.getElementById('output-level-' + i);
@@ -442,6 +446,14 @@ document.getElementById('distortion').addEventListener('input', function (event)
 		if (value !== 0) {
 			chosenDistortion = value;
 		}
+	}
+});
+
+document.getElementById('symmetry').addEventListener('input', function (event) {
+	const symmetry = parseFloat(this.value) / 100;
+	if (Number.isFinite(symmetry)) {
+		const amount = firstChannel.getDistortionAmount();
+		eachChannel(channel => channel.setDistortion(amount, symmetry))
 	}
 });
 

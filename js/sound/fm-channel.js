@@ -227,6 +227,11 @@ class Channel extends AbstractChannel {
 		this.id = id;	// IDs are powers of 2
 
 		const shaper = new WaveShaperNode(context, {curve: [-1, 0, 1]});
+		this.maxLevel = 1;
+		this.add = 0;
+		const adder = new ConstantSourceNode(context, {offset: 0});
+		adder.connect(shaper);
+		this.adder = adder;
 
 		this.cutoffValue = 68;
 		this.cutoffKeyTracking = 0;
@@ -399,6 +404,7 @@ class Channel extends AbstractChannel {
 			operator.start(time);
 		}
 		this.lfoRateNode.start(time);
+		this.adder.start(time);
 		this.cutoffNode.start(time);
 	}
 
@@ -412,7 +418,9 @@ class Channel extends AbstractChannel {
 			this.lfo.stop(time);
 			this.lfo = undefined;
 		}
+		this.adder.stop(time);
 		this.cutoffNode.stop(time);
+		this.adder = undefined;
 		this.cutoffNode = undefined;
 		this.cutoff = undefined;
 	}
@@ -510,8 +518,7 @@ class Channel extends AbstractChannel {
 		return index === -1 ? 0 : this.modulationDepths[index];
 	}
 
-	normalizeLevels(distortion = 0) {
-		const maxLevel = 10 ** (distortion / 20);
+	normalizeLevels() {
 		const currentGains = new Array(4);
 		let total = 0;
 		for (let i = 0; i < 4; i++) {
@@ -529,11 +536,25 @@ class Channel extends AbstractChannel {
 		for (let i = 0; i < 4; i++) {
 			const operator = this.operators[i];
 			if (!operator.isDisabled()) {
-				let gain = maxLevel * currentGains[i] / total;
+				let gain = this.maxLevel * currentGains[i] / total;
 				gain = Math.max(Math.min(gain, MAX_FLOAT), -MAX_FLOAT);
 				operator.setGain(gain);
 			}
 		}
+	}
+
+	setDistortion(decibels, symmetry = 0.5, time = 0) {
+		const maxLevel = 10 ** (decibels / 20);
+		const add = Math.max(maxLevel - 1, 0) * 2 * (symmetry - 0.5);
+
+		const transitionTime = Math.abs(add - this.add) * 0.01;
+		this.adder.offset.setTargetAtTime(add, time, transitionTime / 3);
+		this.maxLevel = maxLevel;
+		this.add = add;
+	}
+
+	getDistortionAmount() {
+		return Math.log10(this.maxLevel) * 20;
 	}
 
 	disableOperator(operatorNum, time = 0) {
@@ -729,7 +750,7 @@ class Channel extends AbstractChannel {
 	}
 
 	useFeedbackPreset(n, operatorNum = 1, time = 0, method = 'setValueAtTime') {
-		const amount = n <= 0 ? 0 : -this.synth.feedbackCallibration * 2 ** (n - 6);
+		const amount = Math.sign(n) * -this.synth.feedbackCallibration * 2 ** (Math.abs(n) - 6);
 		this.setFeedback(amount, operatorNum, time, method);
 	}
 
