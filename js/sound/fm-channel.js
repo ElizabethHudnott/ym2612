@@ -656,18 +656,8 @@ class Channel extends AbstractChannel {
 	}
 
 	#trackFilter(midiNote, time) {
-		const breakpoint = this.filterTrackBreakpoint;
-		const notesTracked = (midiNote - breakpoint) * this.cutoffKeyTracking;
-		const intNotesTracked = Math.trunc(notesTracked);
-		const intNote = breakpoint + intNotesTracked;
-		const noteBlock = this.noteFreqBlockNumbers[intNote];
-		const noteFreqNum = this.noteFrequencyNumbers[intNote];
-		const noteFullFreqNum = this.componentsToFullFreq(noteBlock, noteFreqNum);
-		const breakpointBlock = this.noteFreqBlockNumbers[breakpoint];
-		const breakpointFreqNum = this.noteFrequencyNumbers[breakpoint];
-		const breakpointFullFreqNum = this.componentsToFullFreq(breakpointBlock, breakpointFreqNum);
-		const fractionalAmount = this.tuningRatio ** (notesTracked - intNotesTracked);
-		const cutoffTrackMultiple = (noteFullFreqNum / breakpointFreqNum) * fractionalAmount;
+		const cutoffTrackNotes = (midiNote - this.filterTrackBreakpoint) * this.cutoffKeyTracking;
+		const cutoffTrackMultiple = this.tuningRatio ** cutoffTrackNotes;
 		this.cutoffKeyTracker.setValueAtTime(cutoffTrackMultiple, time);
 	}
 
