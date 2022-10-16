@@ -543,11 +543,14 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	setDistortion(decibels, symmetry = 0.5, time = 0) {
+	/**Sets up the parameters for creating a distortion effect. Use FMChannel.normalizeLevels()
+	 * and/or Operator.setOutputLevel to create the actual distortion.
+	 */
+	setDistortion(decibels, symmetry = 0.5, time = 0, transitionTime = 0) {
 		const maxLevel = 10 ** (decibels / 20);
 		const add = Math.max(maxLevel - 1, 0) * 2 * (symmetry - 0.5);
 
-		const transitionTime = Math.abs(add - this.add) * 0.01;
+		transitionTime = Math.max(Math.abs(add - this.add) * 0.01, transitionTime);
 		this.adder.offset.setTargetAtTime(add, time, transitionTime / 3);
 		this.maxLevel = maxLevel;
 		this.add = add;
@@ -653,8 +656,18 @@ class Channel extends AbstractChannel {
 	}
 
 	#trackFilter(midiNote, time) {
-		const cutoffTrackNotes = (midiNote - this.filterTrackBreakpoint) * this.cutoffKeyTracking;
-		const cutoffTrackMultiple = this.tuningRatio ** cutoffTrackNotes;
+		const breakpoint = this.filterTrackBreakpoint;
+		const notesTracked = (midiNote - breakpoint) * this.cutoffKeyTracking;
+		const intNotesTracked = Math.trunc(notesTracked);
+		const intNote = breakpoint + intNotesTracked;
+		const noteBlock = this.noteFreqBlockNumbers[intNote];
+		const noteFreqNum = this.noteFrequencyNumbers[intNote];
+		const noteFullFreqNum = this.componentsToFullFreq(noteBlock, noteFreqNum);
+		const breakpointBlock = this.noteFreqBlockNumbers[breakpoint];
+		const breakpointFreqNum = this.noteFrequencyNumbers[breakpoint];
+		const breakpointFullFreqNum = this.componentsToFullFreq(breakpointBlock, breakpointFreqNum);
+		const fractionalAmount = this.tuningRatio ** (notesTracked - intNotesTracked);
+		const cutoffTrackMultiple = (noteFullFreqNum / breakpointFreqNum) * fractionalAmount;
 		this.cutoffKeyTracker.setValueAtTime(cutoffTrackMultiple, time);
 	}
 
