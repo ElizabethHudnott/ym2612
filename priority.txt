@@ -1,7 +1,5 @@
 Bugs
 ----
-Transpose at input layer, not via detuning
-
 Bug: 2 into 1: inconsistent tone
 Bug: inconsistent tone (less frequent when soloed)
 Only respond to MIDI when visible/active?

@@ -416,7 +416,7 @@ function outputLevel() {
 	const value = parseFloat(this.value);
 	if (Math.abs(value) <= 2146.9) {
 		const opNum = parseInt(this.id.slice(-1));
-		eachChannel(channel => channel.getOperator(opNum).setOutputLevel(value));
+		eachChannel(channel => channel.setOutputLevel(opNum, value));
 		updateAlgorithmDetails(opNum);
 	}
 }

@@ -9,7 +9,7 @@ Algorithms on Other Systems (to consider)
 	1->2&3, 2->3->4		(Digitone)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
-Transpose at input layer, not via detuning
+Distortion (symmetry) modulation?
 Timbre frames (Synclavier)
 
 Option to not reset phase

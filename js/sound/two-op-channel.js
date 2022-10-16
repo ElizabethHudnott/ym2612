@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {VIBRATO_PRESETS, nextQuantum, outputLevelToGain} from './common.js';
+import {VIBRATO_PRESETS, nextQuantum, outputLevelToGain, gainToOutputLevel} from './common.js';
 import {AbstractChannel} from './fm-channel.js';
 
 export default class TwoOperatorChannel extends AbstractChannel {
@@ -97,6 +97,17 @@ export default class TwoOperatorChannel extends AbstractChannel {
 	getModulationDepth() {
 		const offset = this.operatorOffset;
 		return this.parentChannel.getModulationDepth(offset + 1, offset + 2);
+	}
+
+	setOutputLevel(operatorNum, level, time = 0, method = 'setValueAtTime') {
+		const gain = 0.5 * outputLevelToGain(level);
+		const operator = this.parentChannel.getOperator(this.operatorOffset + operatorNum);
+		operator.setGain(gain, time, method);
+	}
+
+	getOutputLevel(operatorNum) {
+		const operator = this.parentChannel.getOperator(this.operatorOffset + operatorNum);
+		return gainToOutputLevel(2 * operator.getGain());
 	}
 
 	disableOperator(operatorNum, time = 0) {

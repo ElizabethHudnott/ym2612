@@ -516,6 +516,14 @@ class Channel extends AbstractChannel {
 		return index === -1 ? 0 : this.modulationDepths[index];
 	}
 
+	setOutputLevel(operatorNum, level, time = 0, method = 'setValueAtTime') {
+		this.operators[operatorNum - 1].setOutputLevel(level, time, method);
+	}
+
+	getOutputLevel(operatorNum) {
+		return this.operators[operatorNum].getOutputLevel();
+	}
+
 	normalizeLevels() {
 		const currentGains = new Array(4);
 		let total = 0;
@@ -541,8 +549,8 @@ class Channel extends AbstractChannel {
 		}
 	}
 
-	/**Sets up the parameters for creating a distortion effect. Use FMChannel.normalizeLevels()
-	 * and/or Operator.setOutputLevel to create the actual distortion.
+	/**Sets up the parameters for creating a distortion effect. Use normalizeLevels() and/or
+	 * setOutputLevel to create the actual distortion.
 	 */
 	setDistortion(decibels, symmetry = 0.5, time = 0, transitionTime = 0) {
 		const maxLevel = 10 ** (decibels / 20);
