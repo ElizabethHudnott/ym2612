@@ -431,14 +431,12 @@ class Channel extends AbstractChannel {
 
 	splitChannel(context, split, time = nextQuantum(context)) {
 		if (split) {
-			this.setVolume(this.outputLevel / 2, time);
 			if (this.lfoKeySync === KeySync.ON) {
 				this.setLFOKeySync(context, KeySync.OFF, time);
 			}
 			this.applyLFO(time);
 			this.#trackFilter(this.cutoffKeyTracking < 0 ? 21 : 108, time);
 		} else {
-			this.setVolume(this.outputLevel, time);
 			this.setLFOKeySync(context, this.lfoKeySync, time);
 		}
 	}

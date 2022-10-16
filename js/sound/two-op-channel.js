@@ -6,14 +6,14 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {VIBRATO_PRESETS, nextQuantum} from './common.js';
+import {VIBRATO_PRESETS, nextQuantum, outputLevelToGain} from './common.js';
 import {AbstractChannel} from './fm-channel.js';
 
 export default class TwoOperatorChannel extends AbstractChannel {
 
 	static algorithms = [
 		[99, [0, 99]], // FM
-		[0, [99, 99]], // Additive
+		[0, [83, 83]], // Additive
 	];
 
 	constructor(parentChannel, startingOperator, tuning, lfoGroup) {
@@ -73,8 +73,9 @@ export default class TwoOperatorChannel extends AbstractChannel {
 		for (let i = 1; i <= 2; i++) {
 			const operator = parent.getOperator(offset + i);
 			const outputLevel = outputLevels[i - 1] || 0;
+			const gain = 0.5 * outputLevelToGain(outputLevel);
 			operator.enable();
-			operator.setOutputLevel(outputLevel, time, method);
+			operator.setGain(gain, time, method);
 		}
 	}
 
