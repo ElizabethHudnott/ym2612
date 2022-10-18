@@ -301,7 +301,7 @@ class Channel extends AbstractChannel {
 		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: 0, Q: 0});
 		op1.connectFrequency(feedbackFilter1.frequency);
 		op1To1.connect(feedbackFilter1);
-		const delay1To1 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
+		const delay1To1 = new DelayNode(context, {delayTime: 0, maxDelayTime: minDelay});
 		feedbackFilter1.connect(delay1To1);
 		op1.connectIn(delay1To1);
 
@@ -769,9 +769,9 @@ class Channel extends AbstractChannel {
 			return 0;
 		}
 		let logAmount;
-		logAmount = Math.log2(amount / -this.synth.feedbackCallibration) + 6;
+		logAmount = Math.log2(Math.abs(amount) / this.synth.feedbackCallibration) + 6;
 		// Convert to a precision comparable to the output level.
-		logAmount = Math.round(logAmount * 28) / 28;
+		logAmount = -Math.sign(amount) * Math.round(logAmount * 28) / 28;
 		return logAmount;
 	}
 
