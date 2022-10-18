@@ -301,7 +301,7 @@ class Channel extends AbstractChannel {
 		const feedbackFilter1 = new BiquadFilterNode(context, {type: 'highpass', frequency: 0, Q: 0});
 		op1.connectFrequency(feedbackFilter1.frequency);
 		op1To1.connect(feedbackFilter1);
-		const delay1To1 = new DelayNode(context, {delayTime: 0, maxDelayTime: minDelay});
+		const delay1To1 = new DelayNode(context, {delayTime: minDelay, maxDelayTime: minDelay});
 		feedbackFilter1.connect(delay1To1);
 		op1.connectIn(delay1To1);
 
