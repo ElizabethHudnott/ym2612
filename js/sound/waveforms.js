@@ -129,6 +129,173 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
 }
 
 
+class TimbreFrame {
+
+	constructor() {
+		this.magnitudes = [];
+		this.phases = [];	// Between 0 and 1
+		this.holdTime = 1;
+		this.fadeTime = 0;
+		this.linearFade = false;
+		this.amplitude = 1;
+		this.pitchRatio = 1;
+		this.sines = undefined;
+		this.cosines = undefined;
+	}
+
+	clone() {
+		const frame = new TimbreFrame();
+		frame.magnitudes = this.magnitudes;
+		frame.phases = this.phases;
+		frame.holdTime = this.holdTime;
+		frame.fadeTime = this.fadeTime;
+		frame.linearFade = this.linearFade;
+		frame.amplitude = this.amplitude;
+		frame.pitchRatio = this.pitchRatio;
+		frame.sines = this.sines;
+		frame.cosines = this.cosines;
+		return frame;
+	}
+
+	calculateCoefficients() {
+		const magnitudes = this.magnitudes;
+		const phases = this.phases;
+		const numHarmonics = magnitudes.length;
+		const sines = new Float32Array(numHarmonics + 1);
+		const cosines = new Float32Array(numHarmonics + 1);
+		for (let i = 0; i < numHarmonics; i++) {
+			const magnitude = magnitudes[i] || 0;
+			const phase = ((phases[i] || 0) + 0.25) / (2 * Math.PI);
+			sines[i + 1] = magnitude * Math.sin(phase);
+			cosines[i + 1] = magnitude * Math.cos(phase);
+		}
+		this.sines = sines;
+		this.cosines = cosines;
+	}
+
+}
+
+class TimbreFrameOscillator {
+
+	static #REFERENCE_PITCH = 440 * 2 ** (-9 / 12);		// Middle C in standard tuning (C4)
+	static #TIME_RESOLUTION = 4;	// Allow playing down C2 without loss of resolution
+
+	constructor() {
+		this.frames = [new TimbreFrame(), new TimbreFrame()];
+		this.timeScaling = 1;	// Speeds up or slows down all frames
+		this.loopStartFrame = 0;
+		this.bitDepth = 25;
+		this.buffer = undefined;
+		this.loopStartTime = 0;
+	}
+
+	async createSample(sampleRate) {
+		// We record with the pitch set at C1 but the timings specified apply to C4.
+		let timeMultiple = TimbreFrameOscillator.#TIME_RESOLUTION;
+		const notePitch = TimbreFrameOscillator.#REFERENCE_PITCH / timeMultiple;
+		const notePeriod = 1 / notePitch;
+		timeMultiple *= this.timeScaling;
+		let numFrames = this.frames.length;
+		let frames;
+		if (this.loopStartFrame === numFrames - 1) {
+			frames = this.frames;
+		} else {
+			// Make the beginning and end of the loop seamless.
+			frames = this.frames.slice();
+			const loopTransition = frames[this.loopStartFrame].clone();
+			loopTransition.holdTime = 0;
+			frames.push(loopTransition);
+			numFrames++;
+		}
+
+		// Round the timings to align with full numbers of cycles.
+		const holdTimes = new Array(numFrames);
+		for (let i = 0; i < numFrames; i++) {
+			const frame = frames[i];
+			const period = notePeriod / frame.pitchRatio;
+			const fadeIn = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
+			/* When the next oscillator starts fading in (after this one has been faded in and
+			 * held) then we need to have completed a whole number of cycles. */
+			let duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
+			if (duration < fadeIn) {
+				duration += period;
+			}
+			holdTimes[i] = duration - fadeIn;
+		}
+		if (this.loopStartFrame === numFrames - 1) {
+			// We will loop a single cycle in this case.
+			holdTimes[numFrames - 1] = notePeriod / frames[numFrames - 1].pitchRatio;
+		}
+
+		// Calculate when each frame has faded in and what the total sample length is.
+		const fadedInTimes = new Array(numFrames);
+		let totalDuration = 0;
+		for (let i = 0; i < numFrames - 1; i++) {
+			fadedInTimes[i] = totalDuration;
+			totalDuration += holdTimes[i] + frames[i].fadeTime * timeMultiple;
+		}
+		fadedInTimes[numFrames - 1] = totalDuration;
+		totalDuration += holdTimes[numFrames - 1];
+		this.loopStartTime = fadedInTimes[this.loopStartFrame];
+
+		// Render the audio to a sample.
+		const length = Math.round(totalDuration * sampleRate);
+		const context = new OfflineAudioContext(1, length, sampleRate);
+		for (let i = 0; i < numFrames; i++) {
+			const frame = frames[i];
+			const wave = new PeriodicWave(context, {real: frame.cosines, imag: frame.sines});
+			const oscillator = new OscillatorNode(
+				context, {frequency: notePitch * frame.pitchRatio, periodicWave: wave}
+			);
+			const amplifier = new GainNode(context);
+			oscillator.connect(amplifier);
+			amplifier.connect(context.destination);
+			const gain = amplifier.gain;
+
+			const amplitude = frame.amplitude;
+			const fadeInDuration = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
+			const startTime = fadedInTimes[i] - fadeInDuration;
+			oscillator.start(startTime);
+			if (fadeInDuration === 0) {
+				gain.setValueAtTime(amplitude, startTime);
+			} else {
+				gain.setValueAtTime(0, startTime);
+				if (frames[i - 1].linearFade) {
+					gain.linearRampToValueAtTime(amplitude, fadedInTimes[i]);
+				} else {
+
+				}
+			}
+
+			if (i < numFrames - 1) {
+				const endHold = fadedInTimes[i] + holdTimes[i];
+				const fadeOutTime = frame.fadeTime * timeMultiple;
+				if (fadeOutTime > 0) {
+					if (frame.linearFade) {
+						gain.setValueAtTime(amplitude, endHold);
+						gain.linearRampToValueAtTime(0, fadedInTimes[i + 1]);
+					} else {
+
+					}
+				}
+				oscillator.stop(fadedInTimes[i + 1]);
+			}
+		} // End for each timbre frame
+
+		const buffer = await context.startRendering();
+
+		// Apply bitcrusher effect
+		const wave = buffer.getChannelData(0);
+		const steps = 2 ** (this.bitDepth - 1);
+		for (let i = 0; i < length; i++) {
+			wave[i] = Math.round(wave[i] * steps) / steps;
+		}
+
+		this.buffer = buffer;
+	}
+
+}
+
 const OscillatorFactory = {
 
 	mono: function (shape, waveShaping = false) {
@@ -219,7 +386,7 @@ const OscillatorFactory = {
 		const cosines = new Float32Array(numHarmonics + 1);
 		for (let i = 0; i < numHarmonics; i++) {
 			const magnitude = magnitudes[i];
-			const phase = phases[i] / (2 * Math.PI);
+			const phase = (phases[i] + 0.25) / (2 * Math.PI);
 			sines[i + 1] = magnitude * Math.sin(phase);
 			cosines[i + 1] = magnitude * Math.cos(phase);
 		}
@@ -390,5 +557,6 @@ Waveform[11] = Waveform.QUARTER_COSINE;
 Waveform[12] = Waveform.ODD_COSINE;
 
 export {
-	OscillatorFactory, PeriodicOscillatorFactory, singleOscillatorFactory, Waveform
+	OscillatorFactory, PeriodicOscillatorFactory, singleOscillatorFactory, Waveform,
+	TimbreFrame, TimbreFrameOscillator
 };
