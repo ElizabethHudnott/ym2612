@@ -6,6 +6,8 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
+import {logToLinear} from './common.js';
+
 class AbstractOscillatorFactory {
 
 	constructor(waveShaping, bias) {
@@ -136,8 +138,8 @@ class TimbreFrame {
 		this.phases = [];	// Between 0 and 1
 		this.holdTime = 1;
 		this.fadeTime = 0;
-		this.linearFade = false;
-		this.amplitude = 1;
+		this.linearFade = true;
+		this.amplitude = 1023;
 		this.pitchRatio = 1;
 		this.sines = undefined;
 		this.cosines = undefined;
@@ -195,6 +197,8 @@ class TimbreFrameOscillator {
 		const notePitch = TimbreFrameOscillator.#REFERENCE_PITCH / timeMultiple;
 		const notePeriod = 1 / notePitch;
 		timeMultiple *= this.timeScaling;
+		const minAmplitude = logToLinear(1);
+
 		let numFrames = this.frames.length;
 		let frames;
 		if (this.loopStartFrame === numFrames - 1) {
@@ -252,7 +256,8 @@ class TimbreFrameOscillator {
 			amplifier.connect(context.destination);
 			const gain = amplifier.gain;
 
-			const amplitude = frame.amplitude;
+			const amplitude = logToLinear(frame.amplitude);
+			const timeConstants = Math.log(amplitude / minAmplitude);
 			const fadeInDuration = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
 			const startTime = fadedInTimes[i] - fadeInDuration;
 			oscillator.start(startTime);
@@ -263,7 +268,7 @@ class TimbreFrameOscillator {
 				if (frames[i - 1].linearFade) {
 					gain.linearRampToValueAtTime(amplitude, fadedInTimes[i]);
 				} else {
-
+					gain.setTargetAtTime(amplitude, startTime, fadeInDuration / timeConstants);
 				}
 			}
 
@@ -274,11 +279,13 @@ class TimbreFrameOscillator {
 					if (frame.linearFade) {
 						gain.setValueAtTime(amplitude, endHold);
 						gain.linearRampToValueAtTime(0, fadedInTimes[i + 1]);
+						oscillator.stop(fadedInTimes[i + 1]);
 					} else {
-
+						gain.setTargetAtTime(0, endHold, fadeOutTime / timeConstants);
 					}
+				} else {
+					oscillator.stop(fadedInTimes[i + 1]);
 				}
-				oscillator.stop(fadedInTimes[i + 1]);
 			}
 		} // End for each timbre frame
 
