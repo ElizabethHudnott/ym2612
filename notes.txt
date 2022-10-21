@@ -10,7 +10,9 @@ Algorithms on Other Systems (to consider)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
 
 Distortion (symmetry) modulation?
+
 Timbre frames (Synclavier)
+	Remove 15ms rounding limitation on fade time (except for the last frame)
 
 Option to not reset phase
 Filter key tracking and glide
