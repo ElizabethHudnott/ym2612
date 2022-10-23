@@ -12,7 +12,12 @@ Algorithms on Other Systems (to consider)
 Distortion (symmetry) modulation?
 
 Timbre frames (Synclavier)
-	Remove 15ms rounding limitation on fade time (except for the last frame)
+	Option to disable looping
+	Release (post loop) frames?
+	Integrated FM modulator (sine) with DADSR envelope
+	Fade frequencies?
+	Different sets of timbre frames for different note ranges?
+	Different sets of timbre frames for different velocities?
 
 Option to not reset phase
 Filter key tracking and glide

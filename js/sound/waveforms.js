@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {logToLinear} from './common.js';
+import {logToLinear, gcd} from './common.js';
 
 class AbstractOscillatorFactory {
 
@@ -175,15 +175,35 @@ class TimbreFrame {
 		this.cosines = cosines;
 	}
 
+	effectivePitchRatio() {
+		const harmonics = [];
+		for (let i = 0; i < this.magnitudes.length; i++) {
+			if (this.magnitudes[i] !== 0) {
+				harmonics.push(i + 1);
+			}
+		}
+		switch (harmonics.length) {
+		case 0: return 0;
+		case 1: return harmonics[0] * this.pitchRatio;
+		default:
+			let multiple = gcd(harmonics[0], harmonics[1]);
+			for (let i = 2; i < harmonics.length; i++) {
+				multiple = gcd(multiple, harmonics[i]);
+			}
+			return multiple * this.pitchRatio;
+		}
+	}
+
 }
 
 class TimbreFrameOscillator {
 
 	static #REFERENCE_PITCH = 440 * 2 ** (-9 / 12);		// Middle C in standard tuning (C4)
-	static #TIME_RESOLUTION = 4;	// Allow playing down C2 without loss of resolution
+	// Allow playing up to two octaves lower (C2) without loss of temporal resolution.
+	static #TIME_RESOLUTION = 4;
 
 	constructor() {
-		this.frames = [new TimbreFrame(), new TimbreFrame()];
+		this.frames = [new TimbreFrame()];
 		this.timeScaling = 1;	// Speeds up or slows down all frames
 		this.loopStartFrame = 0;
 		this.bitDepth = 25;
@@ -192,7 +212,7 @@ class TimbreFrameOscillator {
 	}
 
 	async createSample(sampleRate) {
-		// We record with the pitch set at C1 but the timings specified apply to C4.
+		// We record with the pitch set at C2 but the timings specified apply to C4.
 		let timeMultiple = TimbreFrameOscillator.#TIME_RESOLUTION;
 		const notePitch = TimbreFrameOscillator.#REFERENCE_PITCH / timeMultiple;
 		const notePeriod = 1 / notePitch;
@@ -216,19 +236,42 @@ class TimbreFrameOscillator {
 		const holdTimes = new Array(numFrames);
 		for (let i = 0; i < numFrames; i++) {
 			const frame = frames[i];
-			const period = notePeriod / frame.pitchRatio;
+			const pitchRatio = Math.abs(frame.effectivePitchRatio());
 			const fadeIn = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
-			/* When the next oscillator starts fading in (after this one has been faded in and
-			 * held) then we need to have completed a whole number of cycles. */
-			let duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
-			if (duration < fadeIn) {
-				duration += period;
+			let duration = fadeIn + frame.holdTime * timeMultiple;
+
+			if (pitchRatio > 0) {	// i.e. the frame isn't silent.
+				const nextFrameNum = i < numFrames - 1 ? i + 1 : this.loopStartFrame;
+				const nextFrame = frames[nextFrameNum];
+				const nextPitchRatio = Math.abs(nextFrame.effectivePitchRatio());
+
+				if (nextPitchRatio > 0 || frame.fadeTime === 0) {
+					/* When the next oscillator starts fading in (after this one has been faded in
+					 * and held) then we need to have completed a whole number of cycles OR for
+					 * example we can be halfway through a cycle if the frequency ratio is 3:2. Thus
+					 * if the two frames have harmonics in common with the same phases specified
+					 * then the waves will stay phase aligned.
+					 */
+					let period = notePeriod / pitchRatio;
+					if (pitchRatio > nextPitchRatio) {
+						period *= (pitchRatio / nextPitchRatio) % 1;
+					}
+					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
+					if (duration < fadeIn) {
+						duration += period;
+					}
+				}
 			}
 			holdTimes[i] = duration - fadeIn;
 		}
 		if (this.loopStartFrame === numFrames - 1) {
 			// We will loop a single cycle in this case.
-			holdTimes[numFrames - 1] = notePeriod / frames[numFrames - 1].pitchRatio;
+			const pitchRatio = Math.abs(frames[numFrames - 1].effectivePitchRatio());
+			if (pitchRatio === 0) {
+				holdTimes[numFrames - 1] = 1 / sampleRate;
+			} else {
+				holdTimes[numFrames - 1] = notePeriod / pitchRatio;
+			}
 		}
 
 		// Calculate when each frame has faded in and what the total sample length is.

@@ -307,6 +307,7 @@ export {
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
 	gainToOutputLevel, panningMap, makeMathyWave,
+	gcd, lcm,
 	NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
 }
