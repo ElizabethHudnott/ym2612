@@ -437,8 +437,8 @@ const OscillatorFactory = {
 		const sines = new Float32Array(numHarmonics + 1);
 		const cosines = new Float32Array(numHarmonics + 1);
 		for (let i = 0; i < numHarmonics; i++) {
-			const magnitude = magnitudes[i];
-			const phase = (phases[i] + 0.25) / (2 * Math.PI);
+			const magnitude = magnitudes[i] || 0;
+			const phase = ((phases[i] || 0) + 0.25) * (2 * Math.PI);
 			sines[i + 1] = magnitude * Math.sin(phase);
 			cosines[i + 1] = magnitude * Math.cos(phase);
 		}
