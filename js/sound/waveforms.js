@@ -134,32 +134,73 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
 class TimbreFrame {
 
 	constructor() {
-		this.magnitudes = [];
-		this.phases = [];	// Between 0 and 1
 		this.holdTime = 1;
 		this.fadeTime = 0;
 		this.linearFade = true;
 		this.amplitude = 1023;
 		this.pitchRatio = 1;
-		this.sines = undefined;
-		this.cosines = undefined;
 	}
 
 	clone() {
-		const frame = new TimbreFrame();
-		frame.magnitudes = this.magnitudes;
-		frame.phases = this.phases;
+		const constructor = this.constructor;
+		const frame = new constructor();
 		frame.holdTime = this.holdTime;
 		frame.fadeTime = this.fadeTime;
 		frame.linearFade = this.linearFade;
 		frame.amplitude = this.amplitude;
 		frame.pitchRatio = this.pitchRatio;
+		return frame;
+	}
+
+	calculate() {
+		// Override as necessary in the subclasses
+	}
+
+	effectivePitchRatio() {
+		return this.pitchRatio;
+	}
+
+}
+
+class OscillatorTimbreFrame extends TimbreFrame {
+
+	constructor() {
+		super();
+		this.type = 'triangle';
+	}
+
+	clone() {
+		const frame = super.clone();
+		frame.type = this.type;
+		return frame;
+	}
+
+	createSource(context, frequency) {
+		return new OscillatorNode(context, {frequency: frequency, type: this.type});
+	}
+
+}
+
+class HarmonicTimbreFrame extends TimbreFrame {
+
+	constructor() {
+		super();
+		this.magnitudes = [];
+		this.phases = [];	// Between 0 and 1
+		this.sines = undefined;
+		this.cosines = undefined;
+	}
+
+	clone() {
+		const frame = super.clone();
+		frame.magnitudes = this.magnitudes;
+		frame.phases = this.phases;
 		frame.sines = this.sines;
 		frame.cosines = this.cosines;
 		return frame;
 	}
 
-	calculateCoefficients() {
+	calculate() {
 		const magnitudes = this.magnitudes;
 		const phases = this.phases;
 		const numHarmonics = magnitudes.length;
@@ -194,6 +235,11 @@ class TimbreFrame {
 		}
 	}
 
+	createSource(context, frequency) {
+		const wave = new PeriodicWave(context, {real: this.cosines, imag: this.sines});
+		return new OscillatorNode(context, {frequency: frequency, periodicWave: wave});
+	}
+
 }
 
 class TimbreFrameOscillator {
@@ -203,7 +249,7 @@ class TimbreFrameOscillator {
 	static #TIME_RESOLUTION = 4;
 
 	constructor() {
-		this.frames = [new TimbreFrame()];
+		this.frames = [new HarmonicTimbreFrame()];
 		this.timeScaling = 1;	// Speeds up or slows down all frames
 		this.loopStartFrame = 0;
 		this.bitDepth = 25;
@@ -288,18 +334,13 @@ class TimbreFrameOscillator {
 		// Render the audio to a sample.
 		const length = Math.round(totalDuration * sampleRate);
 		const context = new OfflineAudioContext(1, length, sampleRate);
-		const filter = new BiquadFilterNode(context, {frequency: 20000});
-		filter.connect(context.destination);
 
 		for (let i = 0; i < numFrames; i++) {
 			const frame = frames[i];
-			const wave = new PeriodicWave(context, {real: frame.cosines, imag: frame.sines});
-			const oscillator = new OscillatorNode(
-				context, {frequency: notePitch * frame.pitchRatio, periodicWave: wave}
-			);
+			const source = frame.createSource(context, notePitch * frame.pitchRatio);
 			const amplifier = new GainNode(context);
-			oscillator.connect(amplifier);
-			amplifier.connect(filter);
+			source.connect(amplifier);
+			amplifier.connect(context.destination);
 			const gain = amplifier.gain;
 
 			const amplitude = logToLinear(frame.amplitude);
@@ -307,7 +348,7 @@ class TimbreFrameOscillator {
 			const fadeInDuration = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
 
 			const startTime = fadedInTimes[i] - fadeInDuration;
-			oscillator.start(startTime);
+			source.start(startTime);
 			if (fadeInDuration === 0) {
 				gain.setValueAtTime(amplitude, startTime);
 			} else {
@@ -330,7 +371,7 @@ class TimbreFrameOscillator {
 						gain.setTargetAtTime(0, endHold, fadeOutDuration / timeConstants);
 					}
 				}
-				oscillator.stop(fadedInTimes[i + 1]);
+				source.stop(fadedInTimes[i + 1]);
 			}
 		} // End for each timbre frame
 
@@ -610,5 +651,5 @@ Waveform[12] = Waveform.ODD_COSINE;
 
 export {
 	OscillatorFactory, PeriodicOscillatorFactory, singleOscillatorFactory, Waveform,
-	TimbreFrame, TimbreFrameOscillator
+	OscillatorTimbreFrame, HarmonicTimbreFrame, TimbreFrameOscillator
 };

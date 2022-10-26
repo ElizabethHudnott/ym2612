@@ -15,6 +15,7 @@ Distortion (symmetry) modulation?
 
 Timbre frames (Synclavier)
 	Square, triangle & sawtooth frames
+	Single cycle waveform samples as frames
 	Option to set pitch ratio using transpose + detune
 	Option to disable looping (fade out)
 	Release (post loop) frames
@@ -151,7 +152,6 @@ Samples as operator waveforms
 	Only available for an operator that is not modulated by another operator or itself
 	Noise?
 	Custom waveforms?
-		Single sample waveforms?
 
 makeBasicWaveform
 	alternating / invert every x repetitions (see also SY-77 waveforms)
