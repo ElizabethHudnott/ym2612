@@ -167,7 +167,7 @@ class TimbreFrame {
 		const cosines = new Float32Array(numHarmonics + 1);
 		for (let i = 0; i < numHarmonics; i++) {
 			const magnitude = magnitudes[i] || 0;
-			const phase = ((phases[i] || 0) + 0.25) / (2 * Math.PI);
+			const phase = ((phases[i] || 0) + 0.25) * (2 * Math.PI);
 			sines[i + 1] = magnitude * Math.sin(phase);
 			cosines[i + 1] = magnitude * Math.cos(phase);
 		}
@@ -268,7 +268,7 @@ class TimbreFrameOscillator {
 			// We will loop a single cycle in this case.
 			const pitchRatio = Math.abs(frames[numFrames - 1].effectivePitchRatio());
 			if (pitchRatio === 0) {
-				holdTimes[numFrames - 1] = 1 / sampleRate;
+				holdTimes[numFrames - 1] = 2 / sampleRate;
 			} else {
 				holdTimes[numFrames - 1] = notePeriod / pitchRatio;
 			}
@@ -288,6 +288,9 @@ class TimbreFrameOscillator {
 		// Render the audio to a sample.
 		const length = Math.round(totalDuration * sampleRate);
 		const context = new OfflineAudioContext(1, length, sampleRate);
+		const filter = new BiquadFilterNode(context, {frequency: 20000});
+		filter.connect(context.destination);
+
 		for (let i = 0; i < numFrames; i++) {
 			const frame = frames[i];
 			const wave = new PeriodicWave(context, {real: frame.cosines, imag: frame.sines});
@@ -296,19 +299,20 @@ class TimbreFrameOscillator {
 			);
 			const amplifier = new GainNode(context);
 			oscillator.connect(amplifier);
-			amplifier.connect(context.destination);
+			amplifier.connect(filter);
 			const gain = amplifier.gain;
 
 			const amplitude = logToLinear(frame.amplitude);
 			const timeConstants = Math.log(amplitude / minAmplitude);
 			const fadeInDuration = i === 0 ? 0 : frames[i - 1].fadeTime * timeMultiple;
+
 			const startTime = fadedInTimes[i] - fadeInDuration;
 			oscillator.start(startTime);
 			if (fadeInDuration === 0) {
 				gain.setValueAtTime(amplitude, startTime);
 			} else {
 				gain.setValueAtTime(0, startTime);
-				if (frames[i - 1].linearFade) {
+				if (frames[i - 1].linearFade || timeConstants <= 0) {
 					gain.linearRampToValueAtTime(amplitude, fadedInTimes[i]);
 				} else {
 					gain.setTargetAtTime(amplitude, startTime, fadeInDuration / timeConstants);
@@ -316,19 +320,17 @@ class TimbreFrameOscillator {
 			}
 
 			if (i < numFrames - 1) {
-				const endHold = fadedInTimes[i] + holdTimes[i];
-				const fadeOutTime = frame.fadeTime * timeMultiple;
-				if (fadeOutTime > 0) {
-					if (frame.linearFade) {
+				const fadeOutDuration = frame.fadeTime * timeMultiple;
+				if (fadeOutDuration > 0) {
+					const endHold = fadedInTimes[i] + holdTimes[i];
+					if (frame.linearFade || timeConstants <= 0) {
 						gain.setValueAtTime(amplitude, endHold);
 						gain.linearRampToValueAtTime(0, fadedInTimes[i + 1]);
-						oscillator.stop(fadedInTimes[i + 1]);
 					} else {
-						gain.setTargetAtTime(0, endHold, fadeOutTime / timeConstants);
+						gain.setTargetAtTime(0, endHold, fadeOutDuration / timeConstants);
 					}
-				} else {
-					oscillator.stop(fadedInTimes[i + 1]);
 				}
+				oscillator.stop(fadedInTimes[i + 1]);
 			}
 		} // End for each timbre frame
 

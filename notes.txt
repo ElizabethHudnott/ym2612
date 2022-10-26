@@ -8,20 +8,26 @@ Algorithms on Other Systems (to consider)
 	1->2&4, 3->2&4			Algorithm 4 + more (Digitone)
 	1->2&3, 2->3->4		(Digitone)
 	1 -> 2 -> 4, 3 -> 4	(Ableton)
+Then renumber Operator 2 and Operator 3 (switch around)?
+	Affects ym2612.js
 
 Distortion (symmetry) modulation?
 
 Timbre frames (Synclavier)
-	Option to disable looping
-	Release (post loop) frames?
+	Square, triangle & sawtooth frames
+	Option to set pitch ratio using transpose + detune
+	Option to disable looping (fade out)
+	Release (post loop) frames
 	Integrated FM modulator (sine) with DADSR envelope
 	Fade frequencies?
+	Option not to use a sample?
+		But the compromise is that then looping anything other than the last stage isn't possible
 	Different sets of timbre frames for different note ranges?
 	Different sets of timbre frames for different velocities?
+	Resynthesis
 
 Option to not reset phase
 Filter key tracking and glide
-Bug: 2 into 1: inconsistent tone
 fm-x waves
 Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
@@ -145,6 +151,7 @@ Samples as operator waveforms
 	Only available for an operator that is not modulated by another operator or itself
 	Noise?
 	Custom waveforms?
+		Single sample waveforms?
 
 makeBasicWaveform
 	alternating / invert every x repetitions (see also SY-77 waveforms)
