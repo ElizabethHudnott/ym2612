@@ -14,8 +14,11 @@ Then renumber Operator 2 and Operator 3 (switch around)?
 Distortion (symmetry) modulation?
 
 Timbre frames (Synclavier)
-	Square, triangle & sawtooth frames
+	Make temporal resolution a parameter
 	Single cycle waveform samples as frames
+		Or morphing back and forth between two samples (LFO)
+		Interpolating from one frame to the next (wavetable)?
+	Wavefolding and/or distortion changes as frames
 	Option to set pitch ratio using transpose + detune
 	Option to disable looping (fade out)
 	Release (post loop) frames

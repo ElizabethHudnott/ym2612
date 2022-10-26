@@ -299,7 +299,8 @@ class TimbreFrameOscillator {
 					 * then the waves will stay phase aligned.
 					 */
 					let period = notePeriod / pitchRatio;
-					if (pitchRatio > nextPitchRatio) {
+					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0) {
+						// E.g. (3 / 2) % 1 = 0.5
 						period *= (pitchRatio / nextPitchRatio) % 1;
 					}
 					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
