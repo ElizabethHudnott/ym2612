@@ -244,10 +244,6 @@ class HarmonicTimbreFrame extends TimbreFrame {
 
 class TimbreFrameOscillator {
 
-	static #REFERENCE_PITCH = 440 * 2 ** (-9 / 12);		// Middle C in standard tuning (C4)
-	// Allow playing up to two octaves lower (C2) without loss of temporal resolution.
-	static #TIME_RESOLUTION = 4;
-
 	constructor() {
 		this.frames = [new HarmonicTimbreFrame()];
 		this.timeScaling = 1;	// Speeds up or slows down all frames
@@ -257,18 +253,28 @@ class TimbreFrameOscillator {
 		this.loopStartTime = 0;
 	}
 
-	async createSample(sampleRate) {
-		// We record with the pitch set at C2 but the timings specified apply to C4.
-		let timeMultiple = TimbreFrameOscillator.#TIME_RESOLUTION;
-		const notePitch = TimbreFrameOscillator.#REFERENCE_PITCH / timeMultiple;
-		const notePeriod = 1 / notePitch;
-		timeMultiple *= this.timeScaling;
+	/**Depends on the channel's tuning
+	 */
+	async createSample(realtimeAudioContext, channel, recordingNote = 60) {
+		const sampleRate = realtimeAudioContext.sampleRate;
+		const recordingPitch = channel.notePitch(recordingNote);
+		const timeMultiple = channel.notePitch(60) / recordingPitch * this.timeScaling;
+		const notePeriod = 1 / recordingPitch;
 		const minAmplitude = logToLinear(1);
 
-		let numFrames = this.frames.length;
-		let frames;
+		const frames = this.frames.slice();;
+		let numFrames = frames.length;
 		if (this.loopStartFrame === numFrames - 1) {
-			frames = this.frames;
+			const frame = frames[numFrames - 1].clone();
+			frames[numFrames - 1] = frame;
+			const pitchRatio = Math.abs(frame.effectivePitchRatio());
+			if (pitchRatio === 0) {
+				frame.holdTime = (2 / sampleRate) / timeMultiple;
+			} else {
+				// Need a decent length of audio otherwise rounding errors cause detuning / phasing
+				// issues when the waveform is used as an FM modulator.
+				frame.holdTime = 0.4 / timeMultiple;
+			}
 		} else {
 			// Make the beginning and end of the loop seamless.
 			frames = this.frames.slice();
@@ -301,34 +307,28 @@ class TimbreFrameOscillator {
 					let period = notePeriod / pitchRatio;
 					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0) {
 						// E.g. (3 / 2) % 1 = 0.5
-						period *= (pitchRatio / nextPitchRatio) % 1;
+						const modulus = (pitchRatio / nextPitchRatio) % 1;
+						if (modulus > 0) {
+							period *= modulus;
+						}
 					}
 					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
-					if (duration < fadeIn) {
+					if (duration < fadeIn || duration === 0) {
 						duration += period;
 					}
 				}
 			}
 			holdTimes[i] = duration - fadeIn;
 		}
-		if (this.loopStartFrame === numFrames - 1) {
-			// We will loop a single cycle in this case.
-			const pitchRatio = Math.abs(frames[numFrames - 1].effectivePitchRatio());
-			if (pitchRatio === 0) {
-				holdTimes[numFrames - 1] = 2 / sampleRate;
-			} else {
-				holdTimes[numFrames - 1] = notePeriod / pitchRatio;
-			}
-		}
 
 		// Calculate when each frame has faded in and what the total sample length is.
 		const fadedInTimes = new Array(numFrames);
+		fadedInTimes[0] = 0;
 		let totalDuration = 0;
 		for (let i = 0; i < numFrames - 1; i++) {
-			fadedInTimes[i] = totalDuration;
 			totalDuration += holdTimes[i] + frames[i].fadeTime * timeMultiple;
+			fadedInTimes[i + 1] = totalDuration;
 		}
-		fadedInTimes[numFrames - 1] = totalDuration;
 		totalDuration += holdTimes[numFrames - 1];
 		this.loopStartTime = fadedInTimes[this.loopStartFrame];
 
@@ -338,7 +338,7 @@ class TimbreFrameOscillator {
 
 		for (let i = 0; i < numFrames; i++) {
 			const frame = frames[i];
-			const source = frame.createSource(context, notePitch * frame.pitchRatio);
+			const source = frame.createSource(context, recordingPitch * frame.pitchRatio);
 			const amplifier = new GainNode(context);
 			source.connect(amplifier);
 			amplifier.connect(context.destination);

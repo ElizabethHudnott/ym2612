@@ -125,6 +125,12 @@ class AbstractChannel {
 		this.noteFrequencyNumbers = tuning.frequencyNumbers;
 	}
 
+	notePitch(midiNote) {
+		const block = this.noteFreqBlockNumbers[midiNote];
+		const freqNum = this.noteFrequencyNumbers[midiNote];
+		return this.componentsToFullFreq(block, freqNum) * this.synth.frequencyStep;
+	}
+
 	frequencyToNote(block, frequencyNum) {
 		let lb = 0;
 		let ub = 127;

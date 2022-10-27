@@ -34,7 +34,7 @@ export default class Synth {
 		this.referencePitch = 440;
 		this.referenceNote = 69;
 		this.feedbackCallibration = 2.5;
-		this.lfoFirstOnEnabled = 0;
+		this.lfoFirstOnEnabled = 0;	// Bit mask of channel numbers
 		this.keysOn = 0;
 		this.setClockRate(clockRate, clockDivider1, clockDivider2);
 

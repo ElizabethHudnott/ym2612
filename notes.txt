@@ -18,7 +18,7 @@ Timbre frames (Synclavier)
 	Single cycle waveform samples as frames
 		Or morphing back and forth between two samples (LFO)
 		Interpolating from one frame to the next (wavetable)?
-	Wavefolding and/or distortion changes as frames
+	Wavefolding and/or distortion changes as frames?
 	Option to set pitch ratio using transpose + detune
 	Option to disable looping (fade out)
 	Release (post loop) frames
