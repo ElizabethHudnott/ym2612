@@ -14,18 +14,18 @@ Then renumber Operator 2 and Operator 3 (switch around)?
 Distortion (symmetry) modulation?
 
 Timbre frames (Synclavier)
-	Make temporal resolution a parameter
+	Option to crossfade using cos
 	Single cycle waveform samples as frames
-		Or morphing back and forth between two samples (LFO)
+		Or morphing back and forth between two samples (LFO)?
 		Interpolating from one frame to the next (wavetable)?
 	Wavefolding and/or distortion changes as frames?
 	Option to set pitch ratio using transpose + detune
 	Option to disable looping (fade out)
 	Release (post loop) frames
-	Integrated FM modulator (sine) with DADSR envelope
+	Integrated FM modulator (sine) with DADSR envelope and ratio (or fixed/semi-fixed?)
 	Fade frequencies?
-	Option not to use a sample?
-		But the compromise is that then looping anything other than the last stage isn't possible
+	Option not to create a sample?
+		But then the compromise is that looping anything other than the last stage isn't possible (and nor is changing the bit depth)
 	Different sets of timbre frames for different note ranges?
 	Different sets of timbre frames for different velocities?
 	Resynthesis

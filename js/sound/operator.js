@@ -105,6 +105,7 @@ class Operator {
 	copyTo(operator) {
 		operator.detune = this.detune;
 		operator.detune2 = this.detune2;
+		operator.detuneOffset = this.detuneOffset;
 		operator.setTremoloDepth(this.tremoloDepth);
 		operator.envelope.copyTo(this.envelope);
 	}
@@ -521,7 +522,11 @@ export default class FMOperator extends Operator {
 	copyTo(operator) {
 		super.copyTo(operator);
 		operator.setVibratoDepth(this.vibratoDepth);
-		operator.oscillatorFactory = this.oscillatorFactory;
+		if (Object.values(Waveform).includes(this.oscillatorFactory)) {
+			operator.oscillatorFactory = this.oscillatorFactory;
+		} else {
+			operator.oscillatorFactory = this.oscillatorFactory.clone();
+		}
 	}
 
 	start(time) {

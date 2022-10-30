@@ -38,6 +38,10 @@ class SimpleOscillatorFactory extends AbstractOscillatorFactory {
 		return new OscillatorNode(context, {frequency: frequencyOffset, type: this.shape});
 	}
 
+	clone() {
+		return new SimpleOscillatorFactory(this.shape, this.waveShaping, this.bias);
+	}
+
 }
 
 class PeriodicOscillatorFactory extends AbstractOscillatorFactory {
@@ -58,6 +62,12 @@ class PeriodicOscillatorFactory extends AbstractOscillatorFactory {
 		);
 	}
 
+	clone() {
+		const factory = new PeriodicOscillatorFactory(this.sines, this.cosines, this.waveShaping, this.bias);
+		factory.periodicWave = this.periodicWave;
+		return factory;
+	}
+
 }
 
 class DualOscillatorFactory {
@@ -74,6 +84,13 @@ class DualOscillatorFactory {
 		this.frequencyMultiple = frequencyMultiple;
 		this.isOneToN = isOneToN;
 		this.frequencyOffset = frequencyOffset;
+	}
+
+	clone() {
+		return new DualOscillatorFactory(
+			this.oscillator1Factory.clone(), this.oscillator2Shape, this.frequencyMultiple,
+			this.isOneToN, this.frequencyOffset, this.modDepth * 2, this.gain, this.additive
+		);
 	}
 
 	newOscillators(context, operator, time) {
@@ -242,15 +259,68 @@ class HarmonicTimbreFrame extends TimbreFrame {
 
 }
 
-class TimbreFrameOscillator {
+class SampleOscillatorFactory {
+
+	constructor(keyOn) {
+		this.keyOn = keyOn;
+		this.keyOff = undefined;
+	}
+
+	newOscillators(context, operator, time) {
+		const definition = this.keyOn;
+		const source = new AudioBufferSourceNode(audioContext, {
+			buffer: definition.buffer, playbackRate: 0, loop: definition.loop,
+			loopStart: definition.loopStartTime, loopEnd: Number.MAX_VALUE
+		});
+		const rateMultiplier = new GainNode(context, {gain: 1 / definition.recordedPitch});
+		operator.frequencyNode.connect(rateMultiplier);
+		rateMultiplier.connect(source.playbackRate);
+		source.connect(operator.amMod);
+		operator.bias.setValueAtTime(0, time);
+		operator.amMod.gain.setValueAtTime(1, time);
+		source.start(time);
+		return [source];
+	}
+
+}
+
+class SampleSource {
 
 	constructor() {
+		this.buffer = undefined;
+		this.recordedPitch = 440 * 2 ** (-9 / 12);	// C4
+		this.loop = false;
+		this.loopStartTime = 0;
+	}
+
+}
+
+class TimbreFrameOscillatorFactory extends SampleOscillatorFactory {
+	constructor() {
+		super(new TimbreFrameOscillator());
+	}
+}
+
+class TimbreFrameOscillator extends SampleSource {
+
+	constructor() {
+		super();
 		this.frames = [new HarmonicTimbreFrame()];
 		this.timeScaling = 1;	// Speeds up or slows down all frames
+		this.loop = true;
 		this.loopStartFrame = 0;
 		this.bitDepth = 25;
-		this.buffer = undefined;
-		this.loopStartTime = 0;
+	}
+
+	clone() {
+		const oscillator = new TimbreFrameOscillator();
+		oscillator.frames = this.frames.map(frame => frame.clone());
+		oscillator.timeScaling = this.timeScaling;
+		oscillator.loopStartFrame = this.loopStartFrame;
+		oscillator.bitDepth = this.bitDepth;
+		oscillator.buffer = this.buffer;
+		oscillator.loopStartTime = this.loopStartTime;
+		return oscillator;
 	}
 
 	/**Depends on the channel's tuning
@@ -258,11 +328,12 @@ class TimbreFrameOscillator {
 	async createSample(realtimeAudioContext, channel, recordingNote = 60) {
 		const sampleRate = realtimeAudioContext.sampleRate;
 		const recordingPitch = channel.notePitch(recordingNote);
+		this.recordedPitch = recordingPitch;
 		const timeMultiple = channel.notePitch(60) / recordingPitch * this.timeScaling;
 		const notePeriod = 1 / recordingPitch;
 		const minAmplitude = logToLinear(1);
 
-		const frames = this.frames.slice();;
+		let frames = this.frames.slice();;
 		let numFrames = frames.length;
 		if (this.loopStartFrame === numFrames - 1) {
 			const frame = frames[numFrames - 1].clone();
@@ -286,6 +357,7 @@ class TimbreFrameOscillator {
 
 		// Round the timings to align with full numbers of cycles.
 		const holdTimes = new Array(numFrames);
+		let loopOffset = 0;
 		for (let i = 0; i < numFrames; i++) {
 			const frame = frames[i];
 			const pitchRatio = Math.abs(frame.effectivePitchRatio());
@@ -293,7 +365,9 @@ class TimbreFrameOscillator {
 			let duration = fadeIn + frame.holdTime * timeMultiple;
 
 			if (pitchRatio > 0) {	// i.e. the frame isn't silent.
-				const nextFrameNum = i < numFrames - 1 ? i + 1 : this.loopStartFrame;
+				const period = notePeriod / pitchRatio;
+				const isLastFrame = i === numFrames - 1;
+				const nextFrameNum = isLastFrame ? this.loopStartFrame : i + 1;
 				const nextFrame = frames[nextFrameNum];
 				const nextPitchRatio = Math.abs(nextFrame.effectivePitchRatio());
 
@@ -304,18 +378,25 @@ class TimbreFrameOscillator {
 					 * if the two frames have harmonics in common with the same phases specified
 					 * then the waves will stay phase aligned.
 					 */
-					let period = notePeriod / pitchRatio;
-					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0) {
+					let subperiod = period;
+					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0 &&	!isLastFrame) {
 						// E.g. (3 / 2) % 1 = 0.5
 						const modulus = (pitchRatio / nextPitchRatio) % 1;
 						if (modulus > 0) {
-							period *= modulus;
+							subperiod *= modulus;
 						}
 					}
-					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / period) * period;
+					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / subperiod) * subperiod;
 					if (duration < fadeIn || duration === 0) {
 						duration += period;
 					}
+					if (isLastFrame) {
+						duration += loopOffset;
+					}
+				}
+
+				if (i === this.loopStartFrame) {
+					loopOffset = fadeIn % period;
 				}
 			}
 			holdTimes[i] = duration - fadeIn;
@@ -541,6 +622,10 @@ const OscillatorFactory = {
 		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);
 	},
 
+	timbreFrames: function() {
+		return new TimbreFrameOscillatorFactory();
+	}
+
 }
 
 const W2_COEFFICIENTS = [1, 0, -0.19, 0, 0.03, 0, -0.01];
@@ -652,5 +737,5 @@ Waveform[12] = Waveform.ODD_COSINE;
 
 export {
 	OscillatorFactory, PeriodicOscillatorFactory, singleOscillatorFactory, Waveform,
-	OscillatorTimbreFrame, HarmonicTimbreFrame, TimbreFrameOscillator
+	OscillatorTimbreFrame, HarmonicTimbreFrame
 };

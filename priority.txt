@@ -27,6 +27,5 @@ testing
 Make envelope diagram dynamic
 Add "Key On" and "Key Off" annotations to envelope diagram
 tremolo & auto pan phase offset
-feedback strength when n=7
 Reading .value is broken in chrome
 linearValueAtTime - check values saved appropriately
