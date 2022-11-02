@@ -204,8 +204,8 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		super();
 		this.magnitudes = [];
 		this.phases = [];	// Between 0 and 1
-		this.sines = undefined;
-		this.cosines = undefined;
+		this.sines = new Float32Array([0, 0]);
+		this.cosines = new Float32Array([0, 0]);
 	}
 
 	clone() {
@@ -333,9 +333,16 @@ class TimbreFrameOscillator extends SampleSource {
 		const notePeriod = 1 / recordingPitch;
 		const minAmplitude = logToLinear(1);
 
-		let frames = this.frames.slice();;
+		const frames = this.frames.slice();;
 		let numFrames = frames.length;
-		if (this.loopStartFrame === numFrames - 1) {
+		let loopStartFrame = this.loopStartFrame;
+		if (!this.loop) {
+			const silentFrame = new HarmonicTimbreFrame();
+			silentFrame.holdTime = 0;
+			frames.push(silentFrame);
+			numFrames++;
+			loopStartFrame = numFrames - 1;
+		} else if (loopStartFrame === numFrames - 1) {
 			const frame = frames[numFrames - 1].clone();
 			frames[numFrames - 1] = frame;
 			const pitchRatio = Math.abs(frame.effectivePitchRatio());
@@ -348,8 +355,7 @@ class TimbreFrameOscillator extends SampleSource {
 			}
 		} else {
 			// Make the beginning and end of the loop seamless.
-			frames = this.frames.slice();
-			const loopTransition = frames[this.loopStartFrame].clone();
+			const loopTransition = frames[loopStartFrame].clone();
 			loopTransition.holdTime = 0;
 			frames.push(loopTransition);
 			numFrames++;
@@ -367,7 +373,7 @@ class TimbreFrameOscillator extends SampleSource {
 			if (pitchRatio > 0) {	// i.e. the frame isn't silent.
 				const period = notePeriod / pitchRatio;
 				const isLastFrame = i === numFrames - 1;
-				const nextFrameNum = isLastFrame ? this.loopStartFrame : i + 1;
+				const nextFrameNum = isLastFrame ? loopStartFrame : i + 1;
 				const nextFrame = frames[nextFrameNum];
 				const nextPitchRatio = Math.abs(nextFrame.effectivePitchRatio());
 
@@ -395,7 +401,7 @@ class TimbreFrameOscillator extends SampleSource {
 					}
 				}
 
-				if (i === this.loopStartFrame) {
+				if (i === loopStartFrame) {
 					loopOffset = fadeIn % period;
 				}
 			}
@@ -411,7 +417,7 @@ class TimbreFrameOscillator extends SampleSource {
 			fadedInTimes[i + 1] = totalDuration;
 		}
 		totalDuration += holdTimes[numFrames - 1];
-		this.loopStartTime = fadedInTimes[this.loopStartFrame];
+		this.loopStartTime = fadedInTimes[loopStartFrame];
 
 		// Render the audio to a sample.
 		const length = Math.round(totalDuration * sampleRate);
