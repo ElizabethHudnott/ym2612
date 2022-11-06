@@ -593,10 +593,16 @@ const OscillatorFactory = {
 	// Waveforms from FS1R and FM-X, although the same concept exists in Ableton but by a
 	// different name. E.g. Ableton's "Saw 6" = all1(5).
 
-	/**First N overtones of a sawtooth wave. The fundamental is also included as well as the N
-	 * overtones.
-	 * Ableton has presets for 2, 3, 5, 7, 15, 31 & 63.
+	/**First N overtones of a sawtooth wave or something similar. The fundamental is also
+	 * included as well as the N overtones.
+	 * Ableton has presets for skirt values of 2, 3, 5, 7, 15, 31 & 63.
 	 * Korg opsix has a preset for 4.
+	 *
+	 * @param {number} skirt The number of overtones.
+	 * @param {number} curve The strength of the power curve. A value of 1 produces a normal
+	 * sawtooth wave with overtone levels 1/2, 1/3... A value of 2 uses a 1 / N**2 relationship.
+	 * @param {number} bias An integer that moves the position of the strongest overtone.
+	 * @param {boost} Raises (or lowers) the amplitude of the fundamental.
 	 */
 	all1: function (skirt, curve = 1, bias = 0, boost = 0) {
 		const length = skirt + 2;
@@ -623,25 +629,41 @@ const OscillatorFactory = {
 		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);
 	},
 
-	/**First N overtones of a square wave. The fundamental is also included as well as the N
-	 * overtones.
+	/**First N overtones of a square wave, a triangle wave or something similar. The fundamental
+	 * is also included as well as the N overtones.
 	 * Ableton has presets for 2, 3, 5, 7, 15, 31 & 63.
+	 *
+	 * @param {boolean} phaseFlip true produces triangle like shapes (when curve equals 2),
+	 * false produces square like shapes.
 	 */
-	odd1: function (skirt) {
+	odd1: function (skirt, phaseFlip = false, curve = 1, bias = 0, boost = 0) {
+		bias *= 2;
+		boost *= 2;
 		const length = 2 + 2 * skirt;
 		const coefficients = new Float32Array(length);
+		const signMultiplier = phaseFlip ? -1 : 1;
+		coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
+		let sign = 1;
 		// E.g. skirt = 1 means the 1st and 3rd are harmonics present, array indices 0..3, length 4
-		for (let i = 0; i <= skirt; i++) {
-			coefficients[2 * i + 1] = 1 / (2 * i + 1);
+		for (let i = 1; i <= skirt; i++) {
+			coefficients[2 * i + 1] = sign / (weighHarmonic(2 * i + 1, bias) ** curve);
+			sign *= signMultiplier;
 		}
 		return new PeriodicOscillatorFactory(coefficients, new Float32Array(length));
 	},
 
-	coOdd1: function (skirt) {
+	coOdd1: function (skirt, phaseFlip = false, curve = 1, bias = 0, boost = 0) {
+		bias *= 2;
+		boost *= 2;
 		const length = 2 + 2 * skirt;
 		const coefficients = new Float32Array(length);
-		for (let i = 0; i <= skirt; i++) {
-			coefficients[2 * i + 1] = 1;
+		const signMultiplier = phaseFlip ? -1 : 1;
+		coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
+		let sign = 1;
+		// E.g. skirt = 1 means the 1st and 3rd are harmonics present, array indices 0..3, length 4
+		for (let i = 1; i <= skirt; i++) {
+			coefficients[2 * i + 1] = sign * i / (weighHarmonic(2 * i + 1, bias) ** curve);
+			sign *= signMultiplier;
 		}
 		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);
 	},
