@@ -477,6 +477,22 @@ class TimbreFrameOscillator extends SampleSource {
 
 }
 
+function weighHarmonic(n, bias) {
+	let weight = n - bias;
+	if (weight <= 0) {
+		weight = 2 - weight;
+	}
+	return weight;
+}
+
+function weighFundamental(boost) {
+	if (boost >= 0) {
+		return boost + 1;
+	} else {
+		return 1 / (1 - boost);
+	}
+}
+
 const OscillatorFactory = {
 
 	mono: function (shape, waveShaping = false) {
@@ -582,24 +598,26 @@ const OscillatorFactory = {
 	 * Ableton has presets for 2, 3, 5, 7, 15, 31 & 63.
 	 * Korg opsix has a preset for 4.
 	 */
-	all1: function (skirt) {
+	all1: function (skirt, curve = 1, bias = 0, boost = 0) {
 		const length = skirt + 2;
 		const coefficients = new Float32Array(length);
-		let sign = -1;
+		coefficients[1] = -(weighFundamental(boost) ** curve);
+		let sign = 1;
 		// E.g. skirt = 1 means the 1st and 2nd harmonics are present, array indices 0..2, length 3
-		for (let i = 1; i <= skirt + 1; i++) {
-			coefficients[i] = sign / i;
+		for (let i = 2; i <= skirt + 1; i++) {
+			coefficients[i] = sign / (weighHarmonic(i, bias) ** curve);
 			sign *= -1;
 		}
 		return new PeriodicOscillatorFactory(coefficients, new Float32Array(length));
 	},
 
-	coAll1: function (skirt) {
+	coAll1: function (skirt, curve = 1, bias = 0, boost = 0) {
 		const length = skirt + 2;
 		const coefficients = new Float32Array(length);
-		let sign = -1;
-		for (let i = 1; i <= skirt + 1; i++) {
-			coefficients[i] = sign;
+		coefficients[1] = -(weighFundamental(boost) ** curve);
+		let sign = 1;
+		for (let i = 2; i <= skirt + 1; i++) {
+			coefficients[i] = sign * i /  (weighHarmonic(i, bias) ** curve);
 			sign *= -1;
 		}
 		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);

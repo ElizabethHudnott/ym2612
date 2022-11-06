@@ -65,7 +65,6 @@ class NoiseChannel {
 		return new AudioBufferSourceNode(context, {
 			buffer: this.buffers[this.waveform],
 			loop: true,
-			loopEnd: Number.MAX_VALUE,
 			playbackRate: 0,
 		});
 	}

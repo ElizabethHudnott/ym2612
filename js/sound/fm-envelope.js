@@ -277,9 +277,9 @@ export default class Envelope {
 			function playSample(args) {
 				const buffer = args[0];
 				const baseRate = args[1];
-				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick * me.envelopeRate / 6;
+				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick * me.envelopeRate / 4;
 				const sampleNode = new AudioBufferSourceNode(context,
-					{buffer: buffer, loop: true, loopEnd: Number.MAX_VALUE, playbackRate: playbackRate}
+					{buffer: buffer, loop: true, playbackRate: playbackRate}
 				);
 				sampleNode.connect(me.shaper);
 				sampleNode.start(endAttack);
@@ -313,25 +313,29 @@ export default class Envelope {
 			return;
 		}
 
-		if (this.decayRate === 0) {
-			let endTime;
-			if (invert) {
-				endTime = endAttack;
-				this.channel.scheduleSoundOff(operator, endAttack);
-			} else {
-				endTime = Infinity;
+		let endDecay = endAttack;
+		const sustain = invert ? 1023 - this.sustain : this.sustain;
+
+		if (this.sustain < 1023) {
+			if (this.decayRate === 0) {
+				let endTime;
+				if (invert) {
+					endTime = endAttack;
+					this.channel.scheduleSoundOff(operator, endAttack);
+				} else {
+					endTime = Infinity;
+				}
+				this.endDecay = endTime;
+				this.endSustain = endTime;
+				return;
 			}
-			this.endDecay = endTime;
-			this.endSustain = endTime;
-			return;
+
+			endDecay += this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / envelopeRate;
+			gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		}
 
-		const decay = this.decayTime(1023, this.sustain, this.decayRate, rateAdjust) / envelopeRate;
-		const endDecay = endAttack + decay;
-		const sustain = invert ? 1023 - this.sustain : this.sustain;
-		let finalValue = invert ? 1 : 0
-		gain.linearRampToValueAtTime(sustain / 1023, endDecay);
 		this.endDecay = endDecay;
+		let finalValue = invert ? 1 : 0
 		let endSustain = endDecay;
 		if (this.sustainRate === 0) {
 
@@ -649,13 +653,13 @@ export default class Envelope {
 			this.inverted = mode >= 4;
 			this.jump = [0, 3, 4, 7].includes(mode);
 			this.looping = mode % 2 === 0;
-			this.envelopeRate = 6;
+			this.envelopeRate = 4;
 		}
 	}
 
 	getSSG() {
 		const value =
-			8 * (this.inverted || this.jump || this.looping || this.envelopeRate === 6) +
+			8 * (this.inverted || this.jump || this.looping || this.envelopeRate === 4) +
 			4 * this.inverted +
 			!this.looping +
 			2 * (this.looping ^ this.jump);
@@ -663,12 +667,11 @@ export default class Envelope {
 	}
 
 	setEnvelopeRate(rate) {
-		this.envelopeRate = rate < 0 ? -1 / rate : rate;
+		this.envelopeRate = rate;
 	}
 
 	getEnvelopeRate() {
-		const rate = this.envelopeRate;
-		return rate < 1 ? Math.round(-10 / rate) / 10 : rate;
+		return this.envelopeRate;
 	}
 
 	static async makeSSGSample(decayRate, sustainLevel, sustainRate, invert, mirror, sampleRate) {
@@ -676,33 +679,35 @@ export default class Envelope {
 		let sustainPower = Math.trunc(-sustainRate / 4) + 14;
 		// Subtract 3 because the deduction of 4, 5, 6 or 7 must be spread out over 8 steps.
 		let commonPower = Math.min(decayPower, sustainPower) - 3;
-		const playbackRate = 2 ** -commonPower;
 
 		let decayMod = Envelope.incrementMultiple[decayRate];
 		let sustainMod = Envelope.incrementMultiple[sustainRate];
-		const totalMod = decayMod + sustainMod;
-		if (totalMod === 4 || totalMod === 8) {
-			/* Instead of 4 steps out of every 8, change to 1 step out of every 2
-			 * (repeating 01 pattern). totalMod equal to 4 implies decay to silence, no sustain.
-			 */
-			decayMod = 1;
-			sustainMod = 1;
-			commonPower += 2;
-		} else if (totalMod === 6 || totalMod === 12) {
-			/* Instead of 6 steps out of every 8, change to 3 steps out of every 4
-			 * (repeating 0111 pattern).
-			 */
-			decayMod = 3;
-			sustainMod = 3;
-			commonPower++;
+		if (decayRate < 48 && sustainRate < 48) {
+			const totalMod = decayMod + sustainMod;
+			if (totalMod === 4 || totalMod === 8) {
+				/* Instead of 4 steps out of every 8, change to 1 step out of every 2
+				 * (repeating 01 pattern). totalMod equal to 4 implies decay to silence, no sustain.
+				 */
+				decayMod = 1;
+				sustainMod = 1;
+				commonPower += 2;
+			} else if (totalMod === 6 || totalMod === 12) {
+				/* Instead of 6 steps out of every 8, change to 3 steps out of every 4
+				 * (repeating 0111 pattern).
+				 */
+				decayMod = 3;
+				sustainMod = 3;
+				commonPower++;
+			}
 		}
 
 		decayPower -= commonPower;
 		sustainPower -= commonPower;
+		const playbackRate = 2 ** -commonPower;
 
-		// SSG operates 6 times faster than the normal envelope.
-		const decayGradient = (2 ** decayPower) / (6 * decayMod);
-		const sustainGradient = (2 ** sustainPower) / (6 * sustainMod);
+		// SSG operates 4 times faster than the normal envelope.
+		const decayGradient = (2 ** decayPower) / (4 * decayMod);
+		const sustainGradient = (2 ** sustainPower) / (4 * sustainMod);
 		const decaySteps = Math.ceil((1023 - sustainLevel) * decayGradient);
 		// Handle case when the gradient is infinite.
 		const sustainSteps = sustainLevel === 0 ? 0 : Math.ceil(sustainLevel * sustainGradient);
@@ -737,33 +742,29 @@ export default class Envelope {
 		return [buffer, playbackRate];
 	}
 
-	static attackTarget = [1032.48838867428, 1032.48838867428, 1032.48838867428,
-	1032.48838867428, 1032.53583418919, 1032.53583418919, 1032.48838867428, 1032.47884850242,
-	1032.53583418919, 1032.32194631456, 1032.48838867428, 1032.47884850242, 1032.53583418919,
-	1032.32194631456, 1032.48838867428, 1032.47884850242, 1032.53583418919, 1032.32194631456,
-	1032.48838867428, 1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48838867428,
-	1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48838867428, 1032.47884850242,
-	1032.53583418919, 1032.32194631456, 1032.48838867428, 1032.47884850242, 1032.53583418919,
-	1032.32194631456, 1032.48838867428, 1032.47884850242, 1032.53583418919, 1032.32194631456,
-	1032.48838867428, 1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48838867428,
-	1032.47884850242, 1032.53583418919, 1032.32194631456, 1032.48840023324, 1031.31610973218,
-	1031.52352501199, 1031.65420794345, 1033.03574873511, 1033.43041057801, 1033.37306598363,
-	1035.4171820433, 1035.39653268357, 1034.15032097183, 1032.96478469666, 1029.17518847789,
-	1030.84690128005, 1030.84690128005];
+	static attackTarget = [1031.35080816652, 1031.35080816652, 1031.35080816652,
+		1031.35080816652, 1031.73435424707, 1031.73435424707, 1031.35080816652, 1032.58155562439,
+		1031.73435424707, 1032.11316327778, 1031.35080816652, 1032.58155562439, 1031.73435424707,
+		1032.11316327778, 1031.35080816652, 1032.58155562439, 1031.73435424707, 1032.11316327778,
+		1031.35080816652, 1032.58155562439, 1031.73435424707, 1032.11316327778, 1031.35080816652,
+		1032.58155562439, 1031.73435424707, 1032.11316327778, 1031.35080816652, 1032.58155562439,
+		1031.73435424707, 1032.11316327778, 1031.35080816652, 1032.58155562439, 1031.73435424707,
+		1032.11316327778, 1031.35080816652, 1032.58155562439, 1031.73435424707, 1032.11316327778,
+		1031.35080816652, 1032.58155562439, 1031.73435424707, 1032.11316327778, 1031.35080816652,
+		1032.58155562439, 1031.73435424707, 1032.11316327778, 1031.37736064289, 1031.0567507854,
+		1029.12898814609, 1028.94703231102, 1027.67099790401, 1027.72580631523, 1026.45148465419,
+		1026.50415386141, 1025.41163434871, 1027.86242754534, 1026.63986469481, 1027.890542526,
+		1023.99999187562, 1023.99999187562];
 
-	static attackConstant = [63279.2004921133, 63279.2004921133, 31639.6002460567,
-	31639.6002460567, 21091.98357754, 21091.98357754, 15819.8001230283, 12657.5084839186,
-	10545.99178877, 9032.5441919039, 7909.90006151416, 6328.75424195932, 5272.995894385,
-	4516.27209595195, 3954.95003075708, 3164.37712097966, 2636.4979471925, 2258.13604797597,
-	1977.47501537854, 1582.18856048983, 1318.24897359625, 1129.06802398799, 988.73750768927,
-	791.094280244915, 659.124486798125, 564.534011993994, 494.368753844635, 395.547140122458,
-	329.562243399062, 282.267005996997, 247.184376922318, 197.773570061229, 164.781121699531,
-	141.133502998498, 123.592188461159, 98.8867850306144, 82.3905608497656, 70.5667514992492,
-	61.7960942305794, 49.4433925153072, 41.1952804248828, 35.2833757496246, 30.8980471152897,
-	24.7216962576536, 20.5976402124414, 17.6416878748123, 15.4490240655454, 12.2013635004957,
-	10.1012241857225, 8.60768940429353, 7.51608965104502, 5.82598001278768, 4.78058630318776,
-	4.03544786153862, 3.49406413913649, 2.59733598774052, 2.05386854284152, 1.6949173421721,
-	1.42848405503094, 1.42848405503094];
+	static attackConstant = [63342.1824, 63342.1824, 31671.0912, 31671.0912, 21030.516736,
+		21030.516736, 15835.5456, 12800.061952, 10515.258368, 9093.285376, 7917.7728,
+		6400.030976, 5257.629184, 4546.642688, 3958.8864, 3200.015488, 2628.814592, 2273.321344,
+		1979.4432, 1600.007744, 1314.407296, 1136.660672, 989.7216, 800.003872, 657.203648,
+		568.330336, 494.8608, 400.001936, 328.601824, 284.165168, 247.4304, 200.000968,
+		164.300912, 142.082584, 123.7152, 100.000484, 82.150456, 71.041292, 61.8576, 50.000242,
+		41.075228, 35.520646, 30.9288, 25.000121, 20.537614, 17.760323, 15.459874, 12.36647,
+		10.149434, 8.732101, 7.41609, 6.131475, 4.916543, 4.225378, 3.469615, 2.988588,
+		2.304106638424, 2.05685878677022, 1.44269335182259, 1.44269335182259];
 
 }
 
