@@ -147,6 +147,59 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
 	}
 }
 
+/* Functions for quickly creating a bunch of magnitudes and phases of harmonics from a set of
+ * macro parameters.
+ */
+
+function weighHarmonic(n, bias) {
+	let weight = n - bias;
+	if (weight <= 0) {
+		weight = 2 - weight;
+	}
+	return weight;
+}
+
+function weighFundamental(boost) {
+	if (boost >= 0) {
+		return boost + 1;
+	} else {
+		return 1 / (1 - boost);
+	}
+}
+
+/**First N overtones of a sawtooth wave, square wave, triangle wave or something similar.
+ * The fundamental is also included as well as the N overtones.
+ *
+ * For modulus = 1 (sawtooth like waves):
+ * 	Ableton has presets for skirt values of 2, 3, 5, 7, 15, 31 & 63. (i.e. Saw 3, Saw 4...)
+ * 	Korg opsix has a preset for 4.
+ *
+ * For modulus = 2 (square like waves):
+ * 	Ableton has presets for 2, 3, 5, 7, 15, 31 & 63 (i.e. Square 3, Square 4...)
+ *
+ * @param {boolean} phaseFlip true produces triangle like shapes (when modulus and curve are
+ * both set to 2), and false produces square like shapes.
+ */
+function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
+	bias *= modulus;
+	boost *= modulus;
+	const length = 2 + modulus * skirt;
+	const coefficients = new Float32Array(length);
+	const signMultiplier = phaseFlip ? -1 : 1;
+	coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
+	let sign = 1;
+	/* Examples:
+	 * modulus = 1, skirt = 1 means:
+	 * 	1st and 2nd harmonics are present, array indices 0..2, length 3
+	 * modulus = 2, skirt = 1 means:
+	 * 	1st and 3rd are harmonics present, array indices 0..3, length 4
+	 */
+	for (let i = 1; i <= skirt; i++) {
+		coefficients[modulus * i + 1] = sign / (weighHarmonic(modulus * i + 1, bias) ** curve);
+		sign *= signMultiplier;
+	}
+	return coefficients;
+}
 
 class TimbreFrame {
 
@@ -217,6 +270,16 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		return frame;
 	}
 
+	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
+		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, bias, boost).slice(1);
+		const length = magnitudes.length;
+		const phases = new Array(length);
+		phases.fill(0);
+		this.magnitudes = magnitudes;
+		this.phases = phases;
+		this.calculate();
+	}
+
 	calculate() {
 		const magnitudes = this.magnitudes;
 		const phases = this.phases;
@@ -224,8 +287,12 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		const sines = new Float32Array(numHarmonics + 1);
 		const cosines = new Float32Array(numHarmonics + 1);
 		for (let i = 0; i < numHarmonics; i++) {
-			const magnitude = magnitudes[i] || 0;
-			const phase = ((phases[i] || 0) + 0.25) * (2 * Math.PI);
+			let magnitude = magnitudes[i] || 0;
+			let phase = ((phases[i] || 0) + 0.25) * (2 * Math.PI);
+			if (magnitude < 0) {
+				magnitudes[i] = -magnitude;
+				phases[i] = (phase + 0.5) % 1;
+			}
 			sines[i + 1] = magnitude * Math.sin(phase);
 			cosines[i + 1] = magnitude * Math.cos(phase);
 		}
@@ -477,22 +544,6 @@ class TimbreFrameOscillator extends SampleSource {
 
 }
 
-function weighHarmonic(n, bias) {
-	let weight = n - bias;
-	if (weight <= 0) {
-		weight = 2 - weight;
-	}
-	return weight;
-}
-
-function weighFundamental(boost) {
-	if (boost >= 0) {
-		return boost + 1;
-	} else {
-		return 1 / (1 - boost);
-	}
-}
-
 const OscillatorFactory = {
 
 	mono: function (shape, waveShaping = false) {
@@ -590,82 +641,21 @@ const OscillatorFactory = {
 		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
-	// Waveforms from FS1R and FM-X, although the same concept exists in Ableton but by a
-	// different name. E.g. Ableton's "Saw 6" = all1(5).
 
-	/**First N overtones of a sawtooth wave or something similar. The fundamental is also
-	 * included as well as the N overtones.
-	 * Ableton has presets for skirt values of 2, 3, 5, 7, 15, 31 & 63.
-	 * Korg opsix has a preset for 4.
-	 *
-	 * @param {number} skirt The number of overtones.
-	 * @param {number} curve The strength of the power curve. A value of 1 produces a normal
-	 * sawtooth wave with overtone levels 1/2, 1/3... A value of 2 uses a 1 / N**2 relationship.
-	 * @param {number} bias An integer that moves the position of the strongest overtone.
-	 * @param {boost} Raises (or lowers) the amplitude of the fundamental.
-	 */
-	all1: function (skirt, curve = 1, bias = 0, boost = 0) {
-		const length = skirt + 2;
-		const coefficients = new Float32Array(length);
-		coefficients[1] = -(weighFundamental(boost) ** curve);
-		let sign = 1;
-		// E.g. skirt = 1 means the 1st and 2nd harmonics are present, array indices 0..2, length 3
-		for (let i = 2; i <= skirt + 1; i++) {
-			coefficients[i] = sign / (weighHarmonic(i, bias) ** curve);
-			sign *= -1;
-		}
-		return new PeriodicOscillatorFactory(coefficients, new Float32Array(length));
+	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
+		const sines = spectrum(skirt, modulus, phaseFlip, curve, bias, boost);
+		const cosines = new Float32Array(sines.length);
+		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
-	coAll1: function (skirt, curve = 1, bias = 0, boost = 0) {
-		const length = skirt + 2;
-		const coefficients = new Float32Array(length);
-		coefficients[1] = -(weighFundamental(boost) ** curve);
-		let sign = 1;
-		for (let i = 2; i <= skirt + 1; i++) {
-			coefficients[i] = sign * i /  (weighHarmonic(i, bias) ** curve);
-			sign *= -1;
+	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
+		const cosines = spectrum(skirt, modulus, phaseFlip, curve, bias, boost);
+		const length = cosines.length;
+		const sines = new Float32Array(length);
+		for (let i = 2; i < length; i++) {
+			cosines[i] *= i;
 		}
-		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);
-	},
-
-	/**First N overtones of a square wave, a triangle wave or something similar. The fundamental
-	 * is also included as well as the N overtones.
-	 * Ableton has presets for 2, 3, 5, 7, 15, 31 & 63.
-	 *
-	 * @param {boolean} phaseFlip true produces triangle like shapes (when curve equals 2),
-	 * false produces square like shapes.
-	 */
-	odd1: function (skirt, phaseFlip = false, curve = 1, bias = 0, boost = 0) {
-		bias *= 2;
-		boost *= 2;
-		const length = 2 + 2 * skirt;
-		const coefficients = new Float32Array(length);
-		const signMultiplier = phaseFlip ? -1 : 1;
-		coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
-		let sign = 1;
-		// E.g. skirt = 1 means the 1st and 3rd are harmonics present, array indices 0..3, length 4
-		for (let i = 1; i <= skirt; i++) {
-			coefficients[2 * i + 1] = sign / (weighHarmonic(2 * i + 1, bias) ** curve);
-			sign *= signMultiplier;
-		}
-		return new PeriodicOscillatorFactory(coefficients, new Float32Array(length));
-	},
-
-	coOdd1: function (skirt, phaseFlip = false, curve = 1, bias = 0, boost = 0) {
-		bias *= 2;
-		boost *= 2;
-		const length = 2 + 2 * skirt;
-		const coefficients = new Float32Array(length);
-		const signMultiplier = phaseFlip ? -1 : 1;
-		coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
-		let sign = 1;
-		// E.g. skirt = 1 means the 1st and 3rd are harmonics present, array indices 0..3, length 4
-		for (let i = 1; i <= skirt; i++) {
-			coefficients[2 * i + 1] = sign * i / (weighHarmonic(2 * i + 1, bias) ** curve);
-			sign *= signMultiplier;
-		}
-		return new PeriodicOscillatorFactory(new Float32Array(length), coefficients);
+		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
 	timbreFrames: function() {
@@ -737,8 +727,8 @@ const Waveform = {
 	SQUARE12:		OscillatorFactory.additive2('square', false, 0, 'square', 2),
 	SAW12:			OscillatorFactory.additive2('sawtooth', false, 0, 'sawtooth', 2, false, 4/3),
 
-	SINE12345:		OscillatorFactory.all1(4),
-	COSINE12345:	OscillatorFactory.coAll1(4),
+	SINE12345:		OscillatorFactory.spectral(4),
+	COSINE12345:	OscillatorFactory.cospectral(4),
 
 	SINE12:			OscillatorFactory.additiveSin([1, 1]),
 	COSINE12:		OscillatorFactory.additiveCos([1, 2]),

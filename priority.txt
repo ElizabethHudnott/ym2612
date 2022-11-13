@@ -3,6 +3,7 @@ Bugs
 Only respond to MIDI when visible/active?
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all (reset) operators
 delay stage should happen after dampening
+Dampening phase should only apply when attenuation is < 0x200
 SSG loop should include attack phase (modes 0 and 4) (but it isn't 4x faster)
 SSG should only run at 4x speed while attenuation is < 0x200
 Oscillator phase should reset on each SSG loop for modes 0 and 4

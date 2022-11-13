@@ -60,6 +60,7 @@ Bug: inconsistent tone (less frequent when soloed)
 Option to glide by a fixed number of semitones (better for poly)
 	See Pre-Glide on Novation Peak
 
+Dampening phase should only apply when attenuation is < 0x200
 When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
 	delay stage should happen after dampening (but not have rate scaling applied?)
 	add initial phase parameter

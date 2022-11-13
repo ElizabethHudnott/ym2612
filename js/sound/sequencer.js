@@ -17,6 +17,7 @@ class Cell {
 		this.delay = 0;
 		// MIDI note number or undefined for no change in pitch
 		this.note = undefined;
+		// Velocity
 		// 0 indicates a rest, 1-127 triggers a note with the specified velocity,
 		// undefined = no action
 		this.velocity = undefined;
