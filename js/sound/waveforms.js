@@ -151,8 +151,8 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
  * macro parameters.
  */
 
-function weighHarmonic(n, bias) {
-	let weight = n - bias;
+function weighHarmonic(n, centre) {
+	let weight = n - (centre - 1);
 	if (weight <= 0) {
 		weight = 2 - weight;
 	}
@@ -178,10 +178,10 @@ function weighFundamental(boost) {
  * 	Ableton has presets for 2, 3, 5, 7, 15, 31 & 63 (i.e. Square 3, Square 4...)
  *
  * @param {boolean} phaseFlip true produces triangle like shapes (when modulus and curve are
- * both set to 2), and false produces square like shapes.
+ * both set to 2), and false produces square like shapes. Should be true when modulus is odd.
  */
-function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
-	bias *= modulus;
+function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
+	centre = (centre - 1) * modulus + 1;
 	boost *= modulus;
 	const length = 2 + modulus * skirt;
 	const coefficients = new Float32Array(length);
@@ -195,7 +195,7 @@ function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, b
 	 * 	1st and 3rd are harmonics present, array indices 0..3, length 4
 	 */
 	for (let i = 1; i <= skirt; i++) {
-		coefficients[modulus * i + 1] = sign / (weighHarmonic(modulus * i + 1, bias) ** curve);
+		coefficients[modulus * i + 1] = sign / (weighHarmonic(modulus * i + 1, centre) ** curve);
 		sign *= signMultiplier;
 	}
 	return coefficients;
@@ -270,8 +270,8 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		return frame;
 	}
 
-	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
-		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, bias, boost).slice(1);
+	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
+		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, centre, boost).slice(1);
 		const length = magnitudes.length;
 		const phases = new Array(length);
 		phases.fill(0);
@@ -642,14 +642,14 @@ const OscillatorFactory = {
 	},
 
 
-	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
-		const sines = spectrum(skirt, modulus, phaseFlip, curve, bias, boost);
+	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
+		const sines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost);
 		const cosines = new Float32Array(sines.length);
 		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
-	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, bias = 0, boost = 0) {
-		const cosines = spectrum(skirt, modulus, phaseFlip, curve, bias, boost);
+	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
+		const cosines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost);
 		const length = cosines.length;
 		const sines = new Float32Array(length);
 		for (let i = 2; i < length; i++) {
