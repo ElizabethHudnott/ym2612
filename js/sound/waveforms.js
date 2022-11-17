@@ -180,13 +180,14 @@ function weighFundamental(boost) {
  * @param {boolean} phaseFlip true produces triangle like shapes (when modulus and curve are
  * both set to 2), and false produces square like shapes. Should be true when modulus is odd.
  */
-function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
+function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+	boost = 0, boostedHarmonic = 1
+) {
 	centre = (centre - 1) * modulus + 1;
 	boost *= modulus;
 	const length = 2 + modulus * skirt;
 	const coefficients = new Float32Array(length);
 	const signMultiplier = phaseFlip ? -1 : 1;
-	coefficients[1] = signMultiplier * (weighFundamental(boost) ** curve);
 	let sign = 1;
 	/* Examples:
 	 * modulus = 1, skirt = 1 means:
@@ -194,10 +195,12 @@ function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, c
 	 * modulus = 2, skirt = 1 means:
 	 * 	1st and 3rd are harmonics present, array indices 0..3, length 4
 	 */
-	for (let i = 1; i <= skirt; i++) {
+	for (let i = 0; i <= skirt; i++) {
 		coefficients[modulus * i + 1] = sign / (weighHarmonic(modulus * i + 1, centre) ** curve);
 		sign *= signMultiplier;
 	}
+	sign = signMultiplier ** Math.trunc((boostedHarmonic - 1) / modulus);
+	coefficients[boostedHarmonic] = sign * (weighFundamental(boost) ** curve);
 	return coefficients;
 }
 
@@ -209,6 +212,7 @@ class TimbreFrame {
 		this.linearFade = true;
 		this.amplitude = 1023;
 		this.pitchRatio = 1;
+		this.subharmonics = 0;
 	}
 
 	clone() {
@@ -227,7 +231,7 @@ class TimbreFrame {
 	}
 
 	effectivePitchRatio() {
-		return this.pitchRatio;
+		return this.pitchRatio / (this.subharmonics + 1);
 	}
 
 }
@@ -270,8 +274,10 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		return frame;
 	}
 
-	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
-		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, centre, boost).slice(1);
+	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+		boost = 0, boostedHarmonic = 1
+	) {
+		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, centre, boost, boostedHarmonic).slice(1);
 		const length = magnitudes.length;
 		const phases = new Array(length);
 		phases.fill(0);
@@ -301,6 +307,7 @@ class HarmonicTimbreFrame extends TimbreFrame {
 	}
 
 	effectivePitchRatio() {
+		let pitchRatio = super.effectivePitchRatio();
 		const harmonics = [];
 		for (let i = 0; i < this.magnitudes.length; i++) {
 			if (this.magnitudes[i] !== 0) {
@@ -309,13 +316,13 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		}
 		switch (harmonics.length) {
 		case 0: return 0;
-		case 1: return harmonics[0] * this.pitchRatio;
+		case 1: return harmonics[0] * pitchRatio;
 		default:
 			let multiple = gcd(harmonics[0], harmonics[1]);
 			for (let i = 2; i < harmonics.length; i++) {
 				multiple = gcd(multiple, harmonics[i]);
 			}
-			return multiple * this.pitchRatio;
+			return multiple * pitchRatio;
 		}
 	}
 
@@ -642,14 +649,18 @@ const OscillatorFactory = {
 	},
 
 
-	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
-		const sines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost);
+	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+		boost = 0, boostedHarmonic = 1
+	) {
+		const sines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost, boostedHarmonic);
 		const cosines = new Float32Array(sines.length);
 		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
-	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1, boost = 0) {
-		const cosines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost);
+	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+		boost = 0, boostedHarmonic = 1
+	) {
+		const cosines = spectrum(skirt, modulus, phaseFlip, curve, centre, boost, boostedHarmonic);
 		const length = cosines.length;
 		const sines = new Float32Array(length);
 		for (let i = 2; i < length; i++) {

@@ -352,17 +352,19 @@ export default class Envelope {
 
 			// Sustain phase
 			const sustainRate = this.sustainRate;
-			const sustainTime = this.decayTime(this.sustain, 0, Math.abs(sustainRate), rateAdjust) / envelopeRate;
-			let timeConstant;
+			let sustainTime, timeConstant;
 			if (sustainRate > 0) {
+				sustainTime = this.decayTime(this.sustain, 0, sustainRate, rateAdjust) / envelopeRate;
 				endSustain += sustainTime;
 				timeConstant = 0;	// Doesn't apply
 				gain.linearRampToValueAtTime(finalValue, endSustain);
 			} else {
+				// Inspired by Novation SuperNova
+				sustainTime = this.decayTime(1023, this.sustain, -sustainRate, rateAdjust) / envelopeRate;
 				endSustain = Infinity;
 				finalValue = 1 - finalValue;
 				timeConstant = sustainTime / 3;
-				gain.setTargetAtTime(finalValue, endDecay, timeConstant)
+				gain.setTargetAtTime(finalValue, endDecay, timeConstant);
 			}
 			this.prevSustainTC = timeConstant;
 
