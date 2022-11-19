@@ -342,11 +342,20 @@ class SampleOscillatorFactory {
 
 	newOscillators(context, operator, time) {
 		const definition = this.keyOn;
+		const frequency = operator.frequency;
+		const numBuffers = definition.buffers.length;
+		let bufferNum = 0;
+		let bufferFrequency = definition.bufferFrequencies[0];
+		while (frequency > bufferFrequency && bufferNum < numBuffers - 1) {
+			bufferNum++;
+			bufferFrequency = definition.bufferFrequencies[bufferNum];
+		}
+
 		const source = new AudioBufferSourceNode(audioContext, {
-			buffer: definition.buffer, playbackRate: 0, loop: definition.loop,
-			loopStart: definition.loopStartTime, loopEnd: Number.MAX_VALUE
+			buffer: definition.buffers[bufferNum], playbackRate: 0, loop: definition.loop,
+			loopStart: definition.loopStartTimes[bufferNum], loopEnd: Number.MAX_VALUE
 		});
-		const rateMultiplier = new GainNode(context, {gain: 1 / definition.recordedPitch});
+		const rateMultiplier = new GainNode(context, {gain: 1 / bufferFrequency});
 		operator.frequencyNode.connect(rateMultiplier);
 		rateMultiplier.connect(source.playbackRate);
 		source.connect(operator.amMod);
@@ -361,10 +370,10 @@ class SampleOscillatorFactory {
 class SampleSource {
 
 	constructor() {
-		this.buffer = undefined;
-		this.recordedPitch = 440 * 2 ** (-9 / 12);	// C4
+		this.buffers = [];
+		this.bufferFrequencies = [];
 		this.loop = false;
-		this.loopStartTime = 0;
+		this.loopStartTimes = [];
 	}
 
 }
@@ -380,6 +389,7 @@ class TimbreFrameOscillator extends SampleSource {
 	constructor() {
 		super();
 		this.frames = [new HarmonicTimbreFrame()];
+		this.timingNote = 60;
 		this.timeScaling = 1;	// Speeds up or slows down all frames
 		this.loop = true;
 		this.loopStartFrame = 0;
@@ -389,21 +399,28 @@ class TimbreFrameOscillator extends SampleSource {
 	clone() {
 		const oscillator = new TimbreFrameOscillator();
 		oscillator.frames = this.frames.map(frame => frame.clone());
+		oscillator.timingNote = this.timingNote;
 		oscillator.timeScaling = this.timeScaling;
+		oscillator.loop = this.loop;
 		oscillator.loopStartFrame = this.loopStartFrame;
 		oscillator.bitDepth = this.bitDepth;
-		oscillator.buffer = this.buffer;
-		oscillator.loopStartTime = this.loopStartTime;
 		return oscillator;
+	}
+
+	async createSamples(realtimeAudioContext, channel) {
+		for (let midiNote = 36; midiNote <= 108; midiNote += 12) {
+			const bufferNum = midiNote / 12 - 3;
+			this.#createSample(realtimeAudioContext, channel, bufferNum, midiNote);
+		}
 	}
 
 	/**Depends on the channel's tuning
 	 */
-	async createSample(realtimeAudioContext, channel, recordingNote = 60) {
+	async #createSample(realtimeAudioContext, channel, bufferNum, recordingNote) {
 		const sampleRate = realtimeAudioContext.sampleRate;
 		const recordingPitch = channel.notePitch(recordingNote);
-		this.recordedPitch = recordingPitch;
-		const timeMultiple = channel.notePitch(60) / recordingPitch * this.timeScaling;
+		this.bufferFrequencies[bufferNum] = recordingPitch;
+		const timeMultiple = channel.notePitch(this.timingNote) / recordingPitch * this.timeScaling;
 		const notePeriod = 1 / recordingPitch;
 		const minAmplitude = logToLinear(1);
 
@@ -459,7 +476,7 @@ class TimbreFrameOscillator extends SampleSource {
 					 * then the waves will stay phase aligned.
 					 */
 					let subperiod = period;
-					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0 &&	!isLastFrame) {
+					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0 && !isLastFrame) {
 						// E.g. (3 / 2) % 1 = 0.5
 						const modulus = (pitchRatio / nextPitchRatio) % 1;
 						if (modulus > 0) {
@@ -467,16 +484,18 @@ class TimbreFrameOscillator extends SampleSource {
 						}
 					}
 					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / subperiod) * subperiod;
-					if (duration < fadeIn || duration === 0) {
-						duration += period;
+					if (duration < fadeIn) {
+						duration += subperiod;
 					}
-					if (isLastFrame) {
-						duration += loopOffset;
-					}
+					duration = Math.max(duration, period);
+
 				}
 
 				if (i === loopStartFrame) {
 					loopOffset = fadeIn % period;
+				}
+				if (isLastFrame) {
+					duration += loopOffset;
 				}
 			}
 			holdTimes[i] = duration - fadeIn;
@@ -491,7 +510,7 @@ class TimbreFrameOscillator extends SampleSource {
 			fadedInTimes[i + 1] = totalDuration;
 		}
 		totalDuration += holdTimes[numFrames - 1];
-		this.loopStartTime = fadedInTimes[loopStartFrame];
+		this.loopStartTimes[bufferNum] = fadedInTimes[loopStartFrame];
 
 		// Render the audio to a sample.
 		const length = Math.round(totalDuration * sampleRate);
@@ -546,7 +565,7 @@ class TimbreFrameOscillator extends SampleSource {
 			wave[i] = Math.round(wave[i] * steps) / steps;
 		}
 
-		this.buffer = buffer;
+		this.buffers[bufferNum] = buffer;
 	}
 
 }

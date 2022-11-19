@@ -17,28 +17,29 @@ Timbre frames
 	Replace the basic wave shapes with a sum of saws, squares and triangles at different frequency multiples? (+ one custom wave with only 0 & 180 degree phases)
 		E.g. Saw at 1f sets the overall shape, saw at 2f modifies the even numbered harmonics
 		i.e. layered timbre frames:
-		Sawtooth wave: frequencies n * m, amplitudes: 1/n, alternating phases
+		Sawtooth wave: frequencies: n * m, amplitudes: 1/n, alternating phases
 		Square wave: frequencies: (2n-1) * m, amplitudes: 1/(2n-1), equal phases
 		Triangle wave: frequencies: (2n-1) * m, amplitudes: 1/(2n-1)^2, alternating phases
-		n is a positive integer (or 0.5 for square and triangle)
+		n is a positive integer
+		Option to shift the whole sound down one octave (always a real octave) when no fundamental is present due to cancellation
 		Pass the combined wave though a LP filter
 	Take account of operator ratio / fixed frequency when calculating timings
 	Reuse oscillators when adjacent frames only vary in amplitude (or pitch ratio if fading between pitches)
-	Option to set note used for timing
 	Option to set start time
 		particularly useful for skipping hold time of first frame on first loop iteration
 		round to zero crossing point (specify as frame number + offset?)
 	Option to have a bidirectional loop
 	Option to set pitch ratio using transpose + detune
-	Option to crossfade using cosine shape
+	Option to cross fade using cosine shape
 	Option to fade out harmonics one by one using a filter
 		General case (when combined with FM): arbitrary filter sweep?
 			Or only available when not using FM?
 	Integrated FM modulator (sine) with DADSR envelope and ratio or fixed (and semi-fixed?)
-	Option to fade frequencies
+	Option to slide between frequencies
 	Release (post loop) frames
 	Single cycle waveform samples as frames
 	Generate one sample per octave
+		timing stretch option
 
 	LFO modulation between frames?
 	Different sets of timbre frames for different note ranges?
