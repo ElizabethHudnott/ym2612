@@ -211,7 +211,7 @@ class TimbreFrame {
 		this.fadeTime = 0;
 		this.linearFade = true;
 		this.amplitude = 1023;
-		this.pitchRatio = 1;
+		this.pitchRatio = 1;		// >= 0
 		this.subharmonics = 0;
 	}
 
@@ -389,8 +389,10 @@ class TimbreFrameOscillator extends SampleSource {
 	constructor() {
 		super();
 		this.frames = [new HarmonicTimbreFrame()];
+		/* The timing note is the note that has a time value of 1 equal to 1 second.
+		 * Alternatively use -1 to specify times in terms of numbers of cycles. */
 		this.timingNote = 60;
-		this.timeScaling = 1;	// Speeds up or slows down all frames
+		this.timeScaling = 1;	// Speeds up or slows down all frames (normally 1 when timingNote = -1)
 		this.loop = true;
 		this.loopStartFrame = 0;
 		this.bitDepth = 25;
@@ -407,20 +409,44 @@ class TimbreFrameOscillator extends SampleSource {
 		return oscillator;
 	}
 
+	/**Depends on the channel's tuning
+	 */
 	async createSamples(realtimeAudioContext, channel) {
-		for (let midiNote = 36; midiNote <= 108; midiNote += 12) {
+		let cPitch;
+		if (this.timingNote === -1) {
+			// Time timbre frames using number of waveform cycles.
+			for (let midiNote = 36; midiNote <= 108; midiNote += 12) {
+				cPitch = channel.notePitch(midiNote);
+				const bufferNum = midiNote / 12 - 3;
+				this.#createSample(realtimeAudioContext, channel, bufferNum, 1, cPitch, 1);
+			}
+			return;
+		}
+
+		// Time timbre frames in seconds.
+		const timingC = Math.ceil(this.timingNote / 12) * 12;
+		const timingPitch = channel.notePitch(this.timingNote)
+		cPitch = channel.notePitch(timingC);
+		let stretch = 1;
+		for (let midiNote = timingC; midiNote <= 108; midiNote += 12) {
 			const bufferNum = midiNote / 12 - 3;
-			this.#createSample(realtimeAudioContext, channel, bufferNum, midiNote);
+			this.#createSample(realtimeAudioContext, channel, bufferNum, timingPitch, cPitch, stretch);
+			cPitch = channel.notePitch(midiNote + 12);
+			stretch *= channel.notePitch(midiNote + 11) / cPitch;
+		}
+		stretch = 1;
+		for (let midiNote = timingC - 12; midiNote >= 36; midiNote -= 12) {
+			cPitch = channel.notePitch(midiNote);
+			stretch *= channel.notePitch(midiNote + 1) / cPitch;
+			const bufferNum = midiNote / 12 - 3;
+			this.#createSample(realtimeAudioContext, channel, bufferNum, timingPitch, cPitch, stretch);
 		}
 	}
 
-	/**Depends on the channel's tuning
-	 */
-	async #createSample(realtimeAudioContext, channel, bufferNum, recordingNote) {
+	async #createSample(realtimeAudioContext, channel, bufferNum, timingPitch, recordingPitch, timeStretch) {
 		const sampleRate = realtimeAudioContext.sampleRate;
-		const recordingPitch = channel.notePitch(recordingNote);
 		this.bufferFrequencies[bufferNum] = recordingPitch;
-		const timeMultiple = channel.notePitch(this.timingNote) / recordingPitch * this.timeScaling;
+		const timeMultiple = timingPitch / recordingPitch * this.timeScaling * timeStretch;
 		const notePeriod = 1 / recordingPitch;
 		const minAmplitude = logToLinear(1);
 
@@ -428,7 +454,7 @@ class TimbreFrameOscillator extends SampleSource {
 		let numFrames = frames.length;
 		let loopStartFrame = this.loopStartFrame;
 		if (!this.loop) {
-			const silentFrame = new HarmonicTimbreFrame();
+			const silentFrame = frames[numFrames - 1].clone();
 			silentFrame.holdTime = 0;
 			frames.push(silentFrame);
 			numFrames++;
@@ -473,22 +499,36 @@ class TimbreFrameOscillator extends SampleSource {
 					 * and held) then we need to have completed a whole number of cycles OR for
 					 * example we can be halfway through a cycle if the frequency ratio is 3:2. Thus
 					 * if the two frames have harmonics in common with the same phases specified
-					 * then the waves will stay phase aligned.
+					 * then those harmonics will stay phase aligned.
+					 * Example:
+					 * Faster wave:	0		1.5	3		4.5	6 ...
+					 * Slower wave:	0		1		2		3		4 ...
+					 * So every instant that's a multiple of 0.5 times the period of the faster wave
+					 * is special.
+					 * Alternatively:
+					 * Faster wave:	0		1		2		3		4		5		6 ...
+					 * Slower wave:	0		2/3	4/3	2		2+2/3	2+4/3	4 ...
+					 * So there's periodicity in 2/3 of the period of the slower wave too.
 					 */
 					let subperiod = period;
-					if (pitchRatio > nextPitchRatio && nextPitchRatio > 0 && !isLastFrame) {
-						// E.g. (3 / 2) % 1 = 0.5
-						const modulus = (pitchRatio / nextPitchRatio) % 1;
-						if (modulus > 0) {
-							subperiod *= modulus;
+					if (!isLastFrame) {
+						if (nextPitchRatio === 0) {
+							subperiod *= 0.5;	// i.e. any zero crossing point
+						} else {
+							const modulus = (pitchRatio / nextPitchRatio) % 1;
+							if (modulus > 0) {
+								subperiod *= modulus;
+							}
 						}
 					}
 					duration = Math.round((fadeIn + frame.holdTime * timeMultiple) / subperiod) * subperiod;
 					if (duration < fadeIn) {
 						duration += subperiod;
 					}
-					duration = Math.max(duration, period);
-
+					if (!isLastFrame) {
+						const minCycles = timingPitch === 1  && frame.holdTime === 0.5 ? 0.5 : 1;
+						duration = Math.max(duration, minCycles * period);
+					}
 				}
 
 				if (i === loopStartFrame) {

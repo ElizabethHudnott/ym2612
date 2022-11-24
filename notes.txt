@@ -169,6 +169,7 @@ Delay/Chorus unit
 WAV output
 
 Combine sample with synth
+	50ms limit for a transient?
 	Roland Linear Arithmetic Synthesis
 	Korg Advanced Integrated synthesis (M1)
 	Casio ZPI & Advanced and High Quality Large Waveform
