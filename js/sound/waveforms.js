@@ -151,23 +151,37 @@ function singleOscillatorFactory(shape, waveShaping, bias) {
  * macro parameters.
  */
 
+function weighSides(n, centre, skew) {
+	const side = Math.sign(centre - n);
+	const biasedSide = Math.sign(skew);
+	let weighting = 1;
+	if (side === biasedSide) {
+		weighting = Math.abs(skew);
+	} else if (side === -biasedSide) {
+		weighting = 1 / Math.abs(skew);
+	}
+	return weighting;
+}
+
 function weighHarmonic(n, curve, centre, skew) {
 	let weight = n - (centre - 1);
 	if (weight <= 0) {
 		weight = 2 - weight;
 	}
-	const side = Math.sign(centre - n);
-	const biasedSide = Math.sign(skew);
-	let sideWeighting = 1;
-	if (side === biasedSide) {
-		sideWeighting = Math.abs(skew);
-	} else if (side === -biasedSide) {
-		sideWeighting = 1 / Math.abs(skew);
-	}
-	return (weight ** curve) * sideWeighting;
+	return 1 / ((weight ** curve) * weighSides(n, centre, skew));
 }
 
-function weighBoosted(n, skirt, modulus, curve, centre, skew, boost) {
+function weighHarmonic2(n, xRadiusSquared, minLevel, centre, skew) {
+	const xDistance = n - centre;
+	const square = 1 - xDistance * xDistance / xRadiusSquared;
+	if (square <= 0) {
+		return 0;
+	}
+	const level = 1023 * Math.sqrt(square);
+	return logToLinear(level) * weighSides(n, centre, skew);
+}
+
+function weighBoosted(n, weighting, skirt, modulus, centre, skew, boost) {
 	if ((n - 1) % modulus > 0) {
 		if (boost <= 0) {
 			return 0;
@@ -191,7 +205,7 @@ function weighBoosted(n, skirt, modulus, curve, centre, skew, boost) {
 			return 1 + Math.abs(skew) * ((newPosition - centre) / modulus);
 		}
 	}
-	return 1 / weighHarmonic(newPosition, curve, centre, skew);
+	return weighting(newPosition);
 }
 
 /**First N overtones of a sawtooth wave, square wave, triangle wave or something similar.
@@ -207,7 +221,7 @@ function weighBoosted(n, skirt, modulus, curve, centre, skew, boost) {
  * @param {boolean} phaseFlip true produces triangle like shapes (when modulus and curve are
  * both set to 2), and false produces square like shapes. Should be true when modulus is odd.
  */
-function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 === 1, curve = 1, centre = 1,
 	bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
 ) {
 	centre = (centre - 1) * modulus + 1;
@@ -224,12 +238,37 @@ function spectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, c
 	 * 	1st and 3rd are harmonics present, array indices 0..3, length 4
 	 */
 	for (let i = 0; i <= skirt; i++) {
-		coefficients[modulus * i + 1] = sign / weighHarmonic(modulus * i + 1, curve, centre, skew);
+		coefficients[modulus * i + 1] = sign * weighHarmonic(modulus * i + 1, curve, centre, skew);
 		sign *= signMultiplier;
 	}
 	if (boost !== 0) {
 		sign = signMultiplier ** Math.trunc((boostedHarmonic - 1) / modulus);
-		coefficients[boostedHarmonic] = sign * weighBoosted(boostedHarmonic, skirt, modulus, curve, centre, skew, boost);
+		const weighting = n => weighHarmonic(n, curve, centre, skew);
+		coefficients[boostedHarmonic] = sign * weighBoosted(boostedHarmonic, weighting, skirt, modulus, centre, skew, boost);
+	}
+	return coefficients;
+}
+
+function spectrum2(skirt, modulus = 1, phaseFlip = modulus % 2 === 1, minLevel = 512,
+	centre = 1, bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+) {
+	const xRadiusSquared = skirt * skirt / (1 - minLevel * minLevel / (1023 * 1023));
+	skirt = Math.max(skirt, centre + skirt - 1);
+	centre = (centre - 1) * modulus + 1;
+	boost *= modulus;
+	const skew = (1 + Math.abs(bias) * modulus) * (bias < 0 ? -1 : 1);
+	const length = 2 + modulus * skirt;
+	const coefficients = new Float32Array(length);
+	const signMultiplier = phaseFlip ? -1 : 1;
+	let sign = 1;
+	for (let i = 0; i <= skirt; i++) {
+		coefficients[modulus * i + 1] = sign * weighHarmonic2(modulus * i + 1, xRadiusSquared, minLevel, centre, skew);
+		sign *= signMultiplier;
+	}
+	if (boost !== 0) {
+		sign = signMultiplier ** Math.trunc((boostedHarmonic - 1) / modulus);
+		const weighting = n => weighHarmonic2(n, xRadiusSquared, minLevel, centre, skew);
+		coefficients[boostedHarmonic] = sign * weighBoosted(boostedHarmonic, weighting, skirt, modulus, centre, skew, boost);
 	}
 	return coefficients;
 }
@@ -304,10 +343,22 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		return frame;
 	}
 
-	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
+	fillSpectrum(skirt, modulus = 1, phaseFlip = modulus % 2 === 1, curve = 1, centre = 1,
 		bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
 	) {
 		const magnitudes = spectrum(skirt, modulus, phaseFlip, curve, centre, bias, boost, boostedHarmonic).slice(1);
+		const length = magnitudes.length;
+		const phases = new Array(length);
+		phases.fill(0);
+		this.magnitudes = magnitudes;
+		this.phases = phases;
+		this.calculate();
+	}
+
+	fillSpectrum2(skirt, modulus = 1, phaseFlip = modulus % 2 === 1, minLevel = 512, centre = 1,
+		bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+	) {
+		const magnitudes = spectrum2(skirt, modulus, phaseFlip, minLevel, centre, bias, boost, boostedHarmonic).slice(1);
 		const length = magnitudes.length;
 		const phases = new Array(length);
 		phases.fill(0);
@@ -738,18 +789,38 @@ const OscillatorFactory = {
 	},
 
 
-	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
-		bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+	spectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 === 1, curve = 1,
+		centre = 1, bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
 	) {
 		const sines = spectrum(skirt, modulus, phaseFlip, curve, centre, bias, boost, boostedHarmonic);
 		const cosines = new Float32Array(sines.length);
 		return new PeriodicOscillatorFactory(sines, cosines);
 	},
 
-	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 == 1, curve = 1, centre = 1,
-		bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+	spectral2: function (skirt, modulus = 1, phaseFlip = modulus % 2 === 1, minLevel = 512,
+		centre = 1, bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+	) {
+		const sines = spectrum2(skirt, modulus, phaseFlip, minLevel, centre, bias, boost, boostedHarmonic);
+		const cosines = new Float32Array(sines.length);
+		return new PeriodicOscillatorFactory(sines, cosines);
+	},
+
+	cospectral: function (skirt, modulus = 1, phaseFlip = modulus % 2 === 1, curve = 1,
+		centre = 1, bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
 	) {
 		const cosines = spectrum(skirt, modulus, phaseFlip, curve, centre, bias, boost, boostedHarmonic);
+		const length = cosines.length;
+		const sines = new Float32Array(length);
+		for (let i = 2; i < length; i++) {
+			cosines[i] *= i;
+		}
+		return new PeriodicOscillatorFactory(sines, cosines);
+	},
+
+	cospectral2: function (skirt, modulus = 1, phaseFlip = modulus % 2 === 1, minLevel = 512,
+		centre = 1, bias = 0, boost = 0, boostedHarmonic = (centre - 1) * modulus + 1
+	) {
+		const cosines = spectrum2(skirt, modulus, phaseFlip, minLevel, centre, bias, boost, boostedHarmonic);
 		const length = cosines.length;
 		const sines = new Float32Array(length);
 		for (let i = 2; i < length; i++) {
