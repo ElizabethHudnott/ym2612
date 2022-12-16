@@ -27,8 +27,8 @@ export default class Synth {
 	 * 0.5 and for OPL it's 2.
 	 */
 	constructor(
-		context, numChannels = 6, output = context.destination, tuningPrecision = 1, clockRate = ClockRate.NTSC,
-		clockDivider1 = 7, clockDivider2 = 144
+		context, numChannels = 6, output = context.destination, tuningPrecision = 1,
+		clockRate = ClockRate.NTSC, clockDivider1 = 7, clockDivider2 = 144
 	) {
 		// Tuning data
 		this.referencePitch = 440;

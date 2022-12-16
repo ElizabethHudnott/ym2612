@@ -21,6 +21,7 @@ const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 function nextQuantum(context) {
+	// Current time + JS Processing Time + 1 Frame
 	return context.currentTime + 0.001 + 128 / context.sampleRate;
 }
 

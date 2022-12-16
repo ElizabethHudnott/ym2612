@@ -11,6 +11,7 @@ import {
 	MAX_FLOAT, NEVER, VIBRATO_PRESETS
 } from './common.js';
 import Operator from './operator.js';
+import {EffectUnit} from './effect-unit.js';
 
 const KeySync = Object.freeze({
 	OFF: 0,
@@ -268,7 +269,7 @@ class Channel extends AbstractChannel {
 		this.panRange = 1;
 		this.panDirection = 1; // 1 or -1
 		this.panInputCentre = 64;
-		this.panInputRange = 63; // +- this value. Half the total range.
+		this.panInputRange = 63; // + or - this value. Half the total range.
 		this.panMode = Pan.FIXED;
 
 		gain.connect(panner);
@@ -277,6 +278,8 @@ class Channel extends AbstractChannel {
 		panner.connect(mute);
 		mute.connect(output);
 		this.muteControl = mute.gain;
+
+		const delaySend = new GainNode(context, {gain: 0});
 
 		this.lfoRateNode = new ConstantSourceNode(context, {offset: 0});
 		this.lfoRate = 0;

@@ -14,7 +14,7 @@ Then renumber Operator 2 and Operator 3 (switch around)?
 Distortion (symmetry) modulation?
 
 Timbre frames
-	Replace the basic wave shapes with a sum of saws, squares and triangles at different frequency multiples? (+ one custom wave with only 0 & 180 degree phases)
+	Replace the basic wave shapes with a weighted sum (or difference) of saws, squares and triangles at different frequency multiples? (+ one custom wave with only 0 & 180 degree phases)
 		E.g. Saw at 1f sets the overall shape, saw at 2f modifies the even numbered harmonics
 		i.e. layered timbre frames:
 		Sawtooth wave: frequencies: n * m, amplitudes: 1/n, alternating phases
@@ -48,13 +48,9 @@ Timbre frames
 		Think of it like a free running LFO? (if not truly random but based on time mod something with offset)
 	Resynthesis
 
-all1/coAll1/odd1/coOdd1 waveform controls (inspired by Arturia CMI V)
-	bias
-	ability to use these functions to create timbre frames
 
 Option to not reset phase
 Filter key tracking and glide
-fm-x waves
 Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
@@ -79,7 +75,6 @@ Add second release stage to envelopes (applied from when Operator 1 reaches -18d
 AM envelopes
 Operator ratio bend
 	Separate ratio node (so it works with pitch bend and glide)
-Operator frequency offset? (in frequency numbers) (can be combined with a ratio)
 Fixed operator with partial key tracking ("frequency key scaling") (as -200..200 with specified centre key) (FM-X & FS1R)
 Fixed operator level linked to velocity (FM-X)
 Pitch envelope amount linked to velocity
@@ -112,11 +107,10 @@ on screen keyboard
 
 LFO centering (only up / only down / bipolar)?
 
-Filter
-	Separate wet/dry per channel
-	Separate filters for FM and PSG? (Per voice for FM?)
+Wet/Dry control on filter?
 
 PSG
+	Filter for PSG
 	separate into multiple files
 	overall volume control for patch
 	panning (but no modulation)
@@ -156,9 +150,8 @@ Amplitude Bend
 	How will it work with 2-op channels?
 	Repeating via SSG
 
-Filter envelope (paraphonic) triggered either by every note on or only after all notes off.
+Filter envelope
 	Can be inverted
-	Cutoff can keytrack oscillator pitch
 	Velocity can affect attack rate
 	Input gain (can be -ve to avoid overloading due to resonance)?
 
