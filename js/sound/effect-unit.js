@@ -28,6 +28,7 @@ class EffectUnit {
 		this.leftDelay = leftDelay.delayTime;
 		splitter.connect(leftDelay, 0);
 		const leftFeedback = new GainNode(context, {gain: 0});
+		this.leftFeedback = leftFeedback.gain;
 		leftDelay.connect(leftFeedback);
 		leftFeedback.connect(leftDelay);
 
@@ -35,24 +36,30 @@ class EffectUnit {
 		this.rightDelay = rightDelay.delayTime;
 		splitter.connect(rightDelay, 1);
 		const rightFeedback = new GainNode(context, {gain: 0});
+		this.rightFeedback = rightFeedback.gain;
 		rightDelay.connect(rightFeedback);
 		rightFeedback.connect(rightDelay);
-		this.feedbackParams = [leftFeedback.gain, rightFeedback.gain];
 
 		const modGain = new GainNode(context, {gain: 0});
 		this.modDepthParam = modGain.gain;
 
-		const merger = new ChannelMergerNode(context, {numberOfInputs: 2});
-		this.merger = merger;
-		leftDelay.connect(merger, 0, 1);		// Send left input to right output
-		rightDelay.connect(merger, 0, 0);	// Send right input to left output
+		const leftDelayPan = new StereoPannerNode(context, {pan: 1}); // Send left input to right output
+		const rightDelayPan = new StereoPannerNode(context, {pan: -1}); // Send right input to left output
+		this.leftDelayPan = leftDelayPan;
+		this.rightDelayPan = rightDelayPan;
+		this.leftDelay.connect(leftDelayPan);
+		this.rightDelay.connect(rightDelayPan);
 
 		this.delayType = DelayType.DOUBLING;
 		this.delayAmount = 128;		// Between 0 and approximately 255
-		this.delayWidth = 0;			// Between -1 and 1
+		this.delayOffset = 0;		// Between -1 and 1
 		this.modulationRate = 1.5;	// In Hertz
 		this.modulationDepth = 0;	// Between 0 and 1
-		this.feedback = [0.5, 0.5]; // Between -1 and 1 (left and right)
+		this.feedback = 0;			// Between 0 and 1
+		this.feedbackPolarity = [1, 1];
+		this.feedbackPan = 0;		// Between -1 and 1
+		this.delayWidth = -1			// Between -1 and 1;
+		this.delayPan = 0;			// Between -1 and 1;
 		this.lfo = undefined;
 		this.setDelayAmount(this.delayAmount);
 	}
@@ -62,25 +69,26 @@ class EffectUnit {
 	}
 
 	connectOut(destination) {
-		this.merger.connect(destination);
+		this.leftDelayPan.connect(destination);
+		this.rightDelayPan.connect(destination);
 	}
 
 	setDelay(
-		context, amount, type = this.delayType, width = this.delayWidth,
+		context, amount, type = this.delayType, offset = this.delayDelay,
 		modulationDepth = this.modulationDepth, time = nextQuantum(context),
 		method = 'setValueAtTime'
 	) {
 		const delayUnits = TIME_OFFSETS[type] + amount * TIME_MULTIPLES[type];
 		let leftUnits, rightUnits;
-		if (width > 0) {
-			leftUnits = Math.max(Math.round(delayUnits * (1 - 0.5 * width)), 1);
+		if (offset > 0) {
+			leftUnits = Math.max(Math.round(delayUnits * (1 - offset)), 1);
 			rightUnits = delayUnits;
 		} else {
 			leftUnits = delayUnits;
-			rightUnits = Math.max(Math.round(delayUnits * (1 + 0.5 * width)), 1);
+			rightUnits = Math.max(Math.round(delayUnits * (1 + offset)), 1);
 		}
 		const minDelayUnits = Math.min(leftUnits, rightUnits);
-		this.effectiveDelayWidth = 1 - 2 * (minDelayUnits / delayUnits - 0.5);
+		this.effectiveDelayOffset = 1 - minDelayUnits / delayUnits;
 
 		let modulationUnits = 0, effectiveModDepth = 0;
 		if (type >= DelayType.CHORUS) {
@@ -90,11 +98,10 @@ class EffectUnit {
 			effectiveModDepth = modulationUnits / maxModulation;
 		}
 		if (type < DelayType.FLANGE) {
-			this.feedbackParams[0].linearRampToValueAtTime(0, time);
-			this.feedbackParams[1].linearRampToValueAtTime(0, time);
-		} else if (this.delayType < DelayType.FLANGE) {
-			this.feedbackParams[0].setValueAtTime(this.feedback[0], time);
-			this.feedbackParams[1].setValueAtTime(this.feedback[1], time);
+			this.leftFeedback.linearRampToValueAtTime(0, time);
+			this.rightFeedback.linearRampToValueAtTime(0, time);
+		} else if (this.delayType <= DelayType.FLANGE) {
+			this.setFeedbackAmount(this.feedback, time, method);
 		}
 
 		this.leftDelay[method](leftUnits * TIME_UNIT, time);
@@ -115,20 +122,20 @@ class EffectUnit {
 		this.delayType = type;
 		this.delayAmount = amount;
 		this.delayTime = delayUnits * TIME_UNIT;
-		this.delayWidth = width;
+		this.delayOffset = offset;
 		this.effectiveModDepth = effectiveModDepth;
 	}
 
 	setDelayAmount(context, amount, type = this.delayType, time = nextQuantum(context), method = 'setValueAtTime') {
-		this.setDelay(amount, type, this.delayWidth, this.modulationDepth, time, method);
+		this.setDelay(amount, type, this.delayOffset, this.modulationDepth, time, method);
 	}
 
-	setDelayWidth(context, width, time = nextQuantum(context), method = 'setValueAtTime') {
-		this.setDelay(this.delayAmount, this.delayType, width, this.modulationDepth, time, method);
+	setDelayOffset(context, offset, time = nextQuantum(context), method = 'setValueAtTime') {
+		this.setDelay(this.delayAmount, this.delayType, offset, this.modulationDepth, time, method);
 	}
 
 	setModulationDepth(context, depth, time = nextQuantum(context), method = 'setValueAtTime') {
-		this.setDelay(this.delayAmount, this.delayType, this.delayWidth, depth, time, method);
+		this.setDelay(this.delayAmount, this.delayType, this.delayOffset, depth, time, method);
 	}
 
 	getDelayType() {
@@ -143,8 +150,8 @@ class EffectUnit {
 		return this.delayTime;
 	}
 
-	getDelayWidth() {
-		return this.delayWidth;
+	getDelayOffset() {
+		return this.delayOffset;
 	}
 
 	getModulationDepth() {
@@ -173,17 +180,54 @@ class EffectUnit {
 		return this.modulationRate;
 	}
 
-	setFeedback(amount, channelMask = 3, time = 0, method = 'setValueAtTime') {
-		for (let i = 0; i < 2; i++) {
-			if (channelMask & (1 << i)) {
-				this.feedbackParams[i][method](amount, time);
-				this.feedback[i] = amount;
-			}
+	setFeedback(amount, pan = this.feedbackPan, time = 0, method = 'setValueAtTime') {
+		let leftAmount, rightAmount;
+		if (pan <= 0) {
+			leftAmount = 1;
+			rightAmount = 1 + pan;
+		} else {
+			leftAmount = 1 - pan;
+			rightAmount = 1;
 		}
+		leftAmount *= amount * this.feedbackPolarity[0];
+		rightAmount *= amount * this.feedbackPolarity[1];
+		this.leftFeedback[method](leftAmount, time);
+		this.rightFeedback[method](rightAmount, time);
+		this.feedback = amount;
+		this.feedbackPan = pan;
 	}
 
-	getFeedback(channelNum = 0) {
-		return this.feedback[channelNum];
+	setFeedbackAmount(amount, time = 0, method = 'setValueAtTime') {
+		this.setFeedback(amount, this.feedbackPan, time, method);
+	}
+
+	setFeedbackPan(pan, time = 0, method = 'setValueAtTime') {
+		this.setFeedback(this.feedback, pan, time, method);
+	}
+
+	getFeedbackAmount() {
+		return this.feedback;
+	}
+
+	getFeedbackPan() {
+		return this.feedbackPan;
+	}
+
+	setDelayPan(pan, width = this.delayWidth, time = 0, method = 'setValueAtTime') {
+		this.leftDelayPan.pan[method](pan - width, time, method);
+		this.rightDelayPan.pan[method](pan + width, time, method);
+	}
+
+	setDelayWidth(width, time = 0, method = 'setValueAtTime') {
+		this.setDelayPan(this.delayPan, width, time, method);
+	}
+
+	getDelayPan() {
+		return this.delayPan;
+	}
+
+	getDelayWidth() {
+		return this.delayWidth;
 	}
 
 }
