@@ -7,11 +7,10 @@
  * you translate it into another language.
  */
 import {
-	nextQuantum, modulationIndex, outputLevelToGain, cancelAndHoldAtTime, panningMap,
-	MAX_FLOAT, NEVER, VIBRATO_PRESETS
+	nextQuantum, modulationIndex, logToLinear, outputLevelToGain, cancelAndHoldAtTime,
+	panningMap, MAX_FLOAT, NEVER, VIBRATO_PRESETS
 } from './common.js';
 import Operator from './operator.js';
-import {EffectUnit} from './effect-unit.js';
 
 const KeySync = Object.freeze({
 	OFF: 0,
@@ -276,10 +275,16 @@ class Channel extends AbstractChannel {
 		this.panner = panner;
 		const mute = new GainNode(context);
 		panner.connect(mute);
-		mute.connect(output);
 		this.muteControl = mute.gain;
 
 		const delaySend = new GainNode(context, {gain: 0});
+		this.delaySend = delaySend.gain;
+		mute.connect(delaySend);
+		synth.effects.connectDelayInput(delaySend);
+		const dry = new GainNode(context);
+		this.dry = dry.gain;
+		mute.connect(dry);
+		dry.connect(output);
 
 		this.lfoRateNode = new ConstantSourceNode(context, {offset: 0});
 		this.lfoRate = 0;
@@ -371,6 +376,8 @@ class Channel extends AbstractChannel {
 
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
+
+		this.delayEffect = 0;	// Delay send (0-15)
 
 		this.useAlgorithm(0);
 	}
@@ -1281,6 +1288,14 @@ class Channel extends AbstractChannel {
 		this.gainControl[method](gain, time);
 	}
 
+	volumeAutomation(
+		automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)
+	) {
+		automation.execute(
+			this.gainControl, release, startTime, timesPerStep, 1, undefined, maxSteps
+		);
+	}
+
 	mute(muted, time = 0) {
 		this.muteControl.setValueAtTime(muted ? 0 : 1, time);
 		this.muted = muted;
@@ -1290,12 +1305,18 @@ class Channel extends AbstractChannel {
 		return this.muted;
 	}
 
-	volumeAutomation(
-		automation, release, startTime, timesPerStep, maxSteps = automation.getLength(release)
-	) {
-		automation.execute(
-			this.gainControl, release, startTime, timesPerStep, 1, undefined, maxSteps
-		);
+	/**
+	 * @param {number} amount Between 0 and 15
+	 */
+	setDelaySend(amount, time = 0, method = 'setValueAtTime') {
+		const linearAmount = logToLinear(amount * 64);
+		this.delaySend[method](linearAmount, time);
+		this.dry[method](1 - linearAmount, time);
+		this.delayEffect = amount;
+	}
+
+	getDelaySend() {
+		return this.delayEffect;
 	}
 
 	get numberOfOperators() {

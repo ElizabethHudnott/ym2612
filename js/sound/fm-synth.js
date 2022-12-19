@@ -9,6 +9,7 @@
 import {nextQuantum, logToLinear, outputLevelToGain, ClockRate, LFO_DIVISORS} from './common.js';
 import {KeySync, Channel} from './fm-channel.js';
 import TwoOperatorChannel from './two-op-channel.js';
+import {EffectUnit} from './effect-unit.js';
 
 export default class Synth {
 
@@ -41,6 +42,10 @@ export default class Synth {
 		const channelGain = new GainNode(context, {gain: 1 / (2 * numChannels)});
 		channelGain.connect(output);
 		this.channelGain = channelGain.gain;
+
+		const effects = new EffectUnit(context);
+		this.effects = effects;
+		effects.connectOut(channelGain);
 
 		const dbCurve = new Float32Array(2047);
 		dbCurve.fill(0, 0, 1024);
