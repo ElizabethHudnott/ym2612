@@ -377,7 +377,8 @@ class Channel extends AbstractChannel {
 		this.stopTime = 0;
 		this.oldStopTime = 0;	// Value before the key-on/off currently being processed.
 
-		this.delayEffect = 0;	// Delay send (0-15)
+		this.delayEffect = 0;	// Delay send (0-64)
+		this.delayPolarity = 1;	// 1 or -1
 
 		this.useAlgorithm(0);
 	}
@@ -1306,17 +1307,23 @@ class Channel extends AbstractChannel {
 	}
 
 	/**
-	 * @param {number} amount Between 0 and 15
+	 * @param {number} amount Between -64 and 64. Negative numbers reverse the polarity of the
+	 * delayed signal
 	 */
-	setDelaySend(amount, time = 0, method = 'setValueAtTime') {
-		const linearAmount = logToLinear(amount * 64);
-		this.delaySend[method](linearAmount, time);
+	setDelaySend(amount, polarity = this.delayPolarity, time = 0, method = 'setValueAtTime') {
+		const linearAmount = logToLinear(Math.min(amount * 16, 1023));
+		this.delaySend[method](polarity * linearAmount, time);
 		this.dry[method](1 - linearAmount, time);
 		this.delayEffect = amount;
+		this.delayPolarity = polarity;
 	}
 
 	getDelaySend() {
 		return this.delayEffect;
+	}
+
+	getDelayPolarity() {
+		return this.delayPolarity;
 	}
 
 	get numberOfOperators() {

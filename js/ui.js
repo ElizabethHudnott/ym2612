@@ -706,6 +706,76 @@ document.getElementById('fingered-glide').addEventListener('input', function (ev
 	MUSIC_INPUT.fingeredPortamento = this.checked;
 });
 
+document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	const [octave, note] = AbstractChannel.decomposeFilterSteps(value);
+	const ratio = 2 ** octave * AbstractChannel.filterSteps[note];
+	const description = AbstractChannel.filterStepNames[note].padEnd(2) + String(octave + 3);
+	const box = document.getElementById('filter-cutoff');
+	box.value = description;
+
+	let str;
+	const integer = Math.trunc(ratio);
+	const decimal = ratio - integer;
+	if (octave <= 3) {
+		let denominator = 16;
+		if (octave < 0) {
+			denominator = 64;
+			str = '   ';
+		} else {
+			str = String(integer).padStart(2) + ' ';
+		}
+		const numerator = decimal * denominator;
+		str += String(numerator).padStart(2) + '&sol;' + denominator;
+	} else {
+		str = String(ratio).padEnd(8);
+	}
+	document.getElementById('filter-ratio').innerHTML = str;
+	eachChannel(channel => channel.setFilterCutoff(value));
+});
+
+document.getElementById('filter-key-track-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const amount = parseInt(this.value) * 3.125;
+	document.getElementById('filter-key-track').value = amount.toFixed(0);
+	eachChannel(channel => channel.setFilterKeyTracking(amount));
+});
+
+document.getElementById('filter-key-track').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseInt(this.value);
+	if (value >= -201 && value <= 201) {
+		document.getElementById('filter-key-track-slider').value = value / 3.125;
+		eachChannel(channel => channel.setFilterKeyTracking(value));
+	}
+});
+
+document.getElementById('filter-breakpoint-slider').addEventListener('input', function (event) {
+	const midiNote = parseInt(this.value);
+	const octave = getOctave(midiNote);
+	const note = getNoteName(midiNote);
+	document.getElementById('filter-breakpoint').value = note.padEnd(2) + octave;
+	eachChannel(channel => channel.setFilterBreakpoint(midiNote));
+});
+
+document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {
+	audioContext.resume();
+	const resonance = parseFloat(this.value);
+	const box = document.getElementById('filter-resonance');
+	box.value = resonance.toFixed(2);
+	eachChannel(channel => channel.setFilterResonance(resonance));
+});
+
+document.getElementById('filter-resonance').addEventListener('input', function (event) {
+	audioContext.resume();
+	const value = parseFloat(this.value);
+	if (value >= -758.5 && value < 770.63678) {
+		document.getElementById('filter-resonance-slider').value = value;
+		eachChannel(channel => channel.setFilterResonance(value));
+	}
+});
+
 function updateLFODelay() {
 	const time = firstChannel.getEffectiveLFODelay();
 	document.getElementById('lfo-delay').value = time.toFixed(2);
@@ -1236,74 +1306,16 @@ document.getElementById('btn-pan-range').addEventListener('click', function (eve
 	button.classList.add(highlight);
 });
 
-document.getElementById('filter-cutoff-slider').addEventListener('input', function (event) {
-	audioContext.resume();
+document.getElementById('delay-send-slider').addEventListener('input', function (event) {
 	const value = parseInt(this.value);
-	const [octave, note] = AbstractChannel.decomposeFilterSteps(value);
-	const ratio = 2 ** octave * AbstractChannel.filterSteps[note];
-	const description = AbstractChannel.filterStepNames[note].padEnd(2) + String(octave + 3);
-	const box = document.getElementById('filter-cutoff');
-	box.value = description;
-
-	let str;
-	const integer = Math.trunc(ratio);
-	const decimal = ratio - integer;
-	if (octave <= 3) {
-		let denominator = 16;
-		if (octave < 0) {
-			denominator = 64;
-			str = '   ';
-		} else {
-			str = String(integer).padStart(2) + ' ';
-		}
-		const numerator = decimal * denominator;
-		str += String(numerator).padStart(2) + '&sol;' + denominator;
-	} else {
-		str = String(ratio).padEnd(8);
-	}
-	document.getElementById('filter-ratio').innerHTML = str;
-	eachChannel(channel => channel.setFilterCutoff(value));
+	document.getElementById('delay-send').value = value;
+	eachChannel(channel => channel.setDelaySend(value));
 });
 
-document.getElementById('filter-key-track-slider').addEventListener('input', function (event) {
-	audioContext.resume();
-	const amount = parseInt(this.value) * 3.125;
-	document.getElementById('filter-key-track').value = amount.toFixed(0);
-	eachChannel(channel => channel.setFilterKeyTracking(amount));
-});
-
-document.getElementById('filter-key-track').addEventListener('input', function (event) {
-	audioContext.resume();
-	const value = parseInt(this.value);
-	if (value >= -201 && value <= 201) {
-		document.getElementById('filter-key-track-slider').value = value / 3.125;
-		eachChannel(channel => channel.setFilterKeyTracking(value));
-	}
-});
-
-document.getElementById('filter-breakpoint-slider').addEventListener('input', function (event) {
-	const midiNote = parseInt(this.value);
-	const octave = getOctave(midiNote);
-	const note = getNoteName(midiNote);
-	document.getElementById('filter-breakpoint').value = note.padEnd(2) + octave;
-	eachChannel(channel => channel.setFilterBreakpoint(midiNote));
-});
-
-document.getElementById('filter-resonance-slider').addEventListener('input', function (event) {
-	audioContext.resume();
-	const resonance = parseFloat(this.value);
-	const box = document.getElementById('filter-resonance');
-	box.value = resonance.toFixed(2);
-	eachChannel(channel => channel.setFilterResonance(resonance));
-});
-
-document.getElementById('filter-resonance').addEventListener('input', function (event) {
-	audioContext.resume();
-	const value = parseFloat(this.value);
-	if (value >= -758.5 && value < 770.63678) {
-		document.getElementById('filter-resonance-slider').value = value;
-		eachChannel(channel => channel.setFilterResonance(value));
-	}
+document.getElementById('delay-invert').addEventListener('input', function (event) {
+	const polarity = this.checked ? -1 : 1;
+	const amount = firstChannel.getDelaySend();
+	eachChannel(channel => channel.setDelaySend(amount, polarity));
 });
 
 function getOperator(element) {

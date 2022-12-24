@@ -4,15 +4,15 @@ const DelayType = Object.freeze({
 	DOUBLING: 0,
 	SHORT: 1,
 	LONG: 2,
-	CHORUS: 3,
-	FLANGE: 4,
+	FLANGE: 3,
+	CHORUS: 4,
 	MANUAL: 5,
 });
 
 const TIME_UNIT = 0.000040165;
 
-const TIME_MULTIPLES = [  3,   7,   60, 3,   1, 83];
-const TIME_OFFSETS =   [249, 498, 2614, 124, 1, 1];
+const TIME_MULTIPLES = [  3,   7,   60, 1, 3,  83];
+const TIME_OFFSETS =   [249, 498, 2614, 1, 124, 1];
 const MAX_MODULATION = TIME_OFFSETS[DelayType.CHORUS] + 224 * TIME_MULTIPLES[DelayType.CHORUS];
 
 class EffectUnit {
@@ -67,18 +67,24 @@ class EffectUnit {
 		rightDelayPan.connect(delayGainOut);
 
 		this.delayType = DelayType.DOUBLING;
+		/* Suggested maximum delay amounts:
+		 * SHORT: 294
+		 * FLANGE: 136
+		 * CHORUS: 224
+		 * Everything else: 255
+		 */
 		this.delayAmount = 128;		// Between 0 and approximately 255
 		this.delayOffset = 0;		// Between -1 and 1
 		this.modulationRate = 1.5;	// In Hertz
 		this.modulationDepth = 0;	// Between 0 and 1
-		this.feedback = 0;			// Between 0 and 1
+		this.feedback = 0;			// Between 0 and 1023
 		this.feedbackPan = 0;		// Between -1 (only applied to left) and 1 (only applied to left)
 		this.feedbackPolarity = [1, 1];	// Publicly assignable. Then call setFeedback()
 		this.crossfeedMix = 0;		// Between 0 and 1
 		this.crossfeedPolarity = [1, 1];	// Publicly assignable. Then call setFeedback()
-		this.delayWidth = -1			// Between -1 and 1;
-		this.delayPan = 0;			// Between -1 and 1;
-		this.delayReturn = 1
+		this.delayWidth = -1;		// Between -1 and 1
+		this.delayPan = 0;			// Between -1 and 1
+		this.delayReturn = 1023;	// Between 0 and 1023
 		this.lfo = undefined;
 		this.setDelayAmount(context, this.delayAmount);
 	}
@@ -99,26 +105,29 @@ class EffectUnit {
 		const delayUnits = TIME_OFFSETS[type] + amount * TIME_MULTIPLES[type];
 		let leftUnits, rightUnits;
 		if (offset > 0) {
-			leftUnits = Math.max(Math.round(delayUnits * (1 - 0.5 * offset)), 1);
+			leftUnits = Math.round(delayUnits * (1 - 0.5 * offset));
 			rightUnits = delayUnits;
 		} else {
 			leftUnits = delayUnits;
-			rightUnits = Math.max(Math.round(delayUnits * (1 + 0.5 * offset)), 1);
+			rightUnits = Math.round(delayUnits * (1 + 0.5 * offset));
 		}
 		const minDelayUnits = Math.min(leftUnits, rightUnits);
 		this.effectiveDelayOffset = 1 - minDelayUnits / delayUnits;
 
 		let modulationUnits = 0, effectiveModDepth = 0;
-		if (type >= DelayType.CHORUS) {
+		if (type >= DelayType.FLANGE) {
 			const maxModulation = Math.min(minDelayUnits, MAX_MODULATION);
 			modulationUnits = Math.round(modulationDepth * maxModulation);
 			this.modulationDepth = modulationDepth;
 			effectiveModDepth = modulationUnits / maxModulation;
 		}
-		if (type < DelayType.FLANGE) {
-			this.leftFeedback.linearRampToValueAtTime(0, time);
-			this.rightFeedback.linearRampToValueAtTime(0, time);
-		} else if (this.delayType <= DelayType.FLANGE) {
+		if (type === DelayType.DOUBLING) {
+			const fbMethod = method === 'exponentialRampToValueAtTime' ? 'linearRampToValueAtTime' : method;
+			this.leftFeedback[fbMethod](0, time);
+			this.rightFeedback[fbMethod](0, time);
+			this.ltrCrossfeed[fbMethod](0, time);
+			this.rtlCrossfeed[fbMethod](0, time);
+		} else if (this.delayType === DelayType.DOUBLING) {
 			this.setFeedbackAmount(this.feedback, time, method);
 		}
 

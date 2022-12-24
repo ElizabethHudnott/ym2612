@@ -273,6 +273,42 @@ function spectrum2(skirt, modulus = 1, phaseFlip = modulus % 2 === 1, minLevel =
 	return coefficients;
 }
 
+/**Takes two positive real numbers, a and b, and finds integers, c and d, such that a/b = c/d,
+ * where c and d don't share any common factors, and then returns d.
+ */
+function findDenominator(a, b) {
+	if (a < 1 && b < 1) {
+		const min = Math.min(a, b);
+		a /= min;
+		b /= min;
+	}
+	if (a % 1 > 0 || b % 1 > 0) {
+		const multiple = a > b ? a / b : b / a;
+		let remainder = multiple % 1;
+		if (remainder === 0) {
+			a *= multiple;
+			b *= multiple;
+		} else {
+			const rounding = 10e-11;
+			let numeratorA, numeratorB;
+			do {
+				numeratorA = (a / remainder) % 1;
+				if (numeratorA < rounding || numeratorA > 1 - rounding) {
+					numeratorA = 1;
+				}
+				numeratorB = (b / remainder) % 1;
+				if (numeratorB < rounding || numeratorB > 1 - rounding) {
+					numeratorB = 1;
+				}
+				remainder *= Math.min(numeratorA, numeratorB);
+			} while (numeratorA < 1 || numeratorB < 1);
+			a = Math.round((a / remainder) / rounding) * rounding;
+			b = Math.round((b / remainder) / rounding) * rounding;
+		}
+	}
+	return b / gcd(a, b);
+}
+
 class TimbreFrame {
 
 	constructor() {
@@ -391,7 +427,7 @@ class HarmonicTimbreFrame extends TimbreFrame {
 		let pitchRatio = super.effectivePitchRatio();
 		const harmonics = [];
 		for (let i = 0; i < this.magnitudes.length; i++) {
-			if (this.magnitudes[i] !== 0) {
+			if ((this.magnitudes[i] || 0) !== 0) {
 				harmonics.push(i + 1);
 			}
 		}
@@ -513,12 +549,12 @@ class TimbreFrameOscillator extends SampleSource {
 			const bufferNum = midiNote / 12 - 3;
 			this.#createSample(realtimeAudioContext, channel, bufferNum, timingPitch, cPitch, stretch);
 			cPitch = channel.notePitch(midiNote + 12);
-			stretch *= channel.notePitch(midiNote + 11) / cPitch;
+			stretch *= cPitch / channel.notePitch(midiNote + 11);
 		}
 		stretch = 1;
 		for (let midiNote = timingC - 12; midiNote >= 36; midiNote -= 12) {
 			cPitch = channel.notePitch(midiNote);
-			stretch *= channel.notePitch(midiNote + 1) / cPitch;
+			stretch *= cPitch / channel.notePitch(midiNote + 1);
 			const bufferNum = midiNote / 12 - 3;
 			this.#createSample(realtimeAudioContext, channel, bufferNum, timingPitch, cPitch, stretch);
 		}
@@ -535,12 +571,14 @@ class TimbreFrameOscillator extends SampleSource {
 		let numFrames = frames.length;
 		let loopStartFrame = this.loopStartFrame;
 		if (!this.loop) {
+			// Case 1: Non-looping. Add an implied fading to silence frame on the end.
 			const silentFrame = frames[numFrames - 1].clone();
 			silentFrame.holdTime = 0;
 			frames.push(silentFrame);
 			numFrames++;
 			loopStartFrame = numFrames - 1;
 		} else if (loopStartFrame === numFrames - 1) {
+			// Case 2: Loop last frame only.
 			const frame = frames[numFrames - 1].clone();
 			frames[numFrames - 1] = frame;
 			const pitchRatio = Math.abs(frame.effectivePitchRatio());
@@ -552,7 +590,8 @@ class TimbreFrameOscillator extends SampleSource {
 				frame.holdTime = 0.4 / timeMultiple;
 			}
 		} else {
-			// Make the beginning and end of the loop seamless.
+			// Case 3: Loop multiple frames. Add an implied copy of the loop start frame so that
+			// the end of the loop transitions to match the start of the loop.
 			const loopTransition = frames[loopStartFrame].clone();
 			loopTransition.holdTime = 0;
 			frames.push(loopTransition);
@@ -596,9 +635,11 @@ class TimbreFrameOscillator extends SampleSource {
 						if (nextPitchRatio === 0) {
 							subperiod *= 0.5;	// i.e. any zero crossing point
 						} else {
-							const modulus = (pitchRatio / nextPitchRatio) % 1;
-							if (modulus > 0) {
-								subperiod *= modulus;
+							const multiple = findDenominator(pitchRatio, nextPitchRatio);
+							// The interference pattern must happen fast enough to be perceived as
+							// timbre, not modulation, i.e. minimum 20Hz.
+							if (nextPitchRatio * recordingPitch / multiple >= 20) {
+								subperiod /= multiple;
 							}
 						}
 					}
@@ -607,6 +648,8 @@ class TimbreFrameOscillator extends SampleSource {
 						duration += subperiod;
 					}
 					if (!isLastFrame) {
+						// Time scaling (or just high pitch) may have made the frame length shorter
+						// than a single cycle of the waveform, which usually isn't useful.
 						const minCycles = timingPitch === 1  && frame.holdTime === 0.5 ? 0.5 : 1;
 						duration = Math.max(duration, minCycles * period);
 					}

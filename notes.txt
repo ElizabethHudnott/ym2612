@@ -32,6 +32,7 @@ Timbre frames
 	Option to set pitch ratio using transpose + detune
 	Option to cross fade using cosine shape
 	Option to fade out harmonics one by one using a filter
+		Filter sweep then volume fade? Or simultaneous?
 		General case (when combined with FM): arbitrary filter sweep?
 			Or only available when not using FM?
 	Integrated FM modulator (sine) with DADSR envelope and ratio or fixed (and semi-fixed?)
@@ -50,7 +51,7 @@ Timbre frames
 
 
 Option to not reset phase
-Filter key tracking and glide
+Filter key tracking and glide?
 Only respond to MIDI when visible/active?
 Bug: Reading .value is broken in chrome
 Bug: mixPCM doesn't support 2-op channels
@@ -107,6 +108,7 @@ on screen keyboard
 
 LFO centering (only up / only down / bipolar)?
 
+High pass filter?
 Wet/Dry control on filter?
 
 PSG
