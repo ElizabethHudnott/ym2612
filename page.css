@@ -285,6 +285,7 @@ td.odd-col:nth-child(2n) {
 .btn-group-toggle .btn,
 .btn[data-toggle="button"] {
 	border-width: 3px;
+	margin-right: 1px;
 }
 
 .btn-group-toggle .btn.active,

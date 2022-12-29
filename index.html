@@ -34,6 +34,33 @@
 		<div class="tab-content" id="instrument-tabs">
 			<div class="tab-pane fade" id="performance" role="tabpanel" aria-labelledby="performance-tab">
 				<fieldset class="panel">
+					<h1>Delay</h1>
+					<div class="row form-group">
+						<div class="col-auto w-100">
+							<div class="btn-group btn-group-toggle w-100 flex-wrap" data-toggle="buttons">
+								<label class="flex-fill btn btn-dark text-center active">
+									<input type="radio" name="delay-type" value="doubling" checked>Doubling
+								</label>
+								<label class="flex-fill btn btn-dark text-center">
+									<input type="radio" name="delay-type" value="short">Short
+								</label>
+								<label class="flex-fill btn btn-dark text-center">
+									<input type="radio" name="delay-type" value="long">Long
+								</label>
+								<label class="flex-fill btn btn-dark text-center">
+									<input type="radio" name="delay-type" value="flange">Flanger
+								</label>
+								<label class="flex-fill btn btn-dark text-center">
+									<input type="radio" name="delay-type" value="chorus">Chorus
+								</label>
+								<label class="flex-fill btn btn-dark text-center">
+									<input type="radio" name="delay-type" value="manual">Manual
+								</label>
+							</div>
+						</div>
+					</div>
+				</fieldset>
+				<fieldset class="panel">
 					<h1>Compressor</h1>
 					<div class="row form-group">
 						<label class="col-auto col-md-2 col-form-label" for="pregain-slider">

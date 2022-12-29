@@ -512,7 +512,7 @@ class TimbreFrameOscillator extends SampleSource {
 		this.timeScaling = 1;	// Speeds up or slows down all frames (normally 1 when timingNote = -1)
 		this.loop = true;
 		this.loopStartFrame = 0;
-		this.bitDepth = 25;
+		this.bitDepth = 24;
 	}
 
 	clone() {

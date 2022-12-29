@@ -32,9 +32,9 @@ import {parsePattern} from './storage/csv.js';
 
 const tuningPrecision = 1024 / 12;	// SY-77 accuracy (see roundMicrotuning)
 
-const audioContext = new AudioContext(
-	{ latencyHint: 'interactive', sampleRate: Synth.sampleRate(ClockRate.NTSC, 15, 64) }
-);
+// Use a sample rate of Synth.sampleRate(ClockRate.NTSC, 15, 64) to more closely emulate OPM or
+// match modern systems for less latency.
+const audioContext = new AudioContext({latencyHint: 'interactive', sampleRate: 48000});
 const soundSystem = new GenesisSound(audioContext, NUM_CHANNELS, 3, 0.5, ClockRate.NTSC, 60, 15, 64);
 soundSystem.start(nextQuantum(audioContext));
 const synth = soundSystem.fm;

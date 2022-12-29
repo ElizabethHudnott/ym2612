@@ -1,4 +1,4 @@
-import {nextQuantum, logToLinear} from './common.js';
+import {nextQuantum, logToLinear, panningMap} from './common.js';
 
 const DelayType = Object.freeze({
 	DOUBLING: 0,
@@ -9,15 +9,25 @@ const DelayType = Object.freeze({
 	MANUAL: 5,
 });
 
+const StereoModulation = Object.freeze({
+	LEFT_ONLY: Object.freeze([1, 0]),
+	RIGHT_ONLY: Object.freeze([0, 1]),
+	SAME: Object.freeze([1, 1]),
+	OPPOSITE: Object.freeze([1, -1]),
+});
+
 const TIME_UNIT = 0.000040165;
 
 const TIME_MULTIPLES = [  3,   7,   60, 1, 3,  83];
-const TIME_OFFSETS =   [249, 498, 2614, 1, 124, 1];
-const MAX_MODULATION = TIME_OFFSETS[DelayType.CHORUS] + 224 * TIME_MULTIPLES[DelayType.CHORUS];
 
 class EffectUnit {
 
 	constructor(context) {
+		// Cycles must include a delay of at least one sample frame block
+		const minDelayUnits = (128 / context.sampleRate) / TIME_UNIT;
+		const timeOffsets = [249, 498, 2614, minDelayUnits, 124, minDelayUnits];
+		this.timeOffsets = timeOffsets;
+
 		// 6db/octave, cutoff 300Hz
 		const highpass = new IIRFilterNode(context, {feedforward: [0.955], feedback: [1, 0.0447]});
 		this.highpass = highpass;
@@ -25,7 +35,8 @@ class EffectUnit {
 		highpass.connect(splitter);
 
 		const maxDelayTime = TIME_UNIT * (
-			TIME_OFFSETS[DelayType.MANUAL] + 255 * TIME_MULTIPLES[DelayType.MANUAL]
+			timeOffsets[DelayType.MANUAL] + 255 * TIME_MULTIPLES[DelayType.MANUAL] +
+			31 * 8 * TIME_MULTIPLES[DelayType.CHORUS]
 		);
 		const leftDelay = new DelayNode(context, {maxDelayTime: maxDelayTime});
 		this.leftDelay = leftDelay.delayTime;
@@ -52,8 +63,12 @@ class EffectUnit {
 		rightDelay.connect(rtlCrossfeed);
 		rtlCrossfeed.connect(leftDelay);
 
-		const modGain = new GainNode(context, {gain: 0});
-		this.modDepthParam = modGain.gain;
+		const leftModGain = new GainNode(context, {gain: 0});
+		this.leftModGain = leftModGain;
+		leftModGain.connect(leftDelay.delayTime);
+		const rightModGain = new GainNode(context, {gain: 0});
+		this.rightModGain = rightModGain;
+		rightModGain.connect(rightDelay.delayTime);
 
 		const leftDelayPan = new StereoPannerNode(context, {pan: 1}); // Send left input to right output
 		const rightDelayPan = new StereoPannerNode(context, {pan: -1}); // Send right input to left output
@@ -73,20 +88,21 @@ class EffectUnit {
 		 * CHORUS: 224
 		 * Everything else: 255
 		 */
-		this.delayAmount = 128;		// Between 0 and approximately 255
-		this.delayOffset = 0;		// Between -1 and 1
-		this.modulationRate = 1.5;	// In Hertz
-		this.modulationDepth = 0;	// Between 0 and 1
-		this.feedback = 0;			// Between 0 and 1023
-		this.feedbackPan = 0;		// Between -1 (only applied to left) and 1 (only applied to left)
+		this.delayAmount = 128;				// Between 0 and approximately 255
+		this.delayOffset = 0;				// Between -1 and 1
+		this.modulationRate = 2;			// In Hertz
+		this.modulationDepth = 15;			// Between 0 and 31
+		this.stereoModulation = StereoModulation.OPPOSITE;	// Publicly assignable. Then call setDelay()
+		this.feedback = 0;					// Between 0 and 1023
+		this.feedbackPan = 0;				// Between -1 (only applied to left) and 1 (only applied to right)
 		this.feedbackPolarity = [1, 1];	// Publicly assignable. Then call setFeedback()
-		this.crossfeedMix = 0;		// Between 0 and 1
+		this.crossfeedMix = 0;				// Between 0 and 1
 		this.crossfeedPolarity = [1, 1];	// Publicly assignable. Then call setFeedback()
-		this.delayWidth = -1;		// Between -1 and 1
-		this.delayPan = 0;			// Between -1 and 1
-		this.delayReturn = 1023;	// Between 0 and 1023
+		this.delayWidth = -1;				// Between -1 and 1
+		this.delayPan = 0;					// Between -1 and 1
+		this.delayReturn = 1023;			// Between 0 and 1023
 		this.lfo = undefined;
-		this.setDelayAmount(context, this.delayAmount);
+		this.setDelayAmount(context);
 	}
 
 	connectDelayInput(input) {
@@ -97,47 +113,68 @@ class EffectUnit {
 		this.delayGainOut.connect(destination);
 	}
 
+	/**
+	 * @param {string} method exponentialRampToValueAtTime is not supported for all possible
+	 * parameter values and pre-existing internal states.
+	 */
 	setDelay(
-		context, amount, type = this.delayType, offset = this.delayOffset,
+		context, amount = this.delayAmount, type = this.delayType, offset = this.delayOffset,
 		modulationDepth = this.modulationDepth, time = nextQuantum(context),
 		method = 'setValueAtTime'
 	) {
-		const delayUnits = TIME_OFFSETS[type] + amount * TIME_MULTIPLES[type];
+		// Calculate left and right delay times.
+		const delayUnits = this.timeOffsets[type] + amount * TIME_MULTIPLES[type];
 		let leftUnits, rightUnits;
 		if (offset > 0) {
-			leftUnits = Math.round(delayUnits * (1 - 0.5 * offset));
+			leftUnits = Math.trunc(delayUnits * (1 - 0.5 * offset));
 			rightUnits = delayUnits;
 		} else {
 			leftUnits = delayUnits;
-			rightUnits = Math.round(delayUnits * (1 + 0.5 * offset));
+			rightUnits = Math.trunc(delayUnits * (1 + 0.5 * offset));
 		}
 		const minDelayUnits = Math.min(leftUnits, rightUnits);
-		this.effectiveDelayOffset = 1 - minDelayUnits / delayUnits;
+		this.effectiveDelayOffset = Math.min(2 * (1 - minDelayUnits / delayUnits), 1);
 
-		let modulationUnits = 0, effectiveModDepth = 0;
-		if (type >= DelayType.FLANGE) {
-			const maxModulation = Math.min(minDelayUnits, MAX_MODULATION);
-			modulationUnits = Math.round(modulationDepth * maxModulation);
-			this.modulationDepth = modulationDepth;
-			effectiveModDepth = modulationUnits / maxModulation;
+		// Calculate modulation depth and increase delay times accordingly.
+		let modulationStepSize;	// Internally accounts for modulation being bipolar.
+		switch (type) {
+		case DelayType.FLANGE:
+			modulationStepSize = 2 * TIME_MULTIPLES[DelayType.FLANGE];
+			break;
+		case DelayType.CHORUS:
+		case DelayType.MANUAL:
+			modulationStepSize = 4 * TIME_MULTIPLES[DelayType.CHORUS];
+			break;
+		default:
+			modulationStepSize = 0;
 		}
+		const modulationUnits = modulationDepth * modulationStepSize;
+		const stereoModulation = this.stereoModulation;
+		leftUnits += Math.abs(stereoModulation[0]) * modulationUnits;
+		rightUnits += Math.abs(stereoModulation[1]) * modulationUnits;
+
+		// Doubling delay can't have feedback.
 		if (type === DelayType.DOUBLING) {
-			const fbMethod = method === 'exponentialRampToValueAtTime' ? 'linearRampToValueAtTime' : method;
-			this.leftFeedback[fbMethod](0, time);
-			this.rightFeedback[fbMethod](0, time);
-			this.ltrCrossfeed[fbMethod](0, time);
-			this.rtlCrossfeed[fbMethod](0, time);
+			this.leftFeedback[method](0, time);
+			this.rightFeedback[method](0, time);
+			this.ltrCrossfeed[method](0, time);
+			this.rtlCrossfeed[method](0, time);
 		} else if (this.delayType === DelayType.DOUBLING) {
 			this.setFeedbackAmount(this.feedback, time, method);
 		}
 
+		// Apply delay time and modulation depth changes.
 		this.leftDelay[method](leftUnits * TIME_UNIT, time);
 		this.rightDelay[method](rightUnits * TIME_UNIT, time);
-		this.modDepthParam[method](modulationUnits * TIME_UNIT, time);
+		const modulationTime = modulationUnits * TIME_UNIT;
+		this.leftModGain.gain[method](stereoModulation[0] * modulationTime, time);
+		this.rightModGain.gain[method](stereoModulation[1] * modulationTime, time);
 		let lfo = this.lfo;
 		if (lfo === undefined) {
 			if (modulationUnits > 0 && this.modulationRate !== 0) {
 				lfo = new OscillatorNode(context, {frequency: this.modulationRate});
+				lfo.connect(this.leftModGain);
+				lfo.connect(this.rightModGain);
 				lfo.start(time);
 				this.lfo = lfo;
 			}
@@ -146,11 +183,15 @@ class EffectUnit {
 			this.lfo = undefined;
 		}
 
+		// Save new values.
 		this.delayType = type;
 		this.delayAmount = amount;
 		this.delayTime = delayUnits * TIME_UNIT;
 		this.delayOffset = offset;
-		this.effectiveModDepth = effectiveModDepth;
+		this.isModulating = modulationStepSize !== 0;
+		if (this.isModulating) {
+			this.modulationDepth = modulationDepth;
+		}
 	}
 
 	setDelayAmount(context, amount, type = this.delayType, time = nextQuantum(context), method = 'setValueAtTime') {
@@ -188,8 +229,10 @@ class EffectUnit {
 	setModulationRate(context, rate, time = nextQuantum(context), method = 'setValueAtTime') {
 		let lfo = this.lfo;
 		if (lfo === undefined) {
-			if (rate !== 0 && this.effectiveModDepth > 0) {
+			if (rate !== 0 && this.isModulating && this.modulationDepth !== 0) {
 				lfo = new OscillatorNode(context, {frequency: this.modulationRate});
+				lfo.connect(this.leftModGain);
+				lfo.connect(this.rightModGain);
 				lfo.start(time);
 				this.lfo = lfo;
 			}
@@ -261,8 +304,12 @@ class EffectUnit {
 	}
 
 	setDelayPan(pan, width = this.delayWidth, time = 0, method = 'setValueAtTime') {
-		this.leftDelayPan[method](pan - width, time, method);
-		this.rightDelayPan[method](pan + width, time, method);
+		const leftPan = panningMap(Math.min(Math.max(pan - width, -1), 1));
+		const rightPan = panningMap(Math.min(Math.max(pan + width, -1), 1));
+		this.leftDelayPan[method](leftPan, time, method);
+		this.rightDelayPan[method](rightPan, time, method);
+		this.delayPan = pan;
+		this.delayWidth = width;
 	}
 
 	setDelayWidth(width, time = 0, method = 'setValueAtTime') {

@@ -254,10 +254,8 @@ function lcm(values) {
 }
 
 /**Creates an AudioBuffer containing the sum of several individual waves.
- * @param {number} sampleBits Defaults to 25 bit precision (mantissa length + sign bit of an
- * IEEE 754 single precision number). Each sample has one of 2**sampleBits + 1 values.
  */
-function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 25) {
+function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, bitDepth = 24) {
 	const numWaves = waveOptionsArr.length;
 	const denominators = [];
 	for (let waveOptions of waveOptionsArr) {
@@ -294,7 +292,7 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, sampleBits = 2
 	max -= subtract;
 	const magnitude = Math.max(max, Math.abs(min));
 
-	const steps = 2 ** (sampleBits - 1);
+	const steps = 2 ** (bitDepth - 1);
 	for (let i = 0; i < length; i++) {
 		const value = (summedWave[i] - subtract) / magnitude;
 		summedWave[i] = Math.round(steps * value) / steps;
