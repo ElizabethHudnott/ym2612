@@ -49,7 +49,8 @@ Timbre frames
 		Think of it like a free running LFO? (if not truly random but based on time mod something with offset)
 	Resynthesis
 
-
+Additive waveforms that replicate feedback?
+	Would we still be able to have a feedback envelope?
 Option to not reset phase
 Let filter go down to 0Hz
 Filter key tracking and glide?

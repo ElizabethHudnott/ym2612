@@ -147,8 +147,9 @@ export default class Synth {
 		if (!(this.keysOn & firstOnMask) && (firstOnMask & channelID)) {
 			const numChannels = this.channels.length;
 			for (let i = 0; i < numChannels; i++) {
-				if (firstOnMask & (1 << i)) {
-					this.channels[i].resetLFO(context, time);
+				const channel = this.channels[i];
+				if (firstOnMask & channel.id) {
+					channel.resetLFO(context, time);
 				}
 			}
 		}
