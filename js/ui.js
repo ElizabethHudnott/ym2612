@@ -51,9 +51,6 @@ function eachChannel(callback) {
 eachChannel(channel => {
 	channel.useAlgorithm(4)
 	for (let opNum = 1; opNum <= 4; opNum++) {
-		const operator = channel.getOperator(opNum);
-		operator.setVelocitySensitivity(32);
-		operator.setVelocityOffset(96);
 		channel.enableTremolo(opNum);
 	}
 });
@@ -1471,7 +1468,7 @@ function velocityDepth(event) {
 	const opNum = getOperator(this);
 	const opStr = 'op' + opNum + '-';
 	let value = parseInt(this.value);
-	if (Number.isFinite(value)) {
+	if (value >= -157 && value <= 157) {
 		document.getElementById(opStr + 'velocity-depth-slider').value = Math.abs(value);
 		if (value !== 0) {
 			checkInput(document.getElementById(opStr + 'velocity-direction'), opStr + 'velocity-direction', Math.sign(value));

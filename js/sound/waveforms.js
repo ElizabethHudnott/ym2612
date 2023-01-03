@@ -647,21 +647,24 @@ class TimbreFrameOscillator extends SampleSource {
 					if (duration < fadeIn) {
 						duration += subperiod;
 					}
-					if (!isLastFrame) {
-						// Time scaling (or just high pitch) may have made the frame length shorter
-						// than a single cycle of the waveform, which usually isn't useful.
-						const minCycles = timingPitch === 1  && frame.holdTime === 0.5 ? 0.5 : 1;
-						duration = Math.max(duration, minCycles * period);
-					}
 				}
 
 				if (i === loopStartFrame) {
 					loopOffset = fadeIn % period;
 				}
+
 				if (isLastFrame) {
 					duration += loopOffset;
+				} else {
+					// Time scaling (or just high pitch) may have made the frame length shorter
+					// than a single cycle of the waveform, which usually isn't useful.
+					const minCycles =
+						timingPitch === 1 && fadeIn === 0 && frame.holdTime === 0.5 ? 0.5 : 1;
+					duration = Math.max(duration, minCycles * period);
 				}
-			}
+
+			} // end if the frame isn't silent
+
 			holdTimes[i] = duration - fadeIn;
 		}
 

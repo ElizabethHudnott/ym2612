@@ -49,6 +49,14 @@ Timbre frames
 		Think of it like a free running LFO? (if not truly random but based on time mod something with offset)
 	Resynthesis
 
+Support equivalent of phase distortion by supporting a pulse wave as a waveform?
+	Too similar to feedback?
+	With any chosen non-modulated duty cycle? (or an envelope?)
+	Get phase distortion when used as a modulator
+
+Use a 6db filter as DC blocker for feedback?
+	But not for ring mod. Want to support low frequency modulators
+	https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
 Additive waveforms that replicate feedback?
 	Would we still be able to have a feedback envelope?
 Option to not reset phase
@@ -70,7 +78,8 @@ Option to glide by a fixed number of semitones (better for poly)
 	See Pre-Glide on Novation Peak
 
 Dampening phase should only apply when attenuation is < 0x200
-When envelope reset is on then keep the phase synchronized by applying the longest dampening time to all operators
+When envelope reset is on then keep the beginning of the attack (& hence the phase) synchronized by waiting until all operators have been dampened
+	by applying the longest dampening time to all operators?
 	delay stage should happen after dampening (but not have rate scaling applied?)
 	add initial phase parameter
 Sustain on/off envelope option (one shot)

@@ -63,8 +63,10 @@ export default class Envelope {
 		this.envelopeRate = 1;
 		this.reset = false;		// Rapidly fade level to zero before retriggering
 
-		this.velocitySensitivity = 0;		// Default to no velocity sensitivity
-		this.velocityOffset = 127;			// Default to highest maximum output level
+		// Default to no velocity sensitivity.
+		this.velocitySensitivity = 0;
+		// Default to velocity sensitivity applying to the whole range of velocity inputs.
+		this.velocityOffset = 0;
 		this.rateSensitivity = 0;
 
 		this.inverted = false;
@@ -520,9 +522,8 @@ export default class Envelope {
 	}
 
 	/**
-	 * @param {number} sensitivity Range -127..127. The SY77 has a range -7..7 and the YC88, etc.
-	 * series of organs have a touch sensitivity depth range of 0..127 (see supplementary
-	 * manual).
+	 * @param {number} sensitivity The maximum possible range is -157 to 157. But the MODX only
+	 * supports -64 to 63.
 	 */
 	setVelocitySensitivity(sensitivity) {
 		this.velocitySensitivity = sensitivity;
@@ -532,6 +533,9 @@ export default class Envelope {
 		return this.velocitySensitivity;
 	}
 
+	/**
+	 * @param {number} offset Between 0 and 127
+	 */
 	setVelocityOffset(offset) {
 		this.velocityOffset = offset;
 	}
@@ -546,8 +550,8 @@ export default class Envelope {
 			velocity = 128 - velocity;
 			depth = -depth;
 		}
-		const offset = this.velocityOffset;
-		let level = ((2 * velocity * depth) >> 7) + 2 * offset - 127;
+		const gradient = depth <= 32 ? depth / 32 : depth - 31;
+		let level = 127 - (127 - this.velocityOffset - velocity) * gradient;
 		level = Math.min(Math.max(level, 1), 127);
 		this.#setTotalLevel(127 - level, time);
 	}
@@ -555,7 +559,6 @@ export default class Envelope {
 	setTotalLevel(level, time = 0, method = 'setValueAtTime') {
 		this.#setTotalLevel(level, time, method);
 		this.velocitySensitivity = 0;
-		this.velocityOffset = 127 - level / 2;
 	}
 
 	/**
