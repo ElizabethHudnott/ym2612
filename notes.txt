@@ -54,9 +54,6 @@ Support equivalent of phase distortion by supporting a pulse wave as a waveform?
 	With any chosen non-modulated duty cycle? (or an envelope?)
 	Get phase distortion when used as a modulator
 
-Use a 6db filter as DC blocker for feedback?
-	But not for ring mod. Want to support low frequency modulators
-	https://www.earlevel.com/main/2012/12/15/a-one-pole-filter/
 Additive waveforms that replicate feedback?
 	Would we still be able to have a feedback envelope?
 Option to not reset phase

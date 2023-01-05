@@ -877,13 +877,22 @@ const OscillatorFactory = {
 
 	timbreFrames: function() {
 		return new TimbreFrameOscillatorFactory();
+	},
+
+	integrate: function(coefficients) {
+		let max = 0, area = 0;
+		for (let i = 0; i < coefficients.length; i++) {
+			area += -coefficients[i] / (i + 1) * (Math.cos((i + 1) * Math.PI) - 1);
+			max += coefficients[i] * Math.sin((i + 1) * 0.5 * Math.PI);
+		}
+		return area / max;
 	}
 
 }
 
-const W2_COEFFICIENTS = [1, 0, -0.19, 0, 0.03, 0, -0.01];
-const COW2_COEFFICIENTS = [1, 0, -0.19 * 3, 0, 0.03 * 5, 0, -0.01 * 7];
-const W2_OFFSET = -1.8824761903362 / Math.PI;
+const SINE_SQ_COEFFICIENTS = [1, 0, -0.19, 0, -0.03, 0, -0.01];
+const COSINE_SQ_COEFFICIENTS = SINE_SQ_COEFFICIENTS.map((x, i) => x * (i + 1));
+const SINE_SQ_OFFSET = -OscillatorFactory.integrate(SINE_SQ_COEFFICIENTS) / (2 * Math.PI);
 
 const Waveform = {
 	// Waveforms are mostly listed in pairs of one waveform followed by its derivative, where available.
@@ -914,18 +923,26 @@ const Waveform = {
 		'square', 2, false, 0, 1, 2/3, true
 	),
 	SAWTOOTH:		OscillatorFactory.mono('sawtooth'),
+	FEEDBACK6:		OscillatorFactory.am('triangle', false, 0, 'sawtooth', -20, true),
 
-	// From the Yamaha DX11 and TX81Z (OPZ)
-	W2:				OscillatorFactory.additiveSin(W2_COEFFICIENTS),
-	COW2:				OscillatorFactory.additiveCos(COW2_COEFFICIENTS),
 
-	HALF_W2:			OscillatorFactory.additiveSin(W2_COEFFICIENTS, false, W2_OFFSET, 1),	// W4
-	HALF_COW2:		OscillatorFactory.additiveCos(COW2_COEFFICIENTS, false, 0, 1),
+	// From the Yamaha DX11, TX81Z, SY77, SY99 and TG77
 
-	ODD_W2:			OscillatorFactory.additiveSin(W2_COEFFICIENTS, false, 0, 2),	// W6
-	ODD_COW2:		OscillatorFactory.additiveCos(COW2_COEFFICIENTS, false, 0, 2),
+	// W2
+	SINE_SQ:			OscillatorFactory.ringMod('sine', true, 'sine'),
+	ALTERNATING_SINE:	OscillatorFactory.ringMod('sine', true, 'square', 2), // d/dx(|sin(x)| * sin(x))
 
-	ABS_ODD_W2:		OscillatorFactory.additiveSin(W2_COEFFICIENTS, true, W2_OFFSET, 2),	// W8
+	// W4
+	HALF_SINE_SQ:	OscillatorFactory.additiveSin(SINE_SQ_COEFFICIENTS, false, SINE_SQ_OFFSET, 1),
+	HALF_COSINE_SQ: OscillatorFactory.additiveCos(COSINE_SQ_COEFFICIENTS, false, 0, 1),
+
+	// W6
+	ODD_SINE_SQ:	OscillatorFactory.additiveSin(SINE_SQ_COEFFICIENTS, false, 0, 2),
+	ODD_COSINE_SQ:	OscillatorFactory.additiveCos(COSINE_SQ_COEFFICIENTS, false, 0, 2),
+
+	//W8
+	ABS_ODD_SINE_SQ: OscillatorFactory.additiveSin(SINE_SQ_COEFFICIENTS, true, SINE_SQ_OFFSET, 2),
+
 
 	// From Yamaha chips used in early 2000s mobile phones, e.g. YMU762 (MA-3)
 	HALF_TRIANGLE:	OscillatorFactory.am('triangle', false, -0.25, 'square'),
@@ -935,9 +952,6 @@ const Waveform = {
 	HALF_SAWTOOTH:	OscillatorFactory.am('sawtooth', false, -0.25, 'square'),
 	ODD_SAWTOOTH:	OscillatorFactory.am('sawtooth', false, 0, 'square', 2),
 
-	// From the Yamaha SY77, SY99 and TG77
-	SINE_SQUARED:	OscillatorFactory.ringMod('sine', true, 'sine'),
-	ALTERNATING_SINE:	OscillatorFactory.ringMod('sine', true, 'square', 2), // d/dx(|sin(x)| * sin(x))
 
 	// Additive
 	TRIANGLE12:		OscillatorFactory.additive2('triangle', false, 0, 'triangle', 2, false, 4/3),
@@ -967,6 +981,7 @@ const Waveform = {
 
 	SINE18:			OscillatorFactory.additiveSin([1, 0, 0, 0, 0, 0, 0, 1]),
 	COSINE18:		OscillatorFactory.additiveCos([1, 0, 0, 0, 0, 0, 0, 8]),
+
 
 	// Miscellaneous
 	STEP:				OscillatorFactory.am('square', false, 0, 'square', 2, true),
