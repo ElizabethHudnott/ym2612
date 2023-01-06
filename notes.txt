@@ -42,7 +42,6 @@ Timbre frames
 	Generate one sample per octave
 		timing stretch option
 
-	LFO modulation between frames?
 	Different sets of timbre frames for different note ranges?
 	Different sets of timbre frames for different velocities?
 	Option to randomize (or key track?) sample start position (by a specified amount?) and direction (with a specified probability)? (Padshop Pro 2)

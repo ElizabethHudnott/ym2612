@@ -17,6 +17,7 @@ import YM2612 from './sound/ym2612.js';
 import {KeySync, Direction, FadeParameter, Pan, AbstractChannel} from './sound/fm-channel.js';
 import {OscillatorFactory, Waveform, OscillatorTimbreFrame, HarmonicTimbreFrame} from './sound/waveforms.js';
 import {PitchBend, VolumeAutomation} from './sound/bend.js';
+import {DelayType} from './sound/effect-unit.js';
 import {Effects} from './sound/effect-commands.js';
 import MusicInput from './sound/input.js';
 const NUM_CHANNELS = 8;
@@ -179,6 +180,17 @@ function tremoloSliderValue(depth) {
 		sliderValue -= 0.5;
 	}
 	return sliderValue;
+}
+
+function delayType(event) {
+	audioContext.resume();
+	const effects = synth.effects;
+	const type = DelayType[this.value.toUpperCase()];
+	effects.setDelayAmount(audioContext, effects.getDelayAmount(), type);
+}
+
+for (let btn of document.querySelectorAll('input[name="delay-type"]')) {
+	btn.addEventListener('click', delayType);
 }
 
 document.getElementById('pregain-slider').addEventListener('input', function (event) {

@@ -162,12 +162,33 @@ function panningMap(value) {
 	return 1 - 2 * Math.acos(value) / Math.PI;
 }
 
+function quadraticWave(sampleRate, frequency) {
+	const period = sampleRate / frequency;
+	const scaledFrequency = frequency / sampleRate;
+	const length = Math.round(period);
+	const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+	const data = buffer.getChannelData(0);
+
+	for (let i = 0; i < length; i++) {
+		const x = (i + 0.25 * period) % period;
+		const fx = scaledFrequency * x;
+		if (x < 0.25 * period) {
+			data[i] = 16 * fx * fx - 1;
+		} else if (x < 0.75 * period) {
+			data[i] = 16 * fx * (1 - fx) - 3;
+		} else {
+			data[i] = 16 * fx * (fx - 2) + 15;
+		}
+	}
+	return buffer;
+}
+
 /**Produces a Float32Array that can be used as a waveform for creating chip tunes.
  * @param {object} options An object containing any additional options.
 */
 function makeBasicWaveform(options = {}, length = 1024) {
-	// 'sine' or 'triangle'.
-	let type = options.type || ('dutyCycle' in options ? 'triangle' : 'sine');
+	// 'sine', 'cosine', 'square' or 'triangle'.
+	let type = options.type || ('dutyCycle' in options ? 'square' : 'sine');
 
 	// Default to a 50% duty cycle for triangle waves.
 	let dutyCycle = 'dutyCycle' in options ? options.dutyCycle : 0.5;
@@ -197,8 +218,26 @@ function makeBasicWaveform(options = {}, length = 1024) {
 	if (type === 'sine') {
 
 		wave = function (x) {
-			return Math.sin(2 * Math.PI * x);
+			if (x < dutyCycle) {
+				return Math.sin(Math.PI * x / dutyCycle);
+			} else {
+				return -Math.sin(Math.PI * (x - dutyCycle) / (1 - dutyCycle));
+			}
 		}
+
+	} else if (type === 'cosine') {
+
+		wave = function (x) {
+			if (x < dutyCycle) {
+				return Math.cos(Math.PI * x / dutyCycle);
+			} else {
+				return -Math.cos(Math.PI * (x - dutyCycle) / (1 - dutyCycle));
+			}
+		}
+
+	} else if (type === 'square') {
+
+		wave = x => x < dutyCycle ? 1 : -1;
 
 	} else {
 
@@ -305,7 +344,7 @@ export {
 	nextQuantum, getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
-	gainToOutputLevel, panningMap, makeMathyWave,
+	gainToOutputLevel, panningMap, quadraticWave, makeMathyWave,
 	gcd, lcm,
 	NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
