@@ -42,7 +42,7 @@
 									<input type="radio" name="delay-type" value="doubling" checked>Doubling
 								</label>
 								<label class="flex-fill btn btn-dark text-center">
-									<input type="radio" name="delay-type" value="short">Short
+									<input type="radio" name="delay-type" value="slapback">Slapback
 								</label>
 								<label class="flex-fill btn btn-dark text-center">
 									<input type="radio" name="delay-type" value="long">Long
@@ -56,6 +56,22 @@
 								<label class="flex-fill btn btn-dark text-center">
 									<input type="radio" name="delay-type" value="manual">Manual
 								</label>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<label class="col-auto col-md-2 col-form-label" for="delay-amount">
+							Delay Time
+						</label>
+						<div class="col-12 col-md-7 mb-3 my-md-auto pl-md-0">
+							<input type="range" min="0" max="255" value="128" class="form-control-range mt-1" id="delay-amount">
+						</div>
+						<div class="col-6 col-sm-3 pr-md-4 ml-auto">
+							<div class="input-group">
+								<input type="number" value="35.4" class="form-control led-display" id="delay-time" disabled>
+								<div class="input-group-append">
+									<span class="input-group-text led-label">ms</span>
+								</div>
 							</div>
 						</div>
 					</div>

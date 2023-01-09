@@ -2,7 +2,7 @@ import {nextQuantum, logToLinear, panningMap} from './common.js';
 
 const DelayType = Object.freeze({
 	DOUBLING: 0,
-	SHORT: 1,
+	SLAPBACK: 1,
 	LONG: 2,
 	FLANGE: 3,
 	CHORUS: 4,
@@ -18,15 +18,26 @@ const StereoModulation = Object.freeze({
 
 const TIME_UNIT = 0.000040165;
 
-const TIME_MULTIPLES = [  3,   7,   60, 1, 3,  83];
+// [DOUBLING, SLAPBACK, LONG, FLANGE, CHORUS, MANUAL]
+// Original values modelled on Korg DS-8: [3, 7, 60, 1, 3, 83]
+const TIME_MULTIPLES = [3, 6, 59, 1, 3, 83];
 
 class EffectUnit {
 
 	constructor(context) {
 		// Cycles must include a delay of at least one sample frame block
 		const minDelayUnits = (128 / context.sampleRate) / TIME_UNIT;
-		const timeOffsets = [249, 498, 2614, minDelayUnits, 124, minDelayUnits];
+
+		// [DOUBLING, SLAPBACK, LONG, FLANGE, CHORUS, MANUAL]
+		// Original values modelled on Korg DS-8: [249, 498, 2614, 1, 124, 1]
+		const timeOffsets = [498, 1476, 3012, minDelayUnits, 124, 84];
 		this.timeOffsets = timeOffsets;
+		const maxDelayAmounts = [
+			255, 255, 255,
+			Math.ceil(0.0055 / TIME_UNIT - minDelayUnits),	// Flanger
+			224, 254
+		];
+		this.maxDelayAmounts = maxDelayAmounts;
 
 		// 6db/octave, cutoff 300Hz
 		const highpass = new IIRFilterNode(context, {feedforward: [0.955], feedback: [1, 0.0447]});
@@ -35,7 +46,8 @@ class EffectUnit {
 		highpass.connect(splitter);
 
 		const maxDelayTime = TIME_UNIT * (
-			timeOffsets[DelayType.MANUAL] + 255 * TIME_MULTIPLES[DelayType.MANUAL] +
+			timeOffsets[DelayType.MANUAL] +
+			maxDelayAmounts[DelayType.MANUAL] * TIME_MULTIPLES[DelayType.MANUAL] +
 			31 * 8 * TIME_MULTIPLES[DelayType.CHORUS]
 		);
 		const leftDelay = new DelayNode(context, {maxDelayTime: maxDelayTime});

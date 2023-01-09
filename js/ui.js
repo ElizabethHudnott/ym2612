@@ -182,16 +182,33 @@ function tremoloSliderValue(depth) {
 	return sliderValue;
 }
 
+function setDelayAmount(amount, type = synth.effects.getDelayType()) {
+	const effects = synth.effects;
+	effects.setDelayAmount(audioContext, amount, type);
+	const milliseconds = effects.getDelayTime() * 1000;
+	const decimalPlaces = 3 - (Math.trunc(Math.max(Math.log10(milliseconds), 0)) + 1);
+	document.getElementById('delay-time').value = milliseconds.toFixed(decimalPlaces);
+}
+
 function delayType(event) {
 	audioContext.resume();
 	const effects = synth.effects;
 	const type = DelayType[this.value.toUpperCase()];
-	effects.setDelayAmount(audioContext, effects.getDelayAmount(), type);
+	const maxAmount = effects.maxDelayAmounts[type];
+	const amount = Math.min(effects.getDelayAmount(), maxAmount);
+	const slider = document.getElementById('delay-amount');
+	slider.value = amount;
+	slider.max = maxAmount;
+	setDelayAmount(amount, type);
 }
 
 for (let btn of document.querySelectorAll('input[name="delay-type"]')) {
 	btn.addEventListener('click', delayType);
 }
+
+document.getElementById('delay-amount').addEventListener('input', function (event) {
+	setDelayAmount(parseInt(this.value));
+});
 
 document.getElementById('pregain-slider').addEventListener('input', function (event) {
 	audioContext.resume();
