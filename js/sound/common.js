@@ -140,6 +140,11 @@ function syToDXLevel(level) {
 	}
 }
 
+/**
+ * @param {number} outputLevel The operator output level for a DX7 or SY series. Add 7.5 to
+ * any 4 operator output level greater than or equal to 20 to obtain the corresponding DX7/SY
+ * output level that this function needs.
+ */
 function modulationIndex(outputLevel) {
 	const level = dxToSYLevel(Math.abs(outputLevel));
 	return Math.sign(outputLevel) * Math.PI * 2 ** (33 / 16 - (127 - level) / 8);

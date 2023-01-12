@@ -279,7 +279,7 @@ export default class Envelope {
 			function playSample(args) {
 				const buffer = args[0];
 				const baseRate = args[1];
-				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.synth.envelopeTick * me.envelopeRate / 4;
+				let playbackRate = baseRate * scaleFactor * buffer.sampleRate * me.channel.synth.envelopeTick * me.envelopeRate / 4;
 				const sampleNode = new AudioBufferSourceNode(context,
 					{buffer: buffer, loop: true, playbackRate: playbackRate}
 				);
@@ -313,7 +313,7 @@ export default class Envelope {
 				playSample([this.ssgSample, this.ssgBaseRate]);
 			}
 			return;
-		}
+		}	// End looping envelope
 
 		let endDecay = endAttack;
 		const sustain = invert ? 1023 - this.sustain : this.sustain;
