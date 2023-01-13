@@ -789,6 +789,29 @@ const OscillatorFactory = {
 		);
 	},
 
+	/**Creates a waveform shaped like a Yamaha operator with feedback set to 6, which is also
+	 * one of the Casio CZ "resonant" waveforms (if the permissible DCW positions are
+	 * restricted, since the hard sync part isn't implemented here).
+	 * @param {number} boostedHarmonic Must be an even number. 34 possibly best emulates
+	 * Yamaha (the harmonics quickly exceed the Nyquist frequency though) and Casio goes up to
+	 * 15 (so 14 or 16 using this function).
+	 */
+	resonantSaw: function (boostedHarmonic) {
+		const frequencyMultiple = boostedHarmonic >> 1;
+		const bias = -1 / Math.PI;
+		/* To normalize the waveform use f(u) as the number being subtracted from in the
+		 * denominator instead of 1, where:
+		 * u is a solution to frequencyMultiple * (PI - x) / tan(frequencyMultiple * x) - 1 = 0
+		 * -PI < u < -PI + PI / frequencyMultiple
+		 * f(x) = (0.5 - 0.5 * x / PI) * abs(sin(frequencyMultiple * x))
+		 */
+		const gain = 1 / (1 + bias);
+		const oscillator1Factory = singleOscillatorFactory('sine', true, bias);
+		return OscillatorFactory.dual(
+			oscillator1Factory, 'sawtooth', frequencyMultiple, false, 0, -1, gain
+		);
+	},
+
 	additive2: function (
 		oscillator1Shape, waveShaping, bias, oscillator2Shape, frequencyMultiple = 1,
 		isOneToN = false, gain = 1
@@ -923,7 +946,6 @@ const Waveform = {
 		'square', 2, false, 0, 1, 2/3, true
 	),
 	SAWTOOTH:		OscillatorFactory.mono('sawtooth'),
-	FEEDBACK6:		OscillatorFactory.am('triangle', false, 0, 'sawtooth', -20, true),
 
 
 	// From the Yamaha DX11, TX81Z, SY77, SY99 and TG77
