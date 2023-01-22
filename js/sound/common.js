@@ -192,11 +192,24 @@ function quadraticWave(sampleRate, frequency) {
  * @param {object} options An object containing any additional options.
 */
 function makeBasicWaveform(options = {}, length = 1024) {
-	// 'sine', 'cosine', 'square' or 'triangle'.
-	let type = options.type || ('dutyCycle' in options ? 'square' : 'sine');
+	// 'sine', 'cosine', 'sawtooth', 'pulse' or 'triangle'.
+	let type = options.type || ('dutyCycle' in options ? 'pulse' : 'sine');
 
-	// Default to a 50% duty cycle for triangle waves.
-	let dutyCycle = 'dutyCycle' in options ? options.dutyCycle : 0.5;
+	// For example, 0.25 turns a sine wave into a cosine wave.
+	let phaseShift = options.phase || 0;
+	if (type === 'cosine') {
+		type = 'sine';
+		phaseShift += 0.25;
+	}
+
+	// Default to a 50% duty cycle.
+	let dutyCycle;
+	if (type === 'sawtooth') {
+		type = 'triangle';
+		dutyCycle = 1;
+	} else {
+		dutyCycle = 'dutyCycle' in options ? options.dutyCycle : 0.5;
+	}
 
 	// Default to maximum amplitude
 	const amplitude = options.amplitude || 1;
@@ -208,9 +221,6 @@ function makeBasicWaveform(options = {}, length = 1024) {
 	// Default to leaving negative samples as negative, i.e. undistorted, rather than creating,
 	// for example, a half sine (0) wave or a camel sine (1) wave.
 	const negative = 'negative' in options ? -1 * options.negative : 1;
-
-	// For example, 0.25 turns a sine wave into a cosine wave.
-	const phaseShift = options.phase || 0;
 
 	// By default the waveform takes up 100% of the available samples, with no zero samples
 	// added as padding. Values between 0 and 1 are permissible.
@@ -230,17 +240,7 @@ function makeBasicWaveform(options = {}, length = 1024) {
 			}
 		}
 
-	} else if (type === 'cosine') {
-
-		wave = function (x) {
-			if (x < dutyCycle) {
-				return Math.cos(Math.PI * x / dutyCycle);
-			} else {
-				return -Math.cos(Math.PI * (x - dutyCycle) / (1 - dutyCycle));
-			}
-		}
-
-	} else if (type === 'square') {
+	} else if (type === 'pulse') {
 
 		wave = x => x < dutyCycle ? 1 : -1;
 

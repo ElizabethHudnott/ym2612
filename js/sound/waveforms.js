@@ -63,7 +63,31 @@ class PeriodicOscillatorFactory extends AbstractOscillatorFactory {
 	}
 
 	clone() {
-		const factory = new PeriodicOscillatorFactory(this.sines, this.cosines, this.waveShaping, this.bias);
+		const factory = new PeriodicOscillatorFactory(
+			this.sines.slice(), this.cosines.slice(), this.waveShaping, this.bias
+		);
+		factory.periodicWave = this.periodicWave;
+		return factory;
+	}
+
+}
+
+class CosineOscillatorFactory extends AbstractOscillatorFactory {
+
+	static periodicWave;
+
+	createOscillator(context, frequencyOffset) {
+		if (CosineOscillatorFactory.periodicWave === undefined) {
+			const periodicWave = new PeriodicWave(context, {real: [0, 1], imag: [0, 0]});
+			CosineOscillatorFactory.periodicWave = periodicWave;
+		}
+		return new OscillatorNode(
+			context, {frequency: frequencyOffset, periodicWave: CosineOscillatorFactory.periodicWave}
+		);
+	}
+
+	clone() {
+		const factory = new CosineOscillatorFactory(this.waveShaping, this.bias);
 		factory.periodicWave = this.periodicWave;
 		return factory;
 	}
@@ -139,9 +163,7 @@ class DualOscillatorFactory {
 
 function singleOscillatorFactory(shape, waveShaping, bias) {
 	if (shape === 'cosine') {
-		return new PeriodicOscillatorFactory(
-			Float32Array.from([0, 0]), Float32Array.from([0, 1]), waveShaping, bias
-		);
+		return new CosineOscillatorFactory(waveShaping, bias);
 	} else {
 		return new SimpleOscillatorFactory(shape, waveShaping, bias);
 	}
@@ -792,12 +814,12 @@ const OscillatorFactory = {
 	/**Creates a waveform shaped like a Yamaha operator with feedback set to 6, which is also
 	 * one of the Casio CZ "resonant" waveforms (if the permissible DCW positions are
 	 * restricted, since the hard sync part isn't implemented here).
-	 * @param {number} boostedHarmonic Must be an even number. 34 possibly best emulates
+	 * @param {number} centreHarmonic Must be an even number. 34 possibly best emulates
 	 * Yamaha (the harmonics quickly exceed the Nyquist frequency though) and Casio goes up to
 	 * 15 (so 14 or 16 using this function).
 	 */
-	resonantSaw: function (boostedHarmonic) {
-		const frequencyMultiple = boostedHarmonic >> 1;
+	resonantSaw: function (centreHarmonic) {
+		const frequencyMultiple = centreHarmonic >> 1;
 		const bias = -1 / Math.PI;
 		/* To normalize the waveform use f(u) as the number being subtracted from in the
 		 * denominator instead of 1, where:
@@ -809,6 +831,36 @@ const OscillatorFactory = {
 		const oscillator1Factory = singleOscillatorFactory('sine', true, bias);
 		return OscillatorFactory.dual(
 			oscillator1Factory, 'sawtooth', frequencyMultiple, false, 0, -1, gain
+		);
+	},
+
+	/**Creates a waveform shaped like one of the Casio CZ "resonant" waveforms.
+	 */
+	resonantTriangle: function (centreHarmonic) {
+		const frequencyMultiple = centreHarmonic / 2;
+		const bias = -1 / Math.PI;
+		const gain = 1 / (1 + bias);
+		const oscillator1Factory = singleOscillatorFactory('sine', true, bias);
+		return OscillatorFactory.dual(
+			oscillator1Factory, 'triangle', frequencyMultiple, false, 0, 1, gain
+		);
+	},
+
+	/**
+	 * @param {number} centreHarmonic Must be even.
+	 * @param {number} [depth] The amplitude of the square wave. A value of 1 produces an
+	 * absolute sine wave that pulses on and off and a value of 0 produces an absolute sine
+	 * wave by itself.
+	 */
+	resonantSquare: function (centreHarmonic, depth = 0.5) {
+		const frequencyMultiple = centreHarmonic >> 1;
+		const bias = -(2 - depth) / Math.PI;
+		// For maximum amplitude use min(1 / (1 + bias), -1 / bias)
+		// However, this way we keep the amplitude of the centre harmonic constant.
+		const gain = 1 / (1 - 1 / Math.PI);
+		const oscillator1Factory = singleOscillatorFactory('sine', true, bias);
+		return OscillatorFactory.dual(
+			oscillator1Factory, 'square', frequencyMultiple, false, 0, 1, gain
 		);
 	},
 
@@ -902,11 +954,11 @@ const OscillatorFactory = {
 		return new TimbreFrameOscillatorFactory();
 	},
 
-	integrate: function(coefficients) {
-		let max = 0, area = 0;
-		for (let i = 0; i < coefficients.length; i++) {
-			area += -coefficients[i] / (i + 1) * (Math.cos((i + 1) * Math.PI) - 1);
-			max += coefficients[i] * Math.sin((i + 1) * 0.5 * Math.PI);
+	integrate: function(sineCoefficients, peakX, upperLimit = 2 * Math.PI) {
+		let area = 0, max = 0;
+		for (let i = 0; i < sineCoefficients.length; i++) {
+			area += -sineCoefficients[i] / (i + 1) * (Math.cos((i + 1) * upperLimit) - 1);
+			max += sineCoefficients[i] * Math.sin((i + 1) * peakX);
 		}
 		return area / max;
 	}
@@ -915,7 +967,8 @@ const OscillatorFactory = {
 
 const SINE_SQ_COEFFICIENTS = [1, 0, -0.19, 0, -0.03, 0, -0.01];
 const COSINE_SQ_COEFFICIENTS = SINE_SQ_COEFFICIENTS.map((x, i) => x * (i + 1));
-const SINE_SQ_OFFSET = -OscillatorFactory.integrate(SINE_SQ_COEFFICIENTS) / (2 * Math.PI);
+const SINE_SQ_OFFSET = -OscillatorFactory.integrate(SINE_SQ_COEFFICIENTS, Math.PI / 2, Math.PI) /
+	(2 * Math.PI);
 
 const Waveform = {
 	// Waveforms are mostly listed in pairs of one waveform followed by its derivative, where available.

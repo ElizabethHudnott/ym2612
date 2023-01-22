@@ -662,7 +662,7 @@ class Channel extends AbstractChannel {
 	 * OPN and OPL only support integers and the value 0.5. OPN and OPL don't support detune2
 	 * either and OPL doesn't even support detune1. The DX7 supports values of the form
 	 * N * (1 + M/100) where N is 0.5 or an integer between 1 and 31 and M is an integer between
-	 * 0 and 99.
+	 * 0 and 99. Fractions can be interpreted as a per operator transpose feature.
 	 */
 	setFrequencyMultiple(operatorNum, multiple, time = undefined) {
 		this.frequencyMultiples[operatorNum - 1] = multiple;

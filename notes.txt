@@ -21,10 +21,11 @@ Timbre frames
 		Square wave: frequencies: (2n-1) * m, amplitudes: 1/(2n-1), equal phases
 		Triangle wave: frequencies: (2n-1) * m, amplitudes: 1/(2n-1)^2, alternating phases
 		n is a positive integer
-		Option to shift the whole sound down one octave (always a real octave) when no fundamental is present due to cancellation
-		Pass the combined wave though a LP filter
+		Optionally AM or ring mod a basic shape with a sine wave
+		Pass the wave (or combined sum?) though a LP filter (with resonance?) (HP filter available too?)
 	Take account of operator ratio / fixed frequency when calculating timings
 	Reuse oscillators when adjacent frames only vary in amplitude (or pitch ratio if fading between pitches)
+	Option to set interval between samples (rather than being to octaves)
 	Option to set start time
 		particularly useful for skipping hold time of first frame on first loop iteration
 		round to zero crossing point (specify as frame number + offset?)
@@ -36,7 +37,7 @@ Timbre frames
 		General case (when combined with FM): arbitrary filter sweep?
 			Or only available when not using FM?
 	Integrated FM modulator (sine) with DADSR envelope and ratio or fixed (and semi-fixed?)
-	Option to slide between frequencies
+	Option to glide between frequencies
 	Release (post loop) frames
 	Single cycle waveform samples as frames
 	Generate one sample per octave
@@ -48,13 +49,28 @@ Timbre frames
 		Think of it like a free running LFO? (if not truly random but based on time mod something with offset)
 	Resynthesis
 
-Support equivalent of phase distortion by supporting a pulse wave as a waveform?
-	Too similar to feedback?
-	With any chosen non-modulated duty cycle? (or an envelope?)
-	Get phase distortion when used as a modulator
+Phase distortion?
+	Too similar to feedback? Instead of feedback?
+	Transfer functions
+		Half slow, half fast		(a, 0.5), (1, 1)
+			cos(x) -> sawtooth(x)
+				Not an exact recipe to emulate feedback
+					e.g. when feedback = 5 then more like (0.96, 0.36) ?
+		Forward then back			(a, 0.5), (1, 0)
+			sin(x) -> doubleSin(x)
+		Mirror						(0.5, b), (1, 0)
+		Finish early 				(a, 1), (1, 1)
+			f(x) -> f(x) with width control when f(0) = 0
+			cos(x) -> sawPulse(x)
+			square(x) -> pulse(x)
+		Hard sync					(a, a), (a + delta, round(a))
+		Alternate waveforms		..., (a, 1), ... (2, 2)
+		Wavefolder					n * sin(2PI * x) = FM synthesis
+		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
 
 Additive waveforms that replicate feedback?
 	Would we still be able to have a feedback envelope?
+
 Option to not reset phase
 Let filter go down to 0Hz
 Filter key tracking and glide?
@@ -120,6 +136,7 @@ High pass filter?
 Wet/Dry control on filter?
 
 PSG
+	Write reciprocal worklet.
 	Filter for PSG
 	separate into multiple files
 	overall volume control for patch
@@ -218,6 +235,7 @@ EG Bias						X						X
 Chord playing "chord set"? (DX11)
 
 Panning based on LFO, velocity or note number
+Round robin panning
 
 Series: Yamaha DX11, TX81Z, TQ5, YS200, V50
 
