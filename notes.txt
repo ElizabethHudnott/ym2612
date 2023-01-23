@@ -66,6 +66,7 @@ Phase distortion?
 		Hard sync					(a, a), (a + delta, round(a))
 		Alternate waveforms		..., (a, 1), ... (2, 2)
 		Wavefolder					n * sin(2PI * x) = FM synthesis
+		Impulse						x ^ a
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
 
 Additive waveforms that replicate feedback?

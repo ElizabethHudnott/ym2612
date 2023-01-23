@@ -53,7 +53,7 @@ function phaseDistortByValues(sampleRate, frequency, xValues, yValues) {
 			xDistance = Math.ceil(Math.abs(yDistance) / nyquistThreshold);
 			x = prevX - xDistance;
 			if (x <= 0) {
-				if (y === 0) {
+				if (x === 0 && y === 0) {
 					xValues.splice(0, i + 1);
 					yValues.splice(0, i + 1);
 					numPoints = xValues.length;
@@ -88,63 +88,55 @@ function phaseDistortByValues(sampleRate, frequency, xValues, yValues) {
 		}
 	}
 
-	// Find the highest fundamental pitch that won't break the carrier oscillator.
-	let maxFrequencyRatio = Infinity;
-	prevX = 0;
-	prevY = 0;
-	i = 0;
-	for (; i < numPoints; i++) {
-		const x = xValues[i];
-		const y = yValues[i];
-		const currentFrequency = (y - prevY) / (x - prevX);
-		maxFrequencyRatio = Math.min(
-			maxFrequencyRatio,
-			nyquistThreshold /  Math.abs(currentFrequency)
-		);
-		prevX = x;
-		prevY = y;
-	}
-	const maxFrequency = Math.min(frequency * maxFrequencyRatio, 0.5 * sampleRate);
-
 	// Render the phase distortion pattern into an AudioBuffer.
 	const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
 	const data = buffer.getChannelData(0);
 	prevX = 0, prevY = 0;
 
+	let total = 0;
 	for (i = 0; i < numPoints; i++) {
 		const x = xValues[i];
 		const y = yValues[i];
-		const currentFrequency = (y - prevY) / (x - prevX);
-		for (let j = prevX; j < x; j++) {
-			data[j] = currentFrequency;
-		}
+		const xDistance = x - prevX;
+		const currentFrequency = (y - prevY) / xDistance;
+		data.fill(currentFrequency, prevX, x);
+		total += data[prevX] * xDistance;
 		prevX = x;
 		prevY = y;
 	}
 
 	// Correct for rounding errors.
-	let total = 0;
-	for (i = 0; i < length; i++) {
-		total += data[i];
-	}
-	const error = total - length;
+	const error = total - yValues[numPoints - 1];
 	i = length - 1;
 	while (i > 0 && Math.abs(data[i] - error) > nyquistThreshold) {
 		i--;
 	}
 	data[i] -= error;
+
+	// Find the highest fundamental pitch that won't break the carrier oscillator.
+	let maxFrequencyRatio = Infinity;
+	for (i = 0; i < length; i++) {
+		maxFrequencyRatio = Math.min(maxFrequencyRatio, nyquistThreshold /  Math.abs(data[i]));
+	}
+	const maxFrequency = Math.min(frequency * maxFrequencyRatio, 0.5 * sampleRate);
+
 	return [buffer, frequency, maxFrequency];
 }
 
 cosine = new PeriodicWave(audioContext, {real: [0, 1], imag: [0, 0]});
-carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
-//carrier = new OscillatorNode(audioContext, {frequency: 0});
+//carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
+carrier = new OscillatorNode(audioContext, {frequency: 0});
 carrier.start();
-maxFrequency = 440 * 2 ** ((108 - 69) / 12);
-[buffer, maxFrequency] = phaseDistortByValues(48000, maxFrequency, [1, 1], [0.5, 1]);
+highFrequency = 440; 	// * 2 ** ((108 - 69) / 12);
+x = 0.03;
+[buffer, highFrequency, maxFrequency] = phaseDistortByValues(
+	48000, highFrequency,
+	[x, 0.5 - x, 0.5 + x, 1 - x, 1],
+	[0.25, 0.25, 0.75, 0.75, 1]
+);
 modulator = new AudioBufferSourceNode(audioContext, {buffer: buffer, loop: true, loopEnd: buffer.duration});
-frequency = 440;
-ratio = frequency / maxFrequency;
+frequency = highFrequency;
+ratio = frequency / highFrequency;
 modulator.playbackRate.value = ratio;
 gain = new GainNode(audioContext, {gain: frequency});
 modulator.connect(gain);
