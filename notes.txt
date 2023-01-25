@@ -14,7 +14,7 @@ Then renumber Operator 2 and Operator 3 (switch around)?
 Distortion (symmetry) modulation?
 
 Timbre frames
-	Replace the basic wave shapes with a weighted sum (or difference) of saws, squares and triangles at different frequency multiples? (+ one custom wave with only 0 & 180 degree phases)
+	Replace the basic wave shapes with a weighted sum (or difference) of saws, squares and triangles at different frequency multiples? (+ one custom wave or sine with only 0 & 180 degree phases)
 		E.g. Saw at 1f sets the overall shape, saw at 2f modifies the even numbered harmonics
 		i.e. layered timbre frames:
 		Sawtooth wave: frequencies: n * m, amplitudes: 1/n, alternating phases
@@ -56,17 +56,19 @@ Phase distortion?
 			cos(x) -> sawtooth(x)
 				Not an exact recipe to emulate feedback
 					e.g. when feedback = 5 then more like (0.96, 0.36) ?
+		Quarter slow/fast, middle fast/slow
 		Forward then back			(a, 0.5), (1, 0)
 			sin(x) -> doubleSin(x)
 		Mirror						(0.5, b), (1, 0)
 		Finish early 				(a, 1), (1, 1)
+			General case includes different starting phases
 			f(x) -> f(x) with width control when f(0) = 0
 			cos(x) -> sawPulse(x)
 			square(x) -> pulse(x)
 		Hard sync					(a, a), (a + delta, round(a))
 		Alternate waveforms		..., (a, 1), ... (2, 2)
 		Wavefolder					n * sin(2PI * x) = FM synthesis
-		Impulse						x ^ a
+		Impulse						x ^ a (or with asymmetry reversed)
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
 
 Additive waveforms that replicate feedback?
@@ -181,7 +183,6 @@ Amplitude Bend
 Filter envelope
 	Can be inverted
 	Velocity can affect attack rate
-	Input gain (can be -ve to avoid overloading due to resonance)?
 
 Looping bends?
 
