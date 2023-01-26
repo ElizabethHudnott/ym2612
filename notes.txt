@@ -67,9 +67,10 @@ Phase distortion?
 			square(x) -> pulse(x)
 		Hard sync					(a, a), (a + delta, round(a))
 		Alternate waveforms		..., (a, 1), ... (2, 2)
-		Wavefolder					n * sin(2PI * x) = FM synthesis
+		Cosine <-> Pulse			(a, 0), (a + b, 0.5), (1 - b, 0.5), (1, 1)
 		Impulse						x ^ a (or with asymmetry reversed)
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
+		Wavefolder					n * sin(2PI * x) = FM synthesis
 
 Additive waveforms that replicate feedback?
 	Would we still be able to have a feedback envelope?

@@ -1,15 +1,19 @@
-
 class PhaseDistortion {
 
-	static fromValues(sampleRate, frequency, xValues, yValues) {
+	static fromValues(sampleRate, frequency, xValues, yValues, resolution) {
 		let period = sampleRate / frequency;
 		let numPoints = xValues.length;
 		const numCycles = xValues[numPoints - 1];
 		let length = Math.trunc(period * numCycles);
 		period = length / numCycles;
 		frequency = numCycles / length * sampleRate;
-		let nyquistThreshold = 0.5 * sampleRate / frequency;
+		let nyquistThreshold = 0.5 * period;	// Nyquist frequency / note frequency
 		let i;
+
+		let minFrequency = 0;
+		if (resolution !== undefined && (xValues[0] !== numCycles || numPoints > 2)) {
+			minFrequency = sampleRate / Math.ceil((xValues[0] + resolution) * period / xValues[0]);
+		}
 
 		// Scale values by the period.
 		xValues = xValues.slice();
@@ -30,10 +34,32 @@ class PhaseDistortion {
 			let xDistance = x - prevX;
 			const yDistance = y - prevY;
 			const currentFrequency = yDistance / xDistance;
-			if (xDistance === 0 || Math.abs(currentFrequency) > nyquistThreshold) {
+			if ((xDistance === 0 && yDistance !== 0) ||
+				Math.abs(currentFrequency) > nyquistThreshold
+			) {
 				// Nudge this point forward on the x-axis.
-				xDistance = Math.ceil(Math.abs(yDistance) / nyquistThreshold);
-				x = prevX + xDistance;
+				const absYDistance = Math.abs(yDistance);
+				xDistance = absYDistance / nyquistThreshold;
+				x = prevX + Math.ceil(xDistance);
+
+				/* shorterDistance = absYDistance / newThreshold
+				 * newThreshold = absYDistance / shorterDistance
+				 * newThreshold = 0.5 * sampleRate / newFrequency
+				 * 0.5 * sampleRate / newFrequency = absYDistance / shorterDistance
+				 * newFrequency = 0.5 * sampleRate * shorterDistance / absYDistance
+				*/
+				let shorterDistance = Math.trunc(xDistance);
+				if (shorterDistance === xDistance) {
+					shorterDistance--;
+				}
+				if (shorterDistance > 0) {
+					minFrequency = Math.max(
+						minFrequency,
+						0.5 * sampleRate * shorterDistance / absYDistance
+					);
+				} else {
+					minFrequency = Math.max(minFrequency, 0.5 * frequency);
+				}
 				xValues[i] = x;
 			}
 			prevX = x;
@@ -50,10 +76,27 @@ class PhaseDistortion {
 			let xDistance = prevX - x;
 			const yDistance = prevY - y;
 			const currentFrequency = yDistance / xDistance;
-			if (xDistance === 0 || Math.abs(currentFrequency) > nyquistThreshold) {
+			if (
+				(xDistance === 0 && yDistance !== 0) ||
+				Math.abs(currentFrequency) > nyquistThreshold
+			) {
 				// Nudge this point backward on the x-axis.
-				xDistance = Math.ceil(Math.abs(yDistance) / nyquistThreshold);
-				x = prevX - xDistance;
+				const absYDistance = Math.abs(yDistance);
+				xDistance = absYDistance / nyquistThreshold;
+				x = prevX - Math.ceil(xDistance);
+
+				let shorterDistance = Math.trunc(xDistance);
+				if (shorterDistance === xDistance) {
+					shorterDistance--;
+				}
+				if (shorterDistance > 0) {
+					minFrequency = Math.max(
+						minFrequency,
+						0.5 * sampleRate * shorterDistance / absYDistance
+					);
+				} else {
+					minFrequency = Math.max(minFrequency, 0.5 * frequency);
+				}
 				if (x <= 0) {
 					if (x === 0 && y === 0) {
 						xValues.splice(0, i + 1);
@@ -121,8 +164,7 @@ class PhaseDistortion {
 
 			commonDivisor = Math.min(commonDivisor, Math.trunc(maxFrequencyRatio));
 			length /= commonDivisor;
-			frequency *= commonDivisor;
-			nyquistThreshold = 0.5 * sampleRate / frequency;
+			nyquistThreshold = length / (2 * numCycles);
 			for (i = 0; i < numPoints; i++) {
 				xValues[i] /= commonDivisor;
 			}
@@ -149,12 +191,14 @@ class PhaseDistortion {
 			i--;
 		}
 		data[i] -= error;
-		return new PhaseDistortion(buffer, frequency);
+		return new PhaseDistortion(buffer, minFrequency, frequency, commonDivisor);
 	}
 
-	constructor(buffer, frequency) {
+	constructor(buffer, minFrequency, frequency, commonDivisor) {
 		this.buffer = buffer;
+		this.minFrequency = minFrequency;
 		this.frequency = frequency;
+		this.commonDivisor = commonDivisor;
 	}
 
 }
@@ -167,24 +211,27 @@ function gcd(a, b) {
 }
 
 cosine = new PeriodicWave(audioContext, {real: [0, 1], imag: [0, 0]});
-//carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
-carrier = new OscillatorNode(audioContext, {frequency: 0});
+carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
+//carrier = new OscillatorNode(audioContext, {frequency: 0});
 carrier.start();
-highFrequency = 48000 / 108;
+highFrequency = 440;
 phaseDistorter = PhaseDistortion.fromValues(
 	48000, highFrequency,
-	[104 / 108, 1],
-	[0.5, 1]
+	[0.3, 0.37, 0.93, 1],
+	[0, 0.5, 0.5, 1],
+	0.01
 );
+/*
 buffer = phaseDistorter.buffer;
 modulator = new AudioBufferSourceNode(
 	audioContext, {buffer: buffer, loop: true, loopEnd: buffer.duration}
 );
-frequency = 440;
-ratio = frequency / phaseDistorter.frequency;
+frequency = highFrequency;
+ratio = frequency / (phaseDistorter.frequency * phaseDistorter.commonDivisor);
 modulator.playbackRate.value = ratio;
 gain = new GainNode(audioContext, {gain: frequency});
 modulator.connect(gain);
 gain.connect(carrier.frequency);
 carrier.connect(audioContext.destination);
 modulator.start();
+*/
