@@ -345,12 +345,73 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, bitDepth = 24)
 	return buffer;
 }
 
+// All primes up to the wavelength of A0, assuming a 48k sample rate.
+// 2 * wavelengthA0Ratio1 = 1 * wavelengthA0RatioHalf
+const PRIMES = Object.freeze([
+	  2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,
+	 67,  71,  73,  79,  83,  89,  97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151,
+	 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251,
+	 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359,
+	 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463,
+	 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593,
+	 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701,
+	 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827,
+	 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953,
+	 967, 971, 977, 983, 991, 997,1009,1013,1019,1021,1031,1033,1039,1049,1051,1061,1063,1069,
+	1087,1091,1093,1097,1103,1109,1117,1123,1129,1151,1153,1163,1171,1181,1187,1193,1201,1213,
+	1217,1223,1229,1231,1237,1249,1259,1277,1279,1283,1289,1291,1297,1301,1303,1307,1319,1321,
+	1327,1361,1367,1373,1381,1399,1409,1423,1427,1429,1433,1439,1447,1451,1453,1459,1471,1481,
+	1483,1487,1489,1493,1499,1511,1523,1531,1543,1549,1553,1559,1567,1571,1579,1583,1597,1601,
+	1607,1609,1613,1619,1621,1627,1637,1657,1663,1667,1669,1693,1697,1699,1709,1721,1723,1733,
+	1741
+]);
+
+function factorize(n) {
+	const factors = [];
+	const powers = [];
+	let i = 0;
+	while (n > 1 && i < PRIMES.length) {
+		const prime = PRIMES[i];
+		if (n % prime === 0) {
+			let power = 0;
+			do {
+				power++;
+				n /= prime;
+			} while (n % prime === 0);
+			factors.push(prime);
+			powers.push(power);
+		}
+		i++;
+	}
+	if (n > 1) {
+		factors.push(n);
+		powers.push(1);
+	}
+	return [factors, powers];
+}
+
+function expandFactors(factors, powers, factorsSoFar = [1], index = 0) {
+	if (index === factors.length) {
+		return factorsSoFar;
+	}
+	const counters = new Array(factors.length);
+	const numPreviousFactors = factorsSoFar.length;
+	let multiplier = 1;
+	for (let power = 1; power <= powers[index]; power++) {
+		multiplier *= factors[index];
+		for (let j = 0; j < numPreviousFactors; j++) {
+			factorsSoFar.push(multiplier * factorsSoFar[j]);
+		}
+	}
+	return expandFactors(factors, powers, factorsSoFar, index + 1);
+}
+
 export {
 	nextQuantum, getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,
 	gainToOutputLevel, panningMap, quadraticWave, makeMathyWave,
-	gcd, lcm,
+	gcd, lcm, factorize, expandFactors,
 	NEVER, MAX_FLOAT, ClockRate, LFO_DIVISORS, VIBRATO_RANGES, VIBRATO_PRESETS,
 	NOTE_NAMES, MICRO_TUNINGS,
 }

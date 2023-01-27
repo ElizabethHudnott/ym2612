@@ -1,4 +1,3 @@
-
 class PhaseDistortion {
 
 	static fromValues(sampleRate, frequency, xValues, yValues) {
@@ -8,7 +7,7 @@ class PhaseDistortion {
 		let length = Math.trunc(period * numCycles);
 		period = length / numCycles;
 		frequency = numCycles / length * sampleRate;
-		let nyquistThreshold = 0.5 * sampleRate / frequency;
+		let nyquistThreshold = 0.5 * period;
 		let i;
 
 		// Scale values by the period.
@@ -106,6 +105,7 @@ class PhaseDistortion {
 		// Might be able to employ the same sample to also do phase distortion at a few higher
 		// fundamental frequencies without loss of temporal resolution (sharpness) or aliasing.
 		let commonDivisor = 1;
+		let factors, powers;
 		if (numPoints > 1) {
 			commonDivisor = gcd(xValues[0], xValues[1]);
 			for (i = 2; i < numPoints; i++) {
@@ -118,14 +118,30 @@ class PhaseDistortion {
 					maxFrequencyRatio, nyquistThreshold /  Math.abs(frequencies[i])
 				);
 			}
+			[factors, powers] = factorize(commonDivisor);
+			i = factors.length - 1;
+			while (i >= 0 && commonDivisor > maxFrequencyRatio) {
+				const factor = factors[i];
+				let power = powers[i];
+				while (power > 0 && commonDivisor > maxFrequencyRatio) {
+					commonDivisor /= factor;
+					power--;
+				}
+				powers[i] = power;
+				i--;
+			}
+			const index = powers[i + 1] === 0 ? i + 1 : i + 2;
+			factors.splice(index);
+			powers.splice(index);
 
-			commonDivisor = Math.min(commonDivisor, Math.trunc(maxFrequencyRatio));
 			length /= commonDivisor;
-			frequency *= commonDivisor;
-			nyquistThreshold = 0.5 * sampleRate / frequency;
+			nyquistThreshold = length / (2 * numCycles);
 			for (i = 0; i < numPoints; i++) {
 				xValues[i] /= commonDivisor;
 			}
+		} else {
+			factors = [];
+			powers = [];
 		}
 
 		// Render the phase distortion pattern into an AudioBuffer.
@@ -149,15 +165,24 @@ class PhaseDistortion {
 			i--;
 		}
 		data[i] -= error;
-		return new PhaseDistortion(buffer, frequency);
+		const allFactors = expandFactors(factors, powers);
+		return new PhaseDistortion(buffer, frequency, commonDivisor, allFactors);
 	}
 
-	constructor(buffer, frequency) {
+	constructor(buffer, buildFrequency, frequencyMultiplier, factors) {
 		this.buffer = buffer;
-		this.frequency = frequency;
+		this.buildFrequency = buildFrequency;
+		this.baseFrequency = buildFrequency * frequencyMultiplier;
+		this.factors = factors;
+	}
+
+	getPlaybackRate(frequency) {
+		return frequency / this.baseFrequency;
 	}
 
 }
+
+// Definitions copied from common.js
 
 function gcd(a, b) {
 	while (b !== 0) {
@@ -166,23 +191,76 @@ function gcd(a, b) {
 	return a;
 }
 
+
+// All primes up to half the wavelength of A0, assuming a 48k sample rate.
+const PRIMES = Object.freeze([
+	  2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,
+	 67,  71,  73,  79,  83,  89,  97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151,
+	 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251,
+	 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359,
+	 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463,
+	 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593,
+	 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701,
+	 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827,
+	 829, 839, 853, 857, 859, 863
+]);
+
+function factorize(n) {
+	const factors = [];
+	const powers = [];
+	let i = 0;
+	while (n > 1 && i < PRIMES.length) {
+		const prime = PRIMES[i];
+		if (n % prime === 0) {
+			let power = 0;
+			do {
+				power++;
+				n /= prime;
+			} while (n % prime === 0);
+			factors.push(prime);
+			powers.push(power);
+		}
+		i++;
+	}
+	if (n > 1) {
+		factors.push(n);
+		powers.push(1);
+	}
+	return [factors, powers];
+}
+
+function expandFactors(factors, powers, factorsSoFar = [1], index = 0) {
+	if (index === factors.length) {
+		return factorsSoFar.sort((a, b) => a - b);
+	}
+	const counters = new Array(factors.length);
+	const numPreviousFactors = factorsSoFar.length;
+	let multiplier = 1;
+	for (let power = 1; power <= powers[index]; power++) {
+		multiplier *= factors[index];
+		for (let j = 0; j < numPreviousFactors; j++) {
+			factorsSoFar.push(multiplier * factorsSoFar[j]);
+		}
+	}
+	return expandFactors(factors, powers, factorsSoFar, index + 1);
+}
+
 cosine = new PeriodicWave(audioContext, {real: [0, 1], imag: [0, 0]});
-//carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
-carrier = new OscillatorNode(audioContext, {frequency: 0});
+carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
+//carrier = new OscillatorNode(audioContext, {frequency: 0});
 carrier.start();
-highFrequency = 48000 / 108;
+highFrequency = 440;
 phaseDistorter = PhaseDistortion.fromValues(
 	48000, highFrequency,
-	[104 / 108, 1],
-	[0.5, 1]
+	[0.3, 0.37, 0.93, 1],
+	[0, 0.5, 0.5, 1]
 );
 buffer = phaseDistorter.buffer;
 modulator = new AudioBufferSourceNode(
 	audioContext, {buffer: buffer, loop: true, loopEnd: buffer.duration}
 );
-frequency = 440;
-ratio = frequency / phaseDistorter.frequency;
-modulator.playbackRate.value = ratio;
+frequency = highFrequency;
+modulator.playbackRate.value = phaseDistorter.getPlaybackRate(frequency);
 gain = new GainNode(audioContext, {gain: frequency});
 modulator.connect(gain);
 gain.connect(carrier.frequency);
