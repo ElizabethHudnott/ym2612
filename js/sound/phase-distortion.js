@@ -91,13 +91,17 @@ class PhaseDistortion {
 
 		// Compute final frequencies.
 		const frequencies = new Array(numPoints);
+		let minFrequency = Infinity, maxFrequency = -Infinity;
 		prevX = 0;
 		prevY = 0;
 		for (i = 0; i < numPoints; i++) {
 			const x = xValues[i];
 			const y = yValues[i];
 			const xDistance = x - prevX;
-			frequencies[i] = (y - prevY) / xDistance;
+			const currentFrequency = (y - prevY) / xDistance;
+			minFrequency = Math.min(minFrequency, currentFrequency);
+			maxFrequency = Math.max(maxFrequency, currentFrequency);
+			frequencies[i] = currentFrequency;
 			prevX = x;
 			prevY = y;
 		}
@@ -147,31 +151,33 @@ class PhaseDistortion {
 		// Render the phase distortion pattern into an AudioBuffer.
 		const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
 		const data = buffer.getChannelData(0);
-		prevX = 0, prevY = 0;
+		data[0] = 0.5 * (minFrequency + maxFrequency);
+		const centreFrequency = data[0];
 
 		let total = 0;
 		prevX = 0;
 		for (i = 0; i < numPoints; i++) {
 			const x = xValues[i];
-			data.fill(frequencies[i], prevX, x);
-			total += data[prevX] * ((x - prevX) * commonDivisor);
+			data.fill(frequencies[i] - centreFrequency, prevX, x);
+			total += (data[prevX] + centreFrequency) * ((x - prevX) * commonDivisor);
 			prevX = x;
 		}
 
 		// Correct for rounding errors.
 		const error = total - yValues[numPoints - 1];
 		i = length - 1;
-		while (i > 0 && Math.abs(data[i] - error) > nyquistThreshold) {
+		while (i > 0 && Math.abs(data[i] + centreFrequency - error) > nyquistThreshold) {
 			i--;
 		}
 		data[i] -= error;
 		const allFactors = expandFactors(factors, powers);
-		return new PhaseDistortion(buffer, frequency, commonDivisor, allFactors);
+		return new PhaseDistortion(buffer, frequency, centreFrequency, commonDivisor, allFactors);
 	}
 
-	constructor(buffer, buildFrequency, frequencyMultiplier, factors) {
+	constructor(buffer, buildFrequency, centre, frequencyMultiplier, factors) {
 		this.buffer = buffer;
 		this.buildFrequency = buildFrequency;
+		this.centre = centre;
 		this.baseFrequency = buildFrequency * frequencyMultiplier;
 		this.factors = factors;
 	}
@@ -261,8 +267,25 @@ modulator = new AudioBufferSourceNode(
 );
 frequency = highFrequency;
 modulator.playbackRate.value = phaseDistorter.getPlaybackRate(frequency);
+amp = new GainNode(audioContext);
+modulator.connect(amp);
 gain = new GainNode(audioContext, {gain: frequency});
-modulator.connect(gain);
+amp.connect(gain);
+offset = new ConstantSourceNode(audioContext, {offset: 0});
+offset.start();
+offset.connect(gain);
 gain.connect(carrier.frequency);
 carrier.connect(audioContext.destination);
-modulator.start();
+t1 = audioContext.currentTime + 0.1;
+modulator.start(t1);
+offset.offset.setValueAtTime(phaseDistorter.centre, t1);
+
+/*
+t2 = audioContext.currentTime + 0.001 + 128 / 48000;
+t2 = t1 + Math.ceil((t2 - t1) * frequency) / frequency;
+t3 = t2 + 0.5;
+amp.gain.setValueAtTime(1, t2);
+offset.offset.setValueAtTime(phaseDistorter.centre, t2);
+amp.gain.linearRampToValueAtTime(0, t3);
+offset.offset.linearRampToValueAtTime(1, t3);
+*/
