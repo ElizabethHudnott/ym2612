@@ -345,6 +345,37 @@ class PhaseDistortion {
 		return [[0.5 * pulseWidth, pulseWidth, 1], [-0.5, 0, 1]];
 	}
 
+	/**From the Korg Prophecy. Given a triangle wave, slows down some parts and speeds up
+	 * others depending on the value of the shape parameter.
+	 * @param {number} shape Between 0 and 1.
+	 */
+	static prophecyRamp(shape) {
+		const section = Math.trunc(shape * 4);
+		let a, xValues, yValues;
+		switch (section) {
+		case 0:	// 0 <= shape < 0.25
+			a = 0.75 - shape;
+			xValues = [2/3 * a, 1.5 - a, 1.5];
+			yValues = [0.5    , 0.75   , 1.5];
+			break;
+		case 1:	// 0.25 <= shape < 0.5
+			a = 1/3 + (shape - 0.25) * 4 * (0.5 - 1/3);
+			xValues = [a      , 1   , 1.5];
+			yValues = [1.5 * a, 0.75, 1.5];
+			break;
+		case 2:	// 0.5 <= shape < 0.75
+			a = 0.5 + (shape - 0.5) * 4 * (1/3 - 0.5);
+			xValues = [0.5 , 1.5 - a      , 1.5];
+			yValues = [0.75, 1.5 - 1.5 * a, 1.5];
+			break;
+		default:	// 0.75 <= shape <= 1
+			a = shape - 0.25;
+			xValues = [a   , 1.5 - 2/3 * a, 1.5];
+			yValues = [0.75, 1            , 1.5];
+		}
+		return [xValues, yValues];
+	}
+
 	/**From the Korg NTS-1.
 	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
 	 * envelope is applied then it will function as an amplitude envelope too. The problem
