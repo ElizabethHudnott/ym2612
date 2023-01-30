@@ -1,3 +1,11 @@
+/* This source code is copyright of Elizabeth Hudnott.
+ * © Elizabeth Hudnott 2021-2023. All rights reserved.
+ * Any redistribution or reproduction of part or all of the source code in any form is
+ * prohibited by law other than downloading the code for your own personal non-commercial use
+ * only. You may not distribute or commercially exploit the source code. Nor may you transmit
+ * it or store it in any other website or other form of electronic retrieval system. Nor may
+ * you translate it into another language.
+ */
 class PhaseDistortion {
 
 	static fromValues(sampleRate, frequency, xValues, yValues) {
@@ -8,7 +16,50 @@ class PhaseDistortion {
 		period = length / numCycles;
 		frequency = numCycles / length * sampleRate;
 		let nyquistThreshold = 0.5 * period;
-		let i;
+
+		// Ensure congruent y-values are treated equally and collapse zero length portions.
+		let prevX = 0;
+		let prevY = 0;
+		let i = 0;
+		while (i < numPoints) {
+			const x = xValues[i];
+			if (x === prevX) {
+				let j = i + 1;
+				while (j < numPoints && xValues[j] === prevX) {
+					j++;
+				}
+				j--;
+
+				let prevYFraction = prevY % 1;
+				if (prevYFraction < 0) {
+					prevYFraction = 1 - prevYFraction;
+				}
+				const y = yValues[j];
+				let yFraction = y % 1;
+				if (yFraction < 0) {
+					yFraction = 1 - yFraction;
+				}
+
+				if (yFraction === prevYFraction) {
+					const diff = prevY - y;
+					const numToDelete = j - i + 1;
+					xValues.splice(i, numToDelete);
+					yValues.splice(i, numToDelete);
+					numPoints -= numToDelete;
+					for (j = i; j < numPoints; j++) {
+						yValues[j] += diff;
+					}
+				} else {
+					prevY = yValues[i];
+					i++;
+				}
+			} else {
+				prevX = x;
+				prevY = yValues[i];
+				i++;
+			}
+		}
+		const decayLevel = yValues[numPoints - 1] / xValues[numPoints - 1];
 
 		// Scale values by the period.
 		xValues = xValues.slice();
@@ -19,7 +70,8 @@ class PhaseDistortion {
 		}
 
 		// Ensure we don't exceed the Nyquist limit.
-		let prevX = 0, prevY = 0;
+		prevX = 0;
+		prevY = 0;
 		for (i = 0; i < numPoints - 1; i++) {
 			let x = xValues[i];
 			if (x < prevX) {
@@ -70,7 +122,7 @@ class PhaseDistortion {
 			prevY = y;
 		}
 
-		// Remove duplicate points.
+		// Remove any remaining duplicate points created by rounding to the length of the period.
 		prevX = 0;
 		i = 0;
 		while (i < numPoints) {
@@ -88,6 +140,7 @@ class PhaseDistortion {
 				i++;
 			}
 		}
+
 
 		// Compute final frequencies.
 		const frequencies = new Array(numPoints);
@@ -171,19 +224,136 @@ class PhaseDistortion {
 		}
 		data[i] -= error;
 		const allFactors = expandFactors(factors, powers);
-		return new PhaseDistortion(buffer, frequency, centreFrequency, commonDivisor, allFactors);
+		const distortion = new PhaseDistortion(
+			buffer, frequency, centreFrequency, decayLevel, commonDivisor, allFactors
+		);
+		return distortion;
 	}
 
-	constructor(buffer, buildFrequency, centre, frequencyMultiplier, factors) {
+	/**
+	 * The sound can be played at full fidelity at the build frequency or at any other multiple
+	 * of the build frequency that can be found in the factors array. The array contains the
+	 * multiplication factors.
+	 */
+	constructor(buffer, buildFrequency, centre, decayLevel, frequencyMultiplier, factors) {
 		this.buffer = buffer;
 		this.buildFrequency = buildFrequency;
 		this.centre = centre;
+		this.decayLevel = decayLevel;
 		this.baseFrequency = buildFrequency * frequencyMultiplier;
 		this.factors = factors;
 	}
 
 	getPlaybackRate(frequency) {
 		return frequency / this.baseFrequency;
+	}
+
+	/**
+	 * Cosine: Sonically close approximation of a sawtooth wave.
+	 * Square, Sawtooth & Sine: Same shape as the input but with two distinct "pulse" widths.
+	 * Triangle: Triangle with two "pulse" widths. Rate change occurs on zero crossings.
+	 * @param {number} x The x-coordinate when half of the waveform has played.
+	 */
+	static halfSlow(x) {
+		return [[x, 1], [0.5, 1]];
+	}
+
+	/**
+	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
+	 * envelope is applied then it will function as an amplitude envelope too. Running a
+	 * rectified version of the input wave through a Half Slow transform will produce the same
+	 * shape but without this side effect. The problem also disappears when this distortion has
+	 * another distortion applied after it.
+	 * Sine: Double sine (i.e. rectified sine, though the two halves have different frequencies
+	 * if x is not equal to 0.5). Setting the distortion amp to 0.5 produces a 1/4 slow, 1/4
+	 * fast absolute sine shape.
+	 * Cosine: Sawtooth approximation. Same as the Half Slow function.
+	 * Sawtooth: Triangle with two "pulse" widths. Rate change occurs at the most positive
+	 * points and at the most negative points. Doesn't alter the fundamental frequency.
+	 * Triangle: Triangle with two "pulse" widths. Rate change occurs at the most negative
+	 * points only.
+	 * Square: Not useable.
+	 * @param {number} x The x-coordinate when half of the waveform has played for the first. time.
+	 */
+	static forwardAndBack(x) {
+		return [[x, 1], [0.5, 0]];
+	}
+
+	/**
+	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
+	 * envelope is applied then it will function as an amplitude envelope too. The problem
+	 * disappears when this distortion has another distortion applied after it.
+	 * @param {number} phase How much of the waveform to complete before hitting the mirror.
+	 */
+	static mirror(phase) {
+		return [[0.5, 1], [phase, 0]];
+	}
+
+	/**
+	 * @param {number} width How much of the output waveform should contain the input waveform.
+	 */
+	static finishEarly(width) {
+		return [[width, 1], [1, 1]];
+	}
+
+	/**
+	 * Cosine: Rounded pulse wave.
+	 * Square: Pulse wave.
+	 * Sawtooth: Held at zero. Then ramps up and is held at maximum (trapezoid). Then
+	 * transitions to -1 and completes the second half of the sawtooth wave.
+	 * Sine & Triangle: Held at zero. The completes the first half of the cycle. Then held at
+	 * zero again. Then completes the second half of the cycle.
+	 * @param {number} dutyCycle Even when the duty cycle is 0 or 1 the sound isn't necessarily
+	 * hollow because of the effect of the transition width parameter.
+	 * @param {number} transitionWidth Between 0 and 0.5.
+	 */
+	static holdAtStartAndMiddle(dutyCycle, transitionWidth) {
+		const a = dutyCycle * (1 - 2 * transitionWidth);
+		const b = a + transitionWidth;
+		return [[a, a + b, 1 - b, 1], [0, 0.5, 0.5, 1]];
+	}
+
+	/**
+	 * @param {number} phase How much of the waveform to complete before restarting.
+	 */
+	static hardSync(phase) {
+		return [[phase, phase], [phase, Math.max(Math.round(phase), 1)]];
+	}
+
+	static chain(xValues1, yValues1, xValues2, yValues2) {
+		const length1 = xValues1.length;
+		const joinPositionX = xValues1[length1 - 1];
+		const joinPositionY = yValues1[length1 - 1];
+		const xValues = xValues1.concat(xValues2.map(x => x + joinPositionX));
+		const yValues = yValues1.concat(yValues2.map(y => y + joinPositionY));
+		return [xValues, yValues];
+	}
+
+	/**Useful when chained together with an actual distortion.
+	 */
+	static noDistortion(numCycles = 1) {
+		return [[numCycles], [numCycles]];
+	}
+
+	/**
+	 * Cosine: Casio's "Sine Pulse" wave shape.
+	 * Sine & Triangle: Two negative half cycles and then one full cycle.
+	 * Sawtooth: One negative half cycle of a triangle and then one full cycle of sawtooth.
+	 * Square: Not useable.
+	 */
+	static cosinePulse(pulseWidth) {
+		return [[0.5 * pulseWidth, pulseWidth, 1], [-0.5, 0, 1]];
+	}
+
+	/**From the Korg NTS-1.
+	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
+	 * envelope is applied then it will function as an amplitude envelope too. The problem
+	 * disappears when this distortion has another distortion applied after it.
+	 * @param {number} a Between 0 and 1.
+	 */
+	static nts1Saw(a) {
+		a = 1.5 - 0.5 * a;	// Result is between 1 and 1.5.
+		return [[a, a, 3 - a, 3 - a, 2], [a, 2 - a, a - 1, 1 - a, 0]];
 	}
 
 }
@@ -257,10 +427,9 @@ carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine})
 carrier.start();
 highFrequency = 440;
 phaseDistorter = PhaseDistortion.fromValues(
-	48000, highFrequency,
-	[0.3, 0.37, 0.93, 1],
-	[0, 0.5, 0.5, 1]
+	48000, highFrequency, ...PhaseDistortion.halfSlow(1)
 );
+// Pulse wave example: 	[0.3, 0.37, 0.93, 1], [0, 0.5, 0.5, 1]
 buffer = phaseDistorter.buffer;
 modulator = new AudioBufferSourceNode(
 	audioContext, {buffer: buffer, loop: true, loopEnd: buffer.duration}
@@ -276,6 +445,7 @@ offset.start();
 offset.connect(gain);
 gain.connect(carrier.frequency);
 carrier.connect(audioContext.destination);
+
 t1 = audioContext.currentTime + 0.1;
 modulator.start(t1);
 offset.offset.setValueAtTime(phaseDistorter.centre, t1);
@@ -287,5 +457,5 @@ t3 = t2 + 0.5;
 amp.gain.setValueAtTime(1, t2);
 offset.offset.setValueAtTime(phaseDistorter.centre, t2);
 amp.gain.linearRampToValueAtTime(0, t3);
-offset.offset.linearRampToValueAtTime(1, t3);
+offset.offset.linearRampToValueAtTime(phaseDistorter.decayLevel, t3);
 */

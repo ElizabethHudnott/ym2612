@@ -1,5 +1,5 @@
 /* This source code is copyright of Elizabeth Hudnott.
- * © Elizabeth Hudnott 2021-2022. All rights reserved.
+ * © Elizabeth Hudnott 2021-2023. All rights reserved.
  * Any redistribution or reproduction of part or all of the source code in any form is
  * prohibited by law other than downloading the code for your own personal non-commercial use
  * only. You may not distribute or commercially exploit the source code. Nor may you transmit

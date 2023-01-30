@@ -51,26 +51,36 @@ Timbre frames
 
 Phase distortion?
 	Too similar to feedback? Instead of feedback?
-	Transfer functions
-		Half slow, half fast		(a, 0.5), (1, 1)
+	Transfer functions (X = implemented)
+		X Half slow, Half fast		(a, 0.5), (1, 1)
 			cos(x) -> sawtooth(x)
 				Not an exact recipe to emulate feedback
-					e.g. when feedback = 5 then more like (0.96, 0.36) ?
-		Quarter slow/fast, middle fast/slow
-		Forward then back			(a, 0.5), (1, 0)
+					e.g. when feedback = 5 then more like (0.91, 0.4) ?
+		X Forward then back			(a, 0.5), (1, 0)
 			sin(x) -> doubleSin(x)
-		Mirror						(0.5, b), (1, 0)
-		Finish early 				(a, 1), (1, 1)
-			General case includes different starting phases
+		X Mirror							(0.5, b), (1, 0)
+		X Finish early 				(a, 1), (1, 1)
 			f(x) -> f(x) with width control when f(0) = 0
 			cos(x) -> sawPulse(x)
 			square(x) -> pulse(x)
-		Hard sync					(a, a), (a + delta, round(a))
+		X Hard sync					(a, a), (a + delta, round(a))
 		Alternate waveforms		..., (a, 1), ... (2, 2)
-		Cosine <-> Pulse			(a, 0), (a + b, 0.5), (1 - b, 0.5), (1, 1)
+		X Pulse <-> Cosine			(a, 0), (a + b, 0.5), (1 - b, 0.5), (1, 1)
+		X CosinePulse <-> -Cosine (0.5a, -0.5), (a, 0), (1, 1)
+		X Korg NTS-1 Saw
+			(2a, 2a), (2a, 2 - 2a), (3 - 2a, 2a - 1), (3 - 2a, 1 - 2a), (2, 0)
+			a from 0.75 to 0.5
 		Impulse						x ^ a (or with asymmetry reversed)
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
-		Wavefolder					n * sin(2PI * x) = FM synthesis
+		Wavefolder					n * sin(2PI * x) = FM synthesis with 0Hz carrier
+
+Korg Prophecy Ramp:
+(2/3 * a, 0.5), (1.5 - a, 0.75), (1.5, 1.5) for 0.5 <= a <= 0.75 (right leaning)
+(a, 1.5a), (1, 0.75), (1.5, 1.5) for 1/3 <= a <= 0.5 (left lowering)
+(0.5, 0.75), (1.5 - a, 1.5 - 1.5a), (1.5, 1.5) for 1/3 <= a <= 0.5 (right raising)
+(a, 0.75), (1.5 - 2/3 * a, 1), (1.5, 1.5) for 0.5<= a <= 0.75 (left leaning)
+
+
 
 Additive waveforms that replicate feedback?
 	Would we still be able to have a feedback envelope?
