@@ -322,7 +322,7 @@ class PhaseDistortion {
 	 * Use with cosine and an offset of 0.5 to replicate Casio's pulse shape.
 	 * Use with abs(sin(x)) to replicate one of Bitwig's Phase-4 waveforms.
 	 */
-	holdAtMiddle(holdLength) {
+	static holdAtMiddle(holdLength) {
 		return [[0.5 - 0.5 * holdLength, 0.5 + 0.5 * holdLength, 1], [0.5, 0.5, 1]];
 	}
 
