@@ -816,7 +816,7 @@ const OscillatorFactory = {
 	 * restricted, since the hard sync part isn't implemented here).
 	 * @param {number} centreHarmonic Must be an even number. 34 possibly best emulates
 	 * Yamaha (the harmonics quickly exceed the Nyquist frequency though) and Casio goes up to
-	 * 15 (so 14 or 16 using this function).
+	 * 15 (so 14 or 16 using this function and the phase distortion functions default to 14).
 	 */
 	resonantSaw: function (centreHarmonic) {
 		const frequencyMultiple = centreHarmonic >> 1;

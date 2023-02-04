@@ -258,6 +258,28 @@ class PhaseDistortion {
 		return [[x, 1], [0.5, 1]];
 	}
 
+	/**Whereas halfSlow() moves the x-coordinate, moreDoneByHalfTime() moves the y-coordinate
+	 * instead and produces different wave shapes.
+	 * See Figure 2 in http://recherche.ircam.fr/pub/dafx11/Papers/55_e.pdf
+	 * @param {number} colour For a cosine wave input, zero produces the fundamental only. One
+	 * produces all harmonics, and two produces the same result as finishEarly(0.5), which
+	 * contains the odd harmonics plus a strong second harmonic. Negative values flip the order
+	 * of the shaped sections but produce the same spectrum as positive values.
+	 */
+	static moreDoneByHalfTime(colour = 1) {
+		const absColour = Math.abs(colour);
+		let ySplit;
+		if (absColour <= 1) {
+			ySplit = 0.85 * absColour;
+		} else {
+			ySplit = 0.85 + 0.15 * (absColour - 1);
+		}
+		if (colour < 0) {
+			ySplit = 1 - ySplit;
+		}
+		return [[0.5, 1], [ySplit, 1]];
+	}
+
 	/**
 	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
 	 * envelope is applied then it will function as an amplitude envelope too. Running a
@@ -275,8 +297,8 @@ class PhaseDistortion {
 	 * Square: Not useable.
 	 * @param {number} x The x-coordinate when half of the waveform has played for the first. time.
 	 */
-	static forwardAndBack(x) {
-		return [[x, 1], [0.5, 0]];
+	static forwardAndBack(splitPoint) {
+		return [[splitPoint, 1], [0.5, 0]];
 	}
 
 	/**
@@ -297,6 +319,14 @@ class PhaseDistortion {
 	}
 
 	/**
+	 * Use with cosine and an offset of 0.5 to replicate Casio's pulse shape.
+	 * Use with abs(sin(x)) to replicate one of Bitwig's Phase-4 waveforms.
+	 */
+	holdAtMiddle(holdLength) {
+		return [[0.5 - 0.5 * holdLength, 0.5 + 0.5 * holdLength, 1], [0.5, 0.5, 1]];
+	}
+
+	/**
 	 * Cosine: Rounded pulse wave.
 	 * Square: Pulse wave.
 	 * Sawtooth: Held at zero. Then ramps up and is held at maximum (trapezoid). Then
@@ -309,8 +339,24 @@ class PhaseDistortion {
 	 */
 	static holdAtStartAndMiddle(dutyCycle, transitionWidth) {
 		const a = dutyCycle * (1 - 2 * transitionWidth);
-		const b = a + transitionWidth;
-		return [[a, a + b, 1 - b, 1], [0, 0.5, 0.5, 1]];
+		return [[a, a + transitionWidth, 1 - transitionWidth, 1], [0, 0.5, 0.5, 1]];
+	}
+
+	/**
+	 * Cosine: Square wave with bumps.
+	 */
+	static rippleAtStartAndMiddle(transitionWidth, ripple) {
+		const a = 0.5 - transitionWidth;
+		const xValues = [0.5 * a, a, 0.5, 0.5 + 0.5 * a, 1 - transitionWidth, 1];
+		const yValues = [ripple, 0, 0.5, 0.5 + ripple, 0.5, 1];
+		return [xValues, yValues];
+	}
+
+	/**Produces the Casio Saw-Pulse wave When applied to a cosine wave. Use an offset equal to
+	 * the hold length if the slant is equal to zero.
+	 */
+	holdAtStartAndHalfSlow(holdLength, splitPoint, slant = 0) {
+		return [[holdLength, splitPoint, 1], [slant, 0.5, 1]];
 	}
 
 	/**
@@ -336,6 +382,22 @@ class PhaseDistortion {
 	}
 
 	/**
+	 * Useful when chained together with another waveform.
+	 */
+	static holdOnly(length = 1) {
+		return [[length], [0]];
+	}
+
+	/**
+	 * Useful when chained together with another waveform.
+	 * @param {number} resonanceLength The number of wave cycles to insert. Must be a multiple
+	 * of 0.5.
+	 */
+	static resonance(resonantHarmonic = 14, resonanceLength = resonantHarmonic) {
+		return [[resonanceLength / resonantHarmonic], [resonanceLength]];
+	}
+
+	/**
 	 * Cosine: Casio's "Sine Pulse" wave shape.
 	 * Sine & Triangle: Two negative half cycles and then one full cycle.
 	 * Sawtooth: One negative half cycle of a triangle and then one full cycle of sawtooth.
@@ -343,6 +405,68 @@ class PhaseDistortion {
 	 */
 	static cosinePulse(pulseWidth) {
 		return [[0.5 * pulseWidth, pulseWidth, 1], [-0.5, 0, 1]];
+	}
+
+	/**
+	 * See Figure 4 and Figure 5 in http://recherche.ircam.fr/pub/dafx11/Papers/55_e.pdf
+	 * @param {number} pitchRatio The pitch of the partial to accentuate. Non-integers will
+	 * introduce a lot of high frequency content and cause some aliasing.
+	 * @param {number} [spread] Between -2 and 2.
+	 * @param {boolean} [smoothSweep] Pass in true when you need the waveform to
+	 * smoothly transition over varying pitch ratios or varying amounts of spread while
+	 * simultaneously applying a phase distortion envelope. Otherwise leave as false to achieve
+	 * smooth transitions when using a phase distortion envelope alone without other concurrent
+	 * modulations.
+	 */
+	static formant(pitchRatio, spread = 1, smoothSweep = false) {
+		const splitY = 0.5 * (pitchRatio + 1);
+		const similarToPointFive = 0.5 * (pitchRatio + 1) ** 2 / (pitchRatio * pitchRatio + 1);
+		let splitX;
+		if (spread <= -1) {
+			/* -2 <= spread <= -1
+			 * Case 1: Like Case 4 but in this case it's the piece with the lesser number of
+			 * cycles that gets squeezed.
+			 */
+			splitX = -1 - spread + (2 + spread) * similarToPointFive;
+			if (pitchRatio <= 0) {
+				splitX = 1 - splitX;
+			}
+		} else if (pitchRatio === 0 && spread <= 1) {
+			splitX = 0.5;
+		} else if (spread <= 0) {
+			/* -1 <= spread <= 0
+			 * Case 2: Like Case 3 but in this case it's the piece with the lesser number of
+			 * cycles that gets squeezed.
+			 */
+			splitX = -spread * similarToPointFive + (1 + spread) * splitY / pitchRatio;
+		} else if (spread <= 1) {
+			/* Case 3: 0 <= spread <= 1
+			 * Fade between a single a partial (spread = 0) and odd harmonics (i.e. a square wave
+			 * like spectrum) augmented with a cluster of five accentuated partials centred on the
+			 * target partial.
+			 */
+			splitX = (1 - spread) * splitY / pitchRatio + 0.5 * spread;
+		} else {
+			/* Case 4: 1 <= spread <= 2
+			 * As spread is increased above 1, the cluster of elevated partials turns into lots of
+			 * smaller clusters spread throughout the spectrum. Thus, the higher harmonic content
+			 * increases. In the time domain the piece of the wave pattern with the higher number
+			 * of cycles gets squeezed into occupying less and less time. That piece occurs at
+			 * the beginning when pitchRatio is positive.
+			 */
+			splitX = 0.5 * (2 - spread);
+			if (pitchRatio <= 0) {
+				splitX = 1 - splitX;
+			}
+		}
+
+		let endY;
+		if (smoothSweep || pitchRatio === 0 || pitchRatio % 1 !== 0) {
+			endY = 1;
+		} else {
+			endY = pitchRatio;
+		}
+		return [[splitX, 1], [splitY, endY]];
 	}
 
 	/**From the Korg Prophecy. Given a triangle wave, slows down some parts and speeds up
@@ -376,13 +500,13 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
-	/**From the Korg NTS-1.
+	/**From the Korg NTS-1. Used with either sawtooth or triangle.
 	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
 	 * envelope is applied then it will function as an amplitude envelope too. The problem
 	 * disappears when this distortion has another distortion applied after it.
 	 * @param {number} a Between 0 and 1.
 	 */
-	static nts1Saw(a) {
+	static nts1(a) {
 		a = 1.5 - 0.5 * a;	// Result is between 1 and 1.5.
 		return [[a, a, 3 - a, 3 - a, 2], [a, 2 - a, a - 1, 1 - a, 0]];
 	}
@@ -458,7 +582,7 @@ carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine})
 carrier.start();
 highFrequency = 440;
 phaseDistorter = PhaseDistortion.fromValues(
-	48000, highFrequency, ...PhaseDistortion.halfSlow(1)
+	48000, highFrequency, ...PhaseDistortion.formant(3)
 );
 // Pulse wave example: 	[0.3, 0.37, 0.93, 1], [0, 0.5, 0.5, 1]
 buffer = phaseDistorter.buffer;
