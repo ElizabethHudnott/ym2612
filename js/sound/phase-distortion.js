@@ -295,9 +295,9 @@ class PhaseDistortion {
 	 * Triangle: Triangle with two "pulse" widths. Rate change occurs at the most negative
 	 * points only.
 	 * Square: Not useable.
-	 * @param {number} x The x-coordinate when half of the waveform has played for the first. time.
+	 * @param {number} splitPoint The x-coordinate when half of the waveform has played for the first. time.
 	 */
-	static forwardAndBack(splitPoint) {
+	static halfForwardThenBack(splitPoint) {
 		return [[splitPoint, 1], [0.5, 0]];
 	}
 
@@ -355,7 +355,7 @@ class PhaseDistortion {
 	/**Produces the Casio Saw-Pulse wave When applied to a cosine wave. Use an offset equal to
 	 * the hold length if the slant is equal to zero.
 	 */
-	holdAtStartAndHalfSlow(holdLength, splitPoint, slant = 0) {
+	static holdAtStartAndHalfSlow(holdLength, splitPoint, slant = 0) {
 		return [[holdLength, splitPoint, 1], [slant, 0.5, 1]];
 	}
 

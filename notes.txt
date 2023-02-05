@@ -72,6 +72,7 @@ Phase distortion?
 			a from 0.75 to 0.5
 		Impulse						x ^ a (or with asymmetry reversed)
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
+			In general: apply the virtual input waveform, then the inverse of the actual input
 		Wavefolder					n * sin(2PI * x) = FM synthesis with 0Hz carrier
 
 Additive waveforms that replicate feedback?
