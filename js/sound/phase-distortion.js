@@ -9,15 +9,8 @@
 class PhaseDistortion {
 
 	static fromValues(sampleRate, frequency, xValues, yValues) {
-		let period = sampleRate / frequency;
-		let numPoints = xValues.length;
-		const numCycles = xValues[numPoints - 1];
-		let length = Math.trunc(period * numCycles);
-		period = length / numCycles;
-		frequency = numCycles / length * sampleRate;
-		let nyquistThreshold = 0.5 * period;
-
 		// Ensure congruent y-values are treated equally and collapse zero length portions.
+		let numPoints = xValues.length;
 		let prevX = 0;
 		let prevY = 0;
 		let i = 0;
@@ -59,7 +52,14 @@ class PhaseDistortion {
 				i++;
 			}
 		}
-		let frequencyOffset = yValues[numPoints - 1] / xValues[numPoints - 1];
+
+		let period = sampleRate / frequency;
+		const numCycles = xValues[numPoints - 1];
+		let length = Math.trunc(period * numCycles);
+		period = length / numCycles;
+		frequency = numCycles / length * sampleRate;
+		let nyquistThreshold = 0.5 * period;
+		let frequencyOffset = yValues[numPoints - 1] / numCycles;
 
 		// Scale values by the period.
 		xValues = xValues.slice();
@@ -140,7 +140,6 @@ class PhaseDistortion {
 				i++;
 			}
 		}
-
 
 		// Compute final frequencies.
 		const frequencies = new Array(numPoints);
