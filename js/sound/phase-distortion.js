@@ -310,13 +310,21 @@ class PhaseDistortion {
 	}
 
 
-	/**N.B. The final phase accumulation is zero unless extraHalfCycle is true.
+	/**Also changes the speed (and hence frequency).
+	 * N.B. The final phase accumulation is zero unless extraHalfCycle is true.
 	 * @param {number} maxPhase Bitwig's Phase-4 uses 0.5, 1.5, 2.5, etc. with a sine wave.
 	 */
 	static forwardHoldBackHold(maxPhase, holdLength, extraHalfCycle = false) {
 		const halfHoldLength = 0.5 * holdLength;
-		const xValues = [0.5 - halfHoldLength, 0.5, 1 - halfHoldLength, 1];
-		const endY = extraHalfCycle ? -0.5 : 0;
+		let extraX, endY;
+		if (extraHalfCycle) {
+			extraX = 0.5 / Math.abs(maxPhase) * (0.5 - halfHoldLength);
+			endY = -0.5;
+		} else {
+			extraX = 0;
+			endY = 0;
+		}
+		const xValues = [0.5 - halfHoldLength, 0.5, 1 - halfHoldLength + extraX, 1 + extraX];
 		const yValues = [maxPhase, maxPhase, endY, endY];
 		return [xValues, yValues];
 	}
@@ -519,6 +527,25 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
+	/**Useful when chained together with something else.
+	 */
+	static repeat(xValues, yValues, numRepetitions) {
+		const numPoints = xValues.length;
+		const xLength = xValues[numPoints - 1];
+		const yLength = yValues[numPoints - 1];
+		let resultXValues = [];
+		let resultYValues = [];
+		let joinPositionX = 0;
+		let joinPositionY = 0;
+		for (let i = 0; i < numRepetitions; i++) {
+			resultXValues = resultXValues.concat(xValues.map(x => x + joinPositionX));
+			resultYValues = resultYValues.concat(yValues.map(y => y + joinPositionY));
+			joinPositionX += xLength;
+			joinPositionY += yLength;
+		}
+		return [resultXValues, resultYValues];
+	}
+
 	/**Takes a function that accepts a value between 0 and 1 and returns arrays of x and y
 	 * values. It uses that function to produce a waveform that transitions somewhat smoothly
 	 * between two distinct waveforms, each produced using phase distortion, somewhat like
@@ -620,6 +647,52 @@ class PhaseDistortion {
 	 */
 	static resonance(resonantHarmonic = 14, resonanceLength = resonantHarmonic) {
 		return [[resonanceLength / resonantHarmonic], [resonanceLength]];
+	}
+
+	static fromFunction(sampleRate, frequency, pdFunction, maxFunctionX = 1, maxOutputX = maxFunctionX) {
+		let period = sampleRate / frequency;
+		const length = Math.trunc(period * maxOutputX);
+		period = length / maxOutputX;
+		frequency = maxOutputX / length * sampleRate;
+		const nyquistThreshold = 0.5 * period;
+		const xIncrement = maxOutputX / length;		// = frequency * 1 / sampleRate
+		const cycleEndY = pdFunction(maxFunctionX);
+		let finalY;
+		if (maxOutputX <= maxFunctionX) {
+			finalY = pdFunction(maxOutputX);
+		} else {
+			finalY = cycleEndY * Math.trunc(maxOutputX / maxFunctionX) +
+				pdFunction(maxOutputX % maxFunctionX);
+		}
+		let frequencyOffset = finalY / maxOutputX;
+
+		const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
+		const data = buffer.getChannelData(0);
+		data[0] = frequencyOffset;
+		frequencyOffset = data[0];
+
+		let prevY = 0;
+		let total = 0;
+		let i;
+		for (i = 0; i < length; i++) {
+			const nextX = (i + 1) * xIncrement;
+			let nextY = cycleEndY * Math.trunc(nextX / maxFunctionX) + pdFunction(nextX % maxFunctionX);
+			let currentFrequency = (nextY - prevY) / xIncrement;
+			currentFrequency = Math.min(Math.max(currentFrequency, -nyquistThreshold), nyquistThreshold);
+			data[i] = currentFrequency - frequencyOffset;
+			const value = data[i];
+			nextY = prevY + (value + frequencyOffset) * xIncrement;
+			total += value;
+			prevY = nextY;
+		}
+
+		const error = total * xIncrement + maxOutputX * frequencyOffset - finalY;
+		i = length - 1;
+		while (i > 0 && Math.abs(data[i] + frequencyOffset - error) > nyquistThreshold) {
+			i--;
+		}
+		data[i] -= error;
+		return new PhaseDistortion(buffer, frequency, frequencyOffset, 1, [1]);
 	}
 
 }
