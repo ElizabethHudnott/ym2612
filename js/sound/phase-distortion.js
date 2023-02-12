@@ -524,6 +524,57 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
+	/**Takes a function that accepts a value between 0 and 1 and returns arrays of x and y
+	 * values. It uses that function to produce a waveform that transitions somewhat smoothly
+	 * between two distinct waveforms, each produced using phase distortion, somewhat like
+	 * moving through a wavetable. The smoothness depends on the number of steps in the
+	 * progression. Unlike wavetable synthesis however, the movement through the waveforms will
+	 * speed up or slow down depending on the fundamental frequency.
+	 * @param {function(z: number): Array[]} pdGenFunction The function that produces phase
+	 * distorted waveforms.
+	 * @param {number} nSteps The number of steps in the progression.
+	 * @param {function(z: number): number} [modulatorFunction] Determines the shape of the
+	 * envelope or LFO used to move through the "wavetable". Given a value between 0 and 1 the
+	 * function needs to return another value between 0 and 1. Defaults to a sine wave.
+	 */
+	static fadeValues(
+		pdGenFunction, nSteps, modDepth = 1, offset = 0,
+		modulatorFunction = z => 0.5 * Math.sin(2 * Math.PI * z) + 0.5
+	) {
+		const xValuesSequence = new Array(nSteps);
+		const yValuesSequence = new Array(nSteps);
+		const stepLength = 1 / nSteps;
+		for (let i = 0; i < nSteps; i++) {
+			let position = modDepth * modulatorFunction(i * stepLength) + offset;
+			position = Math.max(Math.min(position, 1), 0);
+			const [stepXValues, stepYValues] = pdGenFunction(position);
+			xValuesSequence[i] = stepXValues;
+			yValuesSequence[i] = stepYValues;
+		}
+		let maxLength = 0;
+		for (let i = 0; i < nSteps; i++) {
+			const stepXValues = xValuesSequence[i];
+			maxLength = Math.max(maxLength, stepXValues[stepXValues.length - 1]);
+		}
+		let joinPositionX = 0, joinPositionY = 0;
+		let xValues = [], yValues = [];
+		for (let i = 0; i < nSteps; i++) {
+			const stepXValues = xValuesSequence[i];
+			const stepYValues = yValuesSequence[i];
+			const numPoints = stepXValues.length;
+			const lengthX = stepXValues[numPoints - 1];
+			const lengthY = stepYValues[numPoints - 1];
+			const repetitions = Math.round(maxLength / lengthX);
+			for (let j = 0; j < repetitions; j++) {
+				xValues = xValues.concat(stepXValues.map(x => x + joinPositionX));
+				yValues = yValues.concat(stepYValues.map(y => y + joinPositionY));
+				joinPositionX += lengthX;
+				joinPositionY += lengthY;
+			}
+		}
+		return [xValues, yValues];
+	}
+
 	/**Creates a blend partway between two different phase distortions. The two source
 	 * distortions must contain the same number of points.
 	 */
@@ -538,6 +589,14 @@ class PhaseDistortion {
 			yValues[i] = amount1 * yValues1[i] + amount2 * yValues2[i];
 		}
 		return [xValues, yValues];
+	}
+
+	/**Produces dynamic movement between two different phase distortions. The two source
+	 * distortions must contain the same number of points.
+	 */
+	static fadeByBlending(xValues1, yValues1, xValues2, yValues2, nSteps, modulatorFunction) {
+		const blendFunction = x => PhaseDistortion.blend(xValues1, yValues1, xValues2, yValues2, x);
+		return PhaseDistortion.fadeValues(blendFunction, nSteps, 1, 0, modulatorFunction);
 	}
 
 	/**Has the effect of changing the fundamental frequency.
