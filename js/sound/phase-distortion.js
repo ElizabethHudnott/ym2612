@@ -59,7 +59,7 @@ class PhaseDistortion {
 				i++;
 			}
 		}
-		const decayLevel = yValues[numPoints - 1] / xValues[numPoints - 1];
+		let frequencyOffset = yValues[numPoints - 1] / xValues[numPoints - 1];
 
 		// Scale values by the period.
 		xValues = xValues.slice();
@@ -144,7 +144,6 @@ class PhaseDistortion {
 
 		// Compute final frequencies.
 		const frequencies = new Array(numPoints);
-		let minFrequency = Infinity, maxFrequency = -Infinity;
 		prevX = 0;
 		prevY = 0;
 		for (i = 0; i < numPoints; i++) {
@@ -152,8 +151,6 @@ class PhaseDistortion {
 			const y = yValues[i];
 			const xDistance = x - prevX;
 			const currentFrequency = (y - prevY) / xDistance;
-			minFrequency = Math.min(minFrequency, currentFrequency);
-			maxFrequency = Math.max(maxFrequency, currentFrequency);
 			frequencies[i] = currentFrequency;
 			prevX = x;
 			prevY = y;
@@ -204,28 +201,28 @@ class PhaseDistortion {
 		// Render the phase distortion pattern into an AudioBuffer.
 		const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
 		const data = buffer.getChannelData(0);
-		data[0] = 0.5 * (minFrequency + maxFrequency);
-		const centreFrequency = data[0];
+		data[0] = frequencyOffset;
+		frequencyOffset = data[0];
 
 		let total = 0;
 		prevX = 0;
 		for (i = 0; i < numPoints; i++) {
 			const x = xValues[i];
-			data.fill(frequencies[i] - centreFrequency, prevX, x);
-			total += (data[prevX] + centreFrequency) * ((x - prevX) * commonDivisor);
+			data.fill(frequencies[i] - frequencyOffset, prevX, x);
+			total += (data[prevX] + frequencyOffset) * ((x - prevX) * commonDivisor);
 			prevX = x;
 		}
 
 		// Correct for rounding errors.
 		const error = total - yValues[numPoints - 1];
 		i = length - 1;
-		while (i > 0 && Math.abs(data[i] + centreFrequency - error) > nyquistThreshold) {
+		while (i > 0 && Math.abs(data[i] + frequencyOffset - error) > nyquistThreshold) {
 			i--;
 		}
 		data[i] -= error;
 		const allFactors = expandFactors(factors, powers);
 		const distortion = new PhaseDistortion(
-			buffer, frequency, centreFrequency, decayLevel, commonDivisor, allFactors
+			buffer, frequency, frequencyOffset, commonDivisor, allFactors
 		);
 		return distortion;
 	}
@@ -235,11 +232,10 @@ class PhaseDistortion {
 	 * of the build frequency that can be found in the factors array. The array contains the
 	 * multiplication factors.
 	 */
-	constructor(buffer, buildFrequency, centre, decayLevel, frequencyMultiplier, factors) {
+	constructor(buffer, buildFrequency, frequencyOffset, frequencyMultiplier, factors) {
 		this.buffer = buffer;
 		this.buildFrequency = buildFrequency;
-		this.centre = centre;
-		this.decayLevel = decayLevel;
+		this.frequencyOffset = frequencyOffset;
 		this.baseFrequency = buildFrequency * frequencyMultiplier;
 		this.factors = factors;
 	}
@@ -264,7 +260,7 @@ class PhaseDistortion {
 		}
 	}
 
-	/**Whereas halfSlow() moves the x-coordinate, moreDoneByHalfTime() moves the y-coordinate
+	/**Whereas halfSlow() moves the x-coordinate, moreDoneInHalfTime() moves the y-coordinate
 	 * and produces different wave shapes.
 	 * See Figure 2 in http://recherche.ircam.fr/pub/dafx11/Papers/55_e.pdf
 	 * @param {number} colour For a cosine wave input, zero produces the fundamental only. One
@@ -272,7 +268,7 @@ class PhaseDistortion {
 	 * contains the odd harmonics plus a strong second harmonic. Negative values flip the order
 	 * of the shaped sections but produce the same spectrum as positive ones.
 	 */
-	static moreDoneByHalfTime(colour) {
+	static moreDoneInHalfTime(colour) {
 		const absColour = Math.abs(colour);
 		let ySplit;
 		if (absColour <= 1) {
@@ -719,14 +715,12 @@ carrier.connect(audioContext.destination);
 
 t1 = audioContext.currentTime + 0.1;
 modulator.start(t1);
-offset.offset.setValueAtTime(phaseDistorter.centre, t1);
+offset.offset.setValueAtTime(phaseDistorter.frequencyOffset, t1);
 
 /*
 t2 = audioContext.currentTime + 0.001 + 128 / 48000;
 t2 = t1 + Math.ceil((t2 - t1) * frequency) / frequency;
 t3 = t2 + 0.5;
 amp.gain.setValueAtTime(1, t2);
-offset.offset.setValueAtTime(phaseDistorter.centre, t2);
 amp.gain.linearRampToValueAtTime(0, t3);
-offset.offset.linearRampToValueAtTime(phaseDistorter.decayLevel, t3);
 */
