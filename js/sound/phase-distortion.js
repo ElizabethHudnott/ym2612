@@ -394,18 +394,49 @@ class PhaseDistortion {
 	}
 
 	/**
-	 * @param {number} phase How much of the waveform to complete before restarting.
+	 * @param {number} syncPhase How much of the waveform to complete before restarting.
+	 * @param {number} softness Use zero for traditional hard sync. A value of
+	 * floor(syncPhase) + 1 reproduces the input waveform but at a higher frequency.
+	 * Intermediate values produce a split with one piece that copies the input waveform and
+	 * another at a faster running pace. The fractional part of the softness value controls how
+	 * much of the incomplete cycle of the waveform is smoothed and the integer part of the
+	 * softness value controls how many full cycles of the input waveform are used to further
+	 * smooth the output.
+	 * @param {number} snap When the value 1 is passed then each cycle restarts from the
+	 * beginning of the source waveform. When the snap value is 0.5 then a cycle is allowed to
+	 * "restart" from its 50% complete point.
 	 */
-	static hardSync(phase) {
-		return [[phase, phase], [phase, Math.max(Math.round(phase), 1)]];
+	static hardSync(syncPhase, softness = 0, snap = 1) {
+		let softFraction = softness % 1;
+		let softCycles = Math.trunc(softness);
+		if (softness > 0 && softFraction === 0) {
+			softFraction = 1;
+			softCycles--;
+		}
+		const controlCycles = Math.trunc(syncPhase) - softCycles;
+		const controlFraction = (syncPhase % 1) * (1 - softFraction);
+		const controlValue = Math.max(controlCycles + controlFraction, 0);
+		let snappedPhase = Math.max(Math.round(syncPhase / snap) * snap, snap);
+		if (softness > 0) {
+			while (true) {
+				const gradient = (snappedPhase - controlValue) / (syncPhase - controlValue);
+				if (Math.abs(gradient) < 1) {
+					snappedPhase += snap;
+				} else {
+					break;
+				}
+			}
+		}
+		return [[controlValue, syncPhase], [controlValue, snappedPhase]];
 	}
 
 	/**Combines the hardSync and finishEarly patterns.
 	 */
-	static syncAndHold(phase, holdLength) {
-		const xValues = [phase, phase, phase + holdLength];
-		const snappedPhase = Math.max(Math.round(phase), 1);
-		const yValues = [phase, snappedPhase, snappedPhase];
+	static syncAndHold(syncPhase, holdLength, softness = 0, snap = 1) {
+		const [xValues, yValues] = PhaseDistortion.hardSync(syncPhase, softness, snap);
+		const numPoints = xValues.length;
+		xValues.splice(numPoints, 0, syncPhase + holdLength);
+		yValues.splice(numPoints, 0, yValues[numPoints - 1]);
 		return [xValues, yValues];
 	}
 
@@ -713,6 +744,20 @@ class PhaseDistortion {
 		}
 		data[i] -= error;
 		return new PhaseDistortion(buffer, frequency, frequencyOffset, 1, [1]);
+	}
+
+	/**Produces a waveform that smoothly slows down or speeds up in frequency over the course of
+	 * a single cycle.
+	 * @param {number} skew When negative then more of the input waveform is output earlier as
+	 * the phase transfer runs fast at first and slows down. When positive then less of the
+	 * input waveform happens early and more of it happens later. The phase runs slow at first
+	 * but speeds up. The range is (-1, 1).
+	 */
+	static skewed(sampleRate, frequency, skew) {
+		// Output phase is 0.5 at the 0.5 * (skew + 1) position.
+		const power = 1 / (1 - Math.log2(skew + 1));
+		const transfer = x => x ** power;
+		return PhaseDistortion.fromFunction(sampleRate, frequency, transfer);
 	}
 
 }
