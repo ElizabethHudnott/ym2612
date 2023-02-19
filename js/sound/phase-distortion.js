@@ -400,6 +400,15 @@ class PhaseDistortion {
 		return [[phase, phase], [phase, Math.max(Math.round(phase), 1)]];
 	}
 
+	/**Combines the hardSync and finishEarly patterns.
+	 */
+	static syncAndHold(phase, holdLength) {
+		const xValues = [phase, phase, phase + holdLength];
+		const snappedPhase = Math.max(Math.round(phase), 1);
+		const yValues = [phase, snappedPhase, snappedPhase];
+		return [xValues, yValues];
+	}
+
 	/**
 	 * Cosine: Casio's "Sine Pulse" wave shape.
 	 * Square: Not useable.
@@ -649,22 +658,33 @@ class PhaseDistortion {
 		return [[resonanceLength / resonantHarmonic], [resonanceLength]];
 	}
 
-	static fromFunction(sampleRate, frequency, pdFunction, maxFunctionX = 1, maxOutputX = maxFunctionX) {
+	/**Generates a phase distortion from a function that given an input phase returns an output
+	 * phase.
+	 * @param {function(z: number): number} pdFunction The phase transfer function.
+	 * @param {number} [maxFunctionInput] The maximum input value accepted by the phase transfer
+	 * function.
+	 * @param {number} [maxInputPhase] How much of the phase transfer function to use. If this
+	 * value is greater than maxFunctionInput then the phase transfer function will be cycled
+	 * through multiple times.
+	 */
+	static fromFunction(
+		sampleRate, frequency, pdFunction, maxFunctionInput = 1, maxInputPhase = maxFunctionInput
+	) {
 		let period = sampleRate / frequency;
-		const length = Math.trunc(period * maxOutputX);
-		period = length / maxOutputX;
-		frequency = maxOutputX / length * sampleRate;
+		const length = Math.trunc(period * maxInputPhase);
+		period = length / maxInputPhase;
+		frequency = maxInputPhase / length * sampleRate;
 		const nyquistThreshold = 0.5 * period;
-		const xIncrement = maxOutputX / length;		// = frequency * 1 / sampleRate
-		const cycleEndY = pdFunction(maxFunctionX);
+		const xIncrement = maxInputPhase / length;		// = frequency * 1 / sampleRate
+		const cycleEndY = pdFunction(maxFunctionInput);
 		let finalY;
-		if (maxOutputX <= maxFunctionX) {
-			finalY = pdFunction(maxOutputX);
+		if (maxInputPhase <= maxFunctionInput) {
+			finalY = pdFunction(maxInputPhase);
 		} else {
-			finalY = cycleEndY * Math.trunc(maxOutputX / maxFunctionX) +
-				pdFunction(maxOutputX % maxFunctionX);
+			finalY = cycleEndY * Math.trunc(maxInputPhase / maxFunctionInput) +
+				pdFunction(maxInputPhase % maxFunctionInput);
 		}
-		let frequencyOffset = finalY / maxOutputX;
+		let frequencyOffset = finalY / maxInputPhase;
 
 		const buffer = new AudioBuffer({length: length, sampleRate: sampleRate});
 		const data = buffer.getChannelData(0);
@@ -676,7 +696,7 @@ class PhaseDistortion {
 		let i;
 		for (i = 0; i < length; i++) {
 			const nextX = (i + 1) * xIncrement;
-			let nextY = cycleEndY * Math.trunc(nextX / maxFunctionX) + pdFunction(nextX % maxFunctionX);
+			let nextY = cycleEndY * Math.trunc(nextX / maxFunctionInput) + pdFunction(nextX % maxFunctionInput);
 			let currentFrequency = (nextY - prevY) / xIncrement;
 			currentFrequency = Math.min(Math.max(currentFrequency, -nyquistThreshold), nyquistThreshold);
 			data[i] = currentFrequency - frequencyOffset;
@@ -686,7 +706,7 @@ class PhaseDistortion {
 			prevY = nextY;
 		}
 
-		const error = total * xIncrement + maxOutputX * frequencyOffset - finalY;
+		const error = total * xIncrement + maxInputPhase * frequencyOffset - finalY;
 		i = length - 1;
 		while (i > 0 && Math.abs(data[i] + frequencyOffset - error) > nyquistThreshold) {
 			i--;
