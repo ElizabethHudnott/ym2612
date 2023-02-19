@@ -417,7 +417,7 @@ class PhaseDistortion {
 		const controlFraction = (syncPhase % 1) * (1 - softFraction);
 		const controlValue = Math.max(controlCycles + controlFraction, 0);
 		let snappedPhase = Math.max(Math.round(syncPhase / snap) * snap, snap);
-		if (softness > 0) {
+		if (softness > 0 && syncPhase - controlValue > 0) {
 			while (true) {
 				const gradient = (snappedPhase - controlValue) / (syncPhase - controlValue);
 				if (Math.abs(gradient) < 1) {
