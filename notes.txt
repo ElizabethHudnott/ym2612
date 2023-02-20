@@ -126,8 +126,9 @@ Level scaling (per operator)
 	Can be applied to filter resonance too
 
 Oscillator phase should reset on each SSG loop for modes 0 and 4
+	Non-looping shapes can be looped (via rapid retriggering)
 	Oscillator should stay paused until attenuation is < 0x200
-	Hard sync effect. Like Casio CZ?
+	Hard sync effect.
 SSG loop should include attack phase (modes 0 and 4) (but it isn't 4x faster)
 SSG should only run at 4x speed while attenuation is < 0x200
 envelope shift

@@ -6,6 +6,14 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
+
+const PlayDirection = Object.freeze({
+	FORWARD: 1,
+	REVERSE: -1,
+	FORWARD_REVERSE: 2,
+	REVERSE_FORWARD: 3,
+});
+
 class PhaseDistortion {
 
 	static fromValues(sampleRate, frequency, xValues, yValues) {
@@ -231,7 +239,22 @@ class PhaseDistortion {
 	 * of the build frequency that can be found in the factors array. The array contains the
 	 * multiplication factors.
 	 */
-	constructor(buffer, buildFrequency, frequencyOffset, frequencyMultiplier, factors) {
+	constructor(
+		buffer, buildFrequency, frequencyOffset, frequencyMultiplier, factors,
+		direction = PlayDirection.FORWARD
+	) {
+		switch(direction) {
+		case PlayDirection.REVERSE:
+			buffer.reverse();
+			break;
+
+		case PlayDirection.FORWARD_REVERSE:
+
+			break;
+
+		case PlayDirection.REVERSE_FORWARD:
+
+		}
 		this.buffer = buffer;
 		this.buildFrequency = buildFrequency;
 		this.frequencyOffset = frequencyOffset;
@@ -271,7 +294,7 @@ class PhaseDistortion {
 		const absColour = Math.abs(colour);
 		let ySplit;
 		if (absColour <= 1) {
-			ySplit = 0.85 * absColour;
+			ySplit = 0.5 + 0.35 * absColour;
 		} else {
 			ySplit = 0.85 + 0.15 * (absColour - 1);
 		}
@@ -308,7 +331,6 @@ class PhaseDistortion {
 	static halfForwardWholeBack(splitPoint) {
 		return [[splitPoint, 1], [0.5, -0.5]];
 	}
-
 
 	/**Also changes the speed (and hence frequency).
 	 * N.B. The final phase accumulation is zero unless extraHalfCycle is true.
@@ -363,8 +385,21 @@ class PhaseDistortion {
 	 * @param {number} transitionWidth Between 0 and 0.5.
 	 */
 	static holdAtStartAndMiddle(dutyCycle, transitionWidth) {
-		const a = dutyCycle * (1 - 2 * transitionWidth);
-		return [[a, a + transitionWidth, 1 - transitionWidth, 1], [0, 0.5, 0.5, 1]];
+		const holdX1 = dutyCycle * (1 - 2 * transitionWidth);
+		const xValues = [holdX1, holdX1 + transitionWidth, 1 - transitionWidth, 1];
+		const yValues = [0, 0.5, 0.5, 1];
+		return [xValues, yValues];
+	}
+
+	/**Rounded square wave that gradually declines in level like an analogue circuit.
+	 * @param {number} slant Between 0 (flat, digital shape) and 1 (no phase distortion).
+	 */
+	static almostHoldAtStartAndMiddle(transitionWidth, slant) {
+		const holdX1 = 0.5 - transitionWidth;
+		const slantY = slant * holdX1;
+		const xValues = [holdX1, 0.5, 1 - transitionWidth, 1];
+		const yValues = [slantY, 0.5, 0.5 + slantY, 1];
+		return [xValues, yValues];
 	}
 
 	/**Produces a blend somewhere between a pulse wave and sawtooth imitation.
@@ -699,7 +734,8 @@ class PhaseDistortion {
 	 * through multiple times.
 	 */
 	static fromFunction(
-		sampleRate, frequency, pdFunction, maxFunctionInput = 1, maxInputPhase = maxFunctionInput
+		sampleRate, frequency, pdFunction, maxFunctionInput = 1, maxInputPhase = maxFunctionInput,
+		direction = PlayDirection.FORWARD
 	) {
 		let period = sampleRate / frequency;
 		const length = Math.trunc(period * maxInputPhase);
@@ -743,7 +779,7 @@ class PhaseDistortion {
 			i--;
 		}
 		data[i] -= error;
-		return new PhaseDistortion(buffer, frequency, frequencyOffset, 1, [1]);
+		return new PhaseDistortion(buffer, frequency, frequencyOffset, 1, [1], direction);
 	}
 
 	/**Produces a waveform that smoothly slows down or speeds up in frequency over the course of
@@ -753,11 +789,11 @@ class PhaseDistortion {
 	 * input waveform happens early and more of it happens later. The phase runs slow at first
 	 * but speeds up. The range is (-1, 1).
 	 */
-	static skewed(sampleRate, frequency, skew) {
+	static skewed(sampleRate, frequency, skew, direction = PlayDirection.FORWARD) {
 		// Output phase is 0.5 at the 0.5 * (skew + 1) position.
 		const power = 1 / (1 - Math.log2(skew + 1));
 		const transfer = x => x ** power;
-		return PhaseDistortion.fromFunction(sampleRate, frequency, transfer);
+		return PhaseDistortion.fromFunction(sampleRate, frequency, transfer, 1, 1, direction);
 	}
 
 }

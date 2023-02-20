@@ -812,8 +812,9 @@ const OscillatorFactory = {
 	},
 
 	/**Creates a waveform shaped like a Yamaha operator with feedback set to 6, which is also
-	 * one of the Casio CZ "resonant" waveforms (if the permissible DCW positions are
-	 * restricted, since the hard sync part isn't implemented here).
+	 * similar to one of the Casio CZ "resonant" waveforms (if the permissible DCW positions are
+	 * restricted, since the hard sync part isn't implemented here). Casio actually add 1 before
+	 * modulating rather than taking the absolute value.
 	 * @param {number} centreHarmonic Must be an even number. 34 possibly best emulates
 	 * Yamaha (the harmonics quickly exceed the Nyquist frequency though) and Casio goes up to
 	 * 15 (so 14 or 16 using this function and the phase distortion functions default to 14).
