@@ -50,6 +50,8 @@ Timbre frames
 	Resynthesis
 
 Phase distortion?
+	Resonant waves: Don't use absolute value (except for sawtooth, offer both)
+	Option to mix in some fundamental
 	Too similar to feedback? Instead of feedback?
 	Transfer functions
 		Half slow, Half fast		(a, 0.5), (1, 1)
@@ -132,6 +134,8 @@ Oscillator phase should reset on each SSG loop for modes 0 and 4
 SSG loop should include attack phase (modes 0 and 4) (but it isn't 4x faster)
 SSG should only run at 4x speed while attenuation is < 0x200
 envelope shift
+allow cutting SSG sample short (sync)
+allow custom SSG shapes (max 255 levels, otherwise like PSG)
 
 on screen keyboard
 	http://www.quadibloc.com/other/cnv05.htm
@@ -157,11 +161,18 @@ PSG
 	looping envelope
 	filter envelope
 	LFO delay & fade, LFOs per voice, optional key sync (like FM LFO)
-	see AY8930 (only use envelope per voice from the enhanced features), Super PSG and inSIDious manuals for more ideas
+	see AY8930 (only use envelope per voice from the enhanced features), Super PSG, maxYMiser & inSIDious for more ideas
 	No separate tremolo
-		Generalize envelope to support custom waveforms, AM or custom envelopes (up to 64 steps, 31 levels), looping or not
+		Generalize envelope to support custom shapes
+			Use 1: custom envelope shape
+			Use 2 (audio rate): custom waveform (oscillator output constant)
+			Use 3 (audio rate): AM
+			Up to 255 steps
+			Each step lasts between 1 frame (1/60 second) and 255 frames
+			Up to 31 levels (or 16 when playing at the fastest speed)
+			Looping or not
+			Rate linked to pitch or not
 		Quick options to create tremolo
-		Noise channel only has a regular, non-looping envelope
 	new oscillator on each key on? Need to prevent frequency going too low
 	noise channel
 		option to configure LFSR polynomial and noise bit depth and starting value and repetitions of each sample

@@ -66,7 +66,7 @@ class PhaseDistortion {
 		let length = Math.trunc(period * numCycles);
 		period = length / numCycles;
 		frequency = numCycles / length * sampleRate;
-		let nyquistThreshold = 0.5 * period;
+		let nyquistThreshold = Math.trunc(0.5 * period);	// trunc() ensures we choose a harmonic.
 		let frequencyOffset = yValues[numPoints - 1] / numCycles;
 
 		// Scale values by the period.
@@ -196,7 +196,7 @@ class PhaseDistortion {
 			powers.splice(index);
 
 			length /= commonDivisor;
-			nyquistThreshold = length / (2 * numCycles);
+			nyquistThreshold = Math.trunc(length / (2 * numCycles));
 			for (i = 0; i < numPoints; i++) {
 				xValues[i] /= commonDivisor;
 			}
@@ -382,9 +382,9 @@ class PhaseDistortion {
 	 * transition width, and an offset of 0.5 - transitionWidth.
 	 * @param {number} dutyCycle Even when the duty cycle is 0 or 1 the sound isn't necessarily
 	 * hollow because of the effect of the transition width parameter.
-	 * @param {number} transitionWidth Between 0 and 0.5.
+	 * @param {number} [transitionWidth] Between 0 and 0.5.
 	 */
-	static holdAtStartAndMiddle(dutyCycle, transitionWidth) {
+	static holdAtStartAndMiddle(dutyCycle, transitionWidth = 0) {
 		const holdX1 = dutyCycle * (1 - 2 * transitionWidth);
 		const xValues = [holdX1, holdX1 + transitionWidth, 1 - transitionWidth, 1];
 		const yValues = [0, 0.5, 0.5, 1];
@@ -428,7 +428,7 @@ class PhaseDistortion {
 		return [[holdLength, splitPoint, 1], [slant, 0.5, 1]];
 	}
 
-	/**
+	/**Approximates hard sync by running the last part of the waveform really fast.
 	 * @param {number} syncPhase How much of the waveform to complete before restarting.
 	 * @param {number} softness Use zero for traditional hard sync. A value of
 	 * floor(syncPhase) + 1 reproduces the input waveform but at a higher frequency.
@@ -482,7 +482,7 @@ class PhaseDistortion {
 	 * Sine & Triangle: Two negative half cycles and then one full cycle.
 	 * Sawtooth: One negative half cycle of a triangle and then one full cycle of sawtooth.
 	 */
-	static cosinePulse(pulseWidth, formant = 1) {
+	static waveWithPulse(pulseWidth, formant = 1) {
 		return [[0.5 * pulseWidth, pulseWidth, 1], [-0.5 * formant, 0, 1]];
 	}
 
@@ -592,28 +592,33 @@ class PhaseDistortion {
 
 	/**Creates a combined phased distortion that runs one phase distortion after another,
 	 * creating an alternating pattern of waveforms.
+	 * @param {number} [relativeFrequency] Casio double the frequency when using alternating
+	 * wave shapes.
 	 */
-	static chain(xValues1, yValues1, xValues2, yValues2) {
+	static chain(xValues1, yValues1, xValues2, yValues2, relativeFrequency = 1) {
 		const length1 = xValues1.length;
 		const joinPositionX = xValues1[length1 - 1];
 		const joinPositionY = yValues1[length1 - 1];
-		const xValues = xValues1.concat(xValues2.map(x => x + joinPositionX));
+		const scaleX = 1 / relativeFrequency;
+		let xValues = xValues1.map(x => scaleX * x);
+		xValues = xValues.concat(xValues2.map(x => scaleX * (x + joinPositionX)));
 		const yValues = yValues1.concat(yValues2.map(y => y + joinPositionY));
 		return [xValues, yValues];
 	}
 
 	/**Useful when chained together with something else.
 	 */
-	static repeat(xValues, yValues, numRepetitions) {
+	static repeat(xValues, yValues, numRepetitions, relativeFrequency = 1) {
 		const numPoints = xValues.length;
 		const xLength = xValues[numPoints - 1];
 		const yLength = yValues[numPoints - 1];
+		const scaleX = 1 / relativeFrequency;
 		let resultXValues = [];
 		let resultYValues = [];
 		let joinPositionX = 0;
 		let joinPositionY = 0;
 		for (let i = 0; i < numRepetitions; i++) {
-			resultXValues = resultXValues.concat(xValues.map(x => x + joinPositionX));
+			resultXValues = resultXValues.concat(xValues.map(x => scaleX * (x + joinPositionX)));
 			resultYValues = resultYValues.concat(yValues.map(y => y + joinPositionY));
 			joinPositionX += xLength;
 			joinPositionY += yLength;
@@ -741,7 +746,7 @@ class PhaseDistortion {
 		const length = Math.trunc(period * maxInputPhase);
 		period = length / maxInputPhase;
 		frequency = maxInputPhase / length * sampleRate;
-		const nyquistThreshold = 0.5 * period;
+		const nyquistThreshold = Math.trunc(0.5 * period);
 		const xIncrement = maxInputPhase / length;		// = frequency * 1 / sampleRate
 		const cycleEndY = pdFunction(maxFunctionInput);
 		let finalY;
@@ -784,14 +789,12 @@ class PhaseDistortion {
 
 	/**Produces a waveform that smoothly slows down or speeds up in frequency over the course of
 	 * a single cycle.
-	 * @param {number} skew When negative then more of the input waveform is output earlier as
-	 * the phase transfer runs fast at first and slows down. When positive then less of the
-	 * input waveform happens early and more of it happens later. The phase runs slow at first
-	 * but speeds up. The range is (-1, 1).
+	 * @param {number} controlX In the range [0, 1).
+	 * @param {number} controlY In the range (0, 1]. Best to use 0.25 with sine or triangle and
+	 * 0.5 with cosine or sawtooth.
 	 */
-	static skewed(sampleRate, frequency, skew, direction = PlayDirection.FORWARD) {
-		// Output phase is 0.5 at the 0.5 * (skew + 1) position.
-		const power = 1 / (1 - Math.log2(skew + 1));
+	static skewed(sampleRate, frequency, controlX, controlY = 0.25, direction = PlayDirection.FORWARD) {
+		const power = Math.log2(controlY) / Math.log2(controlX);
 		const transfer = x => x ** power;
 		return PhaseDistortion.fromFunction(sampleRate, frequency, transfer, 1, 1, direction);
 	}
@@ -861,15 +864,18 @@ function expandFactors(factors, powers, factorsSoFar = [1], index = 0) {
 	return expandFactors(factors, powers, factorsSoFar, index + 1);
 }
 
+if (window.audioContext === undefined) {
+	audioContext = new AudioContext({sampleRate: 48000});
+}
+sampleRate = audioContext.sampleRate;
 cosine = new PeriodicWave(audioContext, {real: [0, 1], imag: [0, 0]});
 carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine});
 //carrier = new OscillatorNode(audioContext, {frequency: 0});
 carrier.start();
-highFrequency = 440;
+highFrequency = 440 * 2 ** ((60 - 69) / 12);	// Middle C
 phaseDistorter = PhaseDistortion.fromValues(
-	48000, highFrequency, ...PhaseDistortion.formant(3)
+	sampleRate, highFrequency, ...PhaseDistortion.holdAtStartAndMiddle(0.5, 0.05)
 );
-// Pulse wave example: 	[0.3, 0.37, 0.93, 1], [0, 0.5, 0.5, 1]
 buffer = phaseDistorter.buffer;
 modulator = new AudioBufferSourceNode(
 	audioContext, {buffer: buffer, loop: true, loopEnd: buffer.duration}
@@ -891,7 +897,7 @@ modulator.start(t1);
 offset.offset.setValueAtTime(phaseDistorter.frequencyOffset, t1);
 
 /*
-t2 = audioContext.currentTime + 0.001 + 128 / 48000;
+t2 = audioContext.currentTime + 0.001 + 128 / sampleRate;
 t2 = t1 + Math.ceil((t2 - t1) * frequency) / frequency;
 t3 = t2 + 0.5;
 amp.gain.setValueAtTime(1, t2);
