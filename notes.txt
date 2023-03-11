@@ -50,8 +50,12 @@ Timbre frames
 	Resynthesis
 
 Phase distortion?
+	fix intersecting blend vectors
 	Resonant waves: Don't use absolute value (except for sawtooth, offer both)
 	Option to mix in some fundamental
+	Offsets
+	Finish implementing playback modes
+	Option to invert frequency gain
 	Too similar to feedback? Instead of feedback?
 	Transfer functions
 		Half slow, Half fast		(a, 0.5), (1, 1)

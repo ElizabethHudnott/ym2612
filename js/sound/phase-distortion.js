@@ -267,13 +267,14 @@ class PhaseDistortion {
 	}
 
 	/**
-	 * Cosine: Sonically close approximation of a sawtooth wave.
+	 * Cosine: Sonically close approximation of a sawtooth wave. Use a small value to replicate
+	 * the Casio CZ.
 	 * Square, Sawtooth & Sine: Same shape as the input but with two distinct "pulse" widths.
 	 * Triangle: Triangle with two "pulse" widths. Rate change occurs on zero crossings.
 	 * @param {number} x The x-coordinate when half of the waveform has played.
 	 * @param {number} [formant] Injects additional cycles into the fast piece.
 	 */
-	static halfSlow(x, formant = 1) {
+	static halfFast(x, formant = 1) {
 		const xValues = [x, 1];
 		if (x < 0.5) {
 			return [xValues, [formant - 0.5, formant]];
@@ -282,7 +283,7 @@ class PhaseDistortion {
 		}
 	}
 
-	/**Whereas halfSlow() moves the x-coordinate, moreDoneInHalfTime() moves the y-coordinate
+	/**Whereas halfFast() moves the x-coordinate, moreDoneInHalfTime() moves the y-coordinate
 	 * and produces different wave shapes.
 	 * See Figure 2 in http://recherche.ircam.fr/pub/dafx11/Papers/55_e.pdf
 	 * @param {number} colour For a cosine wave input, zero produces the fundamental only. One
@@ -351,6 +352,52 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
+	/**Modifies a pair of phase distortion lists so that if the final phase was zero then it
+	 * won't be after processing them with this function. This is achieved by running a whole
+	 * cycle as fast as possible. Additionally, this function can also be used to introduce a
+	 * polarity flip after each cycle by adding a half cycle instead of a full cycle.
+	 */
+	static fixFinalPhase(xValues, yValues, polarityFlip = false) {
+		const length = yValues.length;
+		let i = length - 1;
+		const lastY = yValues[i];
+		const yMod1 = Math.abs(lastY) % 1;
+		if (
+			(lastY !== 0 && yMod1 === 0 && !polarityFlip) ||
+			(yMod1 === 0.5 && polarityFlip)
+		) {
+			return [xValues, yValues];
+		}
+
+		let polarity = 1;
+		let prevY = lastY;
+		while (i > 0) {
+			i--;
+			const y = yValues[i];
+			if (y !== prevY) {
+				polarity = Math.sign(prevY - y);
+				break;
+			}
+		}
+		let newLastY;
+		if (yMod1 === 0) {
+			if (polarityFlip) {
+				newLastY = lastY + 0.5 * polarity;
+			} else {
+				newLastY = lastY + polarity;
+			}
+		} else {
+			// Assume yMod1 === 0.5 and therefore !polarityFlip
+			newLastY = lastY + 0.5 * polarity;
+			if (newLastY === 0) {
+				newLastY = lastY - 0.5 * polarity;
+			}
+		}
+		xValues = xValues.concat([ xValues[length - 1] ]);
+		yValues = yValues.concat([ newLastY ]);
+		return [xValues, yValues];
+	}
+
 	/**
 	 * N.B. The final phase accumulation is zero, which means that if a phase distortion
 	 * envelope is applied then it will function as an amplitude envelope too. The problem
@@ -362,33 +409,48 @@ class PhaseDistortion {
 	}
 
 	/**
-	 * Use with cosine and an offset of 0.5 * (1 + width) to replicate Casio's pulse shape.
+	 * Use with cosine to replicate Casio's pulse shape.
 	 * @param {number} width How much of the output waveform should contain the input waveform.
 	 * @param {number} [formant] The number of normal wave cycles that occur before the pause.
 	 * Must be a multiple of 0.5.
+	 * @param {number} [alignment] Whereabouts to place the source waveform relative to the
+	 * flatline portion. E.g. 0 = waveform first, 0.5 = waveform centred, 1 = flat first.
 	 */
-	static finishEarly(width, formant = 1) {
-		return [[width, 1], [formant, formant]];
+	static finishEarly(width, formant = 1, alignment = 0.5) {
+		const padding = alignment * (1 - width);
+		return [[padding, padding + width, 1], [0, formant, formant]];
 	}
 
 	/**
 	 * Cosine: Rounded pulse wave.
 	 * Square: Pulse wave.
-	 * Sawtooth: Held at zero. Then ramps up and is held at maximum (trapezoid). Then
-	 * transitions to -1 and completes the second half of the sawtooth wave.
-	 * Sine, abs(sin(x)) & Triangle: Held at zero. Then completes the first half of the cycle.
-	 * Then held at zero again. Then completes the second half of the cycle. To replicate one of
-	 * Bitwig's Phase-4 waveforms use abs(sin(x)) with a duty cycle of 0.5, any desired
-	 * transition width, and an offset of 0.5 - transitionWidth.
+	 * Sawtooth: Ramps up and is held at maximum (trapezoid). Then transitions to -1, completes
+	 * the second half of the sawtooth wave and is held again.
+	 * Sine, abs(sin(x)) & Triangle: Completes the first half of the cycle. Then held at zero.
+	 * Then completes the second half of the cycle. And finally is held again. To replicate one
+	 * of Bitwig's Phase-4 waveforms use abs(sin(x)) with a duty cycle of 0.5 and any desired
+	 * transition width.
 	 * @param {number} dutyCycle Even when the duty cycle is 0 or 1 the sound isn't necessarily
 	 * hollow because of the effect of the transition width parameter.
 	 * @param {number} [transitionWidth] Between 0 and 0.5.
+	 * @param {number} [formant] If set to 1 (the default) then a half cycle is completed
+	 * between successive hold periods. If set to 2 then a full cycle is completed (Casio's
+	 * hidden double pulse waveform). Etc.
 	 */
-	static holdAtStartAndMiddle(dutyCycle, transitionWidth = 0) {
-		const holdX1 = dutyCycle * (1 - 2 * transitionWidth);
-		const xValues = [holdX1, holdX1 + transitionWidth, 1 - transitionWidth, 1];
-		const yValues = [0, 0.5, 0.5, 1];
+	static holdAtMiddleAndEnd(dutyCycle, transitionWidth = 0, formant = 1) {
+		const firstHoldEnd = transitionWidth + dutyCycle * (1 - 2 * transitionWidth);
+		const xValues = [transitionWidth, firstHoldEnd, firstHoldEnd + transitionWidth, 1];
+		const yValues = [0.5 * formant, 0.5 * formant, formant, formant];
 		return [xValues, yValues];
+	}
+
+	/**Produces a blend somewhere between a pulse wave and sawtooth imitation.
+	 */
+	static pulseToSaw(dutyCycle, transitionWidth, sawPoint, crossFade) {
+		const pulse = PhaseDistortion.holdAtMiddleAndEnd(dutyCycle, transitionWidth);
+		const sawX = [sawPoint, sawPoint, 1, 1];
+		const sawY = [0.5, 0.5, 1, 1];
+		return PhaseDistortion.blend(...pulse, sawX, sawY, crossFade);
 	}
 
 	/**Rounded square wave that gradually declines in level like an analogue circuit.
@@ -402,15 +464,6 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
-	/**Produces a blend somewhere between a pulse wave and sawtooth imitation.
-	 */
-	static pulseToSaw(dutyCycle, transitionWidth, sawPoint, crossFade) {
-		const pulse = PhaseDistortion.holdAtStartAndMiddle(dutyCycle, transitionWidth);
-		const sawX = [0, sawPoint, sawPoint, 1];
-		const sawY = [0, 0.5, 0.5, 1];
-		return PhaseDistortion.blend(...pulse, sawX, sawY, crossFade);
-	}
-
 	/**
 	 * Cosine: Square wave with bumps.
 	 */
@@ -421,8 +474,17 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
-	/**Produces the Casio Saw-Pulse wave When applied to a cosine wave. Use an offset equal to
-	 * the hold length if the slant is equal to zero.
+	/**Produces the Casio saw-pulse wave When applied to a cosine wave. Use a value close to 1
+	 * to replicate the Casio CZ.
+	 * @param {number} splitPoint Must be greater than or equal to the hold length.
+	 */
+	static halfSlowAndHoldAtEnd(holdLength, splitPoint) {
+		const finishX = 1 - holdLength;
+		const halfX = splitPoint - holdLength;
+		return [[halfX, finishX, 1], [0.5, 1, 1]];
+	}
+
+	/**Variation of Casio's saw-pulse When applied to a cosine wave.
 	 */
 	static holdAtStartAndHalfSlow(holdLength, splitPoint, slant = 0) {
 		return [[holdLength, splitPoint, 1], [slant, 0.5, 1]];
@@ -433,26 +495,38 @@ class PhaseDistortion {
 	 * @param {number} softness Use zero for traditional hard sync. A value of
 	 * floor(syncPhase) + 1 reproduces the input waveform but at a higher frequency.
 	 * Intermediate values produce a split with one piece that copies the input waveform and
-	 * another at a faster running pace. The fractional part of the softness value controls how
-	 * much of the incomplete cycle of the waveform is smoothed and the integer part of the
-	 * softness value controls how many full cycles of the input waveform are used to further
-	 * smooth the output.
+	 * another running at a faster pace. Softness values less than or equal to 1 control how
+	 * much of the incomplete cycle of the waveform is smoothed and larger values control how
+	 * many additional cycles of the input waveform are used to further smooth the output.
 	 * @param {number} snap When the value 1 is passed then each cycle restarts from the
 	 * beginning of the source waveform. When the snap value is 0.5 then a cycle is allowed to
 	 * "restart" from its 50% complete point.
 	 */
-	static hardSync(syncPhase, softness = 0, snap = 1) {
-		let softFraction = softness % 1;
-		let softCycles = Math.trunc(softness);
-		if (softness > 0 && softFraction === 0) {
-			softFraction = 1;
-			softCycles--;
+	static hardSync(syncPhase, softness = 0, snap = 1, smoothSweep = false, nonZeroFinal = true) {
+		let polarity = 1;
+		if (syncPhase < 0) {
+			syncPhase = -syncPhase;
+			polarity = -1;
 		}
-		const controlCycles = Math.trunc(syncPhase) - softCycles;
-		const controlFraction = (syncPhase % 1) * (1 - softFraction);
-		const controlValue = Math.max(controlCycles + controlFraction, 0);
-		let snappedPhase = Math.max(Math.round(syncPhase / snap) * snap, snap);
-		if (softness > 0 && syncPhase - controlValue > 0) {
+		let controlValue;
+		if (softness < 1) {
+			controlValue = Math.trunc(syncPhase) + (syncPhase % 1) * (1 - softness);
+		} else {
+			controlValue = Math.trunc(syncPhase) - (softness - 1);
+		}
+		controlValue = Math.max(controlValue, 0);
+
+		let snappedPhase;
+		if (smoothSweep) {
+			snappedPhase = Math.ceil(syncPhase / snap) * snap;
+		} else {
+			snappedPhase = Math.round(syncPhase / snap) * snap;
+			if (snappedPhase === 0 && nonZeroFinal) {
+				snappedPhase = snap;
+			}
+		}
+
+		if (!smoothSweep && softness > 0 && syncPhase - controlValue > 0) {
 			while (true) {
 				const gradient = (snappedPhase - controlValue) / (syncPhase - controlValue);
 				if (Math.abs(gradient) < 1) {
@@ -462,16 +536,29 @@ class PhaseDistortion {
 				}
 			}
 		}
-		return [[controlValue, syncPhase], [controlValue, snappedPhase]];
+		return [[controlValue, syncPhase], [polarity * controlValue, polarity * snappedPhase]];
 	}
 
 	/**Combines the hardSync and finishEarly patterns.
 	 */
-	static syncAndHold(syncPhase, holdLength, softness = 0, snap = 1) {
-		const [xValues, yValues] = PhaseDistortion.hardSync(syncPhase, softness, snap);
+	static syncAndHold(
+		syncPhase, holdLength, softness = 0, snap = 1, smoothSweep = false, nonZeroFinal = true
+	) {
+		const [xValues, yValues] = PhaseDistortion.hardSync(
+			syncPhase, softness, snap, smoothSweep, nonZeroFinal
+		);
 		const numPoints = xValues.length;
 		xValues.splice(numPoints, 0, syncPhase + holdLength);
 		yValues.splice(numPoints, 0, yValues[numPoints - 1]);
+		return [xValues, yValues];
+	}
+
+	/** Combines the hardSync and resonance patterns.
+	 */
+	static resonantSync(resonance) {
+		const [xValues, yValues] = PhaseDistortion.hardSync(resonance);
+		const scaleX = 1 / Math.abs(resonance);
+		xValues = xValues.map(x => x * scaleX);
 		return [xValues, yValues];
 	}
 
@@ -592,8 +679,10 @@ class PhaseDistortion {
 
 	/**Creates a combined phased distortion that runs one phase distortion after another,
 	 * creating an alternating pattern of waveforms.
-	 * @param {number} [relativeFrequency] Casio double the frequency when using alternating
-	 * wave shapes.
+	 * @param {number} [relativeFrequency] E.g. A value of 2 doubles the frequency in order to
+	 * remove the subharmonic introduced due to the period being doubled because of the
+	 * chaining. The odd harmonics of the subharmonic are likewise altered to becoming tuned to
+	 * the harmonics of a single fundamental frequency.
 	 */
 	static chain(xValues1, yValues1, xValues2, yValues2, relativeFrequency = 1) {
 		const length1 = xValues1.length;
@@ -710,7 +799,7 @@ class PhaseDistortion {
 	/**Useful when chained together with an actual distortion.
 	 */
 	static noDistortion(numCycles = 1) {
-		return [[numCycles], [numCycles]];
+		return [[Math.abs(numCycles)], [numCycles]];
 	}
 
 	/**
@@ -722,11 +811,17 @@ class PhaseDistortion {
 
 	/**
 	 * Useful when chained together with another waveform.
-	 * @param {number} resonanceLength The number of wave cycles to insert. Must be a multiple
-	 * of 0.5.
+	 * @param {number}
+	 * @param {number} [resonantCycles] The number of wave cycles to insert. Must be a multiple
+	 * of 0.5 unless chained with something else so that the combined final phase becomes a
+	 * multiple of 0.5.
 	 */
-	static resonance(resonantHarmonic = 14, resonanceLength = resonantHarmonic) {
-		return [[resonanceLength / resonantHarmonic], [resonanceLength]];
+	static resonance(
+		resonantHarmonic = 14, resonantCycles = Math.max(Math.round(Math.abs(resonantHarmonic)), 1)
+	) {
+		const xValues = [Math.abs(resonantCycles / resonantHarmonic)];
+		const yValues = [Math.sign(resonantHarmonic) * resonantCycles];
+		return [xValues, yValues];
 	}
 
 	/**Generates a phase distortion from a function that given an input phase returns an output
@@ -874,7 +969,7 @@ carrier = new OscillatorNode(audioContext, {frequency: 0, periodicWave: cosine})
 carrier.start();
 highFrequency = 440 * 2 ** ((60 - 69) / 12);	// Middle C
 phaseDistorter = PhaseDistortion.fromValues(
-	sampleRate, highFrequency, ...PhaseDistortion.holdAtStartAndMiddle(0.5, 0.05)
+	sampleRate, highFrequency, ...PhaseDistortion.holdAtMiddleAndEnd(0.5, 0.05)
 );
 buffer = phaseDistorter.buffer;
 modulator = new AudioBufferSourceNode(
@@ -897,9 +992,9 @@ modulator.start(t1);
 offset.offset.setValueAtTime(phaseDistorter.frequencyOffset, t1);
 
 /*
-t2 = audioContext.currentTime + 0.001 + 128 / sampleRate;
+t2 = t1 + 0.5;
 t2 = t1 + Math.ceil((t2 - t1) * frequency) / frequency;
-t3 = t2 + 0.5;
+t3 = t2 + 1.5;
 amp.gain.setValueAtTime(1, t2);
-amp.gain.linearRampToValueAtTime(0, t3);
+amp.gain.setTargetAtTime(0, t2, (t3 - t2) / 3);
 */
