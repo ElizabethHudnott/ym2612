@@ -474,6 +474,49 @@ class PhaseDistortion {
 		return [xValues, yValues];
 	}
 
+	/**Applies a rounding function to the waveform's phase. This creates a number of steps,
+	 * somewhat like a bit crusher effect except that the amplitude levels are not linearly
+	 * spaced if the input waveform.
+	 * @param {number} n Determines how many amplitude levels there are. In general this should
+	 * be either a positive integer or the value 0.5 (which equivalent to the finishEarly recipe).
+	 * In the case of a sawtooth input waveform then n can be any positive multiple of 0.5.
+	 * N.B. The waveform's period must contain at least 4n samples.
+	 *
+	 * The relationship between n and the number of amplitude step levels in the distorted wave
+	 * is as follows for the various possible source waveforms.
+	 * Cosine: n + 1
+	 * Sine & Triangle:
+	 * 	n + 1 for even values of n
+	 * 	n + 2 for odd values of n. The transition width must be substantial. The resulting
+	 * 		waveform is less flat at its extremities compared to the waveform generated for
+	 * 		the next higher value of n.
+	 * Sawtooth: 2n + 1
+	 * @param {number} [transitionWidth] Determines how smooth the transition from one step to
+	 * the next is. 0 = nearly vertical steps, 1 = no phase distortion.
+	 */
+	static stepped(n, transitionWidth = 0) {
+		const numSteps = 2 * n;
+		const offset = (1 - transitionWidth) / (2 * numSteps);
+		const stepIncrement = 1 / numSteps;
+		const transitionX = transitionWidth * stepIncrement;
+		const xValues = [];
+		const yValues = [];
+		let prevY = 0;
+		for (let i = 0; i < numSteps; i++) {
+			const x = prevY + offset;
+			xValues.push(x);
+			yValues.push(prevY);
+
+			const y = (i + 1) * stepIncrement;
+			xValues.push(x + transitionX);
+			yValues.push(y);
+			prevY = y;
+		}
+		xValues.push(1);
+		yValues.push(1);
+		return [xValues, yValues];
+	}
+
 	/**Produces the Casio saw-pulse wave When applied to a cosine wave. Use a value close to 1
 	 * to replicate the Casio CZ.
 	 * @param {number} splitPoint Must be greater than or equal to the hold length.
