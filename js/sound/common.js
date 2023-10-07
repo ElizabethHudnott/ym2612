@@ -20,9 +20,12 @@ const VIBRATO_PRESETS = [0, 3.4, 6.7, 10, 14, 20, 40, 80];
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+const ascendingNumericOrder = (a, b) => a - b;
+const descendingNumericOrder = (a, b) => b - a;
+
 function nextQuantum(context) {
-	// Current time + JS Processing Time + 1 Frame
-	return context.currentTime + 0.001 + 128 / context.sampleRate;
+	// Current time + 2 frames
+	return context.currentTime + 255 / context.sampleRate;
 }
 
 function getOctave(midiNote) {
@@ -346,7 +349,6 @@ function makeMathyWave(waveOptionsArr, sampleRate, length = 1024, bitDepth = 24)
 }
 
 // All primes up to the wavelength of A0, assuming a 48k sample rate.
-// 2 * wavelengthA0Ratio1 = 1 * wavelengthA0RatioHalf
 const PRIMES = Object.freeze([
 	  2,   3,   5,   7,  11,  13,  17,  19,  23,  29,  31,  37,  41,  43,  47,  53,  59,  61,
 	 67,  71,  73,  79,  83,  89,  97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151,
@@ -390,23 +392,25 @@ function factorize(n) {
 	return [factors, powers];
 }
 
-function expandFactors(factors, powers, factorsSoFar = [1], index = 0) {
-	if (index === factors.length) {
-		return factorsSoFar;
-	}
-	const counters = new Array(factors.length);
-	const numPreviousFactors = factorsSoFar.length;
-	let multiplier = 1;
-	for (let power = 1; power <= powers[index]; power++) {
-		multiplier *= factors[index];
-		for (let j = 0; j < numPreviousFactors; j++) {
-			factorsSoFar.push(multiplier * factorsSoFar[j]);
+function expandFactors(factors, powers) {
+	const numFactors = factors.length;
+	const factorsSoFar = [1];
+	for (let i = 0; i < numFactors; i++) {
+		const factor = factors[i];
+		const numPreviousFactors = factorsSoFar.length;
+		let multiplier = 1;
+		for (let power = 1; power <= powers[i]; power++) {
+			multiplier *= factor;
+			for (let j = 0; j < numPreviousFactors; j++) {
+				factorsSoFar.push(multiplier * factorsSoFar[j]);
+			}
 		}
 	}
-	return expandFactors(factors, powers, factorsSoFar, index + 1);
+	return factorsSoFar;
 }
 
 export {
+	ascendingNumericOrder, descendingNumericOrder,
 	nextQuantum, getOctave, getNoteName, cancelAndHoldAtTime, decibelReductionToAmplitude,
 	amplitudeToDecibels, roundMicrotuning,
 	logToLinear, linearToLog, syToDXLevel, modulationIndex, outputLevelToGain,

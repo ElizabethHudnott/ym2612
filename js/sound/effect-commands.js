@@ -174,7 +174,7 @@ class Tremolo extends Effect {
  * Examples of regular values (x/192 for x in [1, 192]):
  * 192	32/32		1/1
  * 186	31/32
- * 180	30/31
+ * 180	30/32
  * 174	29/32
  * 168	28/32		7/8
  * 162	27/32

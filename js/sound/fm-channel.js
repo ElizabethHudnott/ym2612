@@ -112,7 +112,7 @@ class AbstractChannel {
 	/**
 	 * @param {number} detune In cents of a 12 tone equal temperament scale.
 	 * @param {number[]} ratios
-	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 16/9, 15/8, 2]
+	 * E.g. 5-limit: [1, 16/15, 9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8, 2]
 	 * E.g. Harmonic scale: [1, 17/16, 18/16, 19/16, 20/16, 21/16, 22/16, 24/16, 26/16, 27/16, 28/16, 30/16, 2]
 	 * @param {number} startNote 0 = C, 1 = C# ... 11 = B
 	 * @param {number} precision In frequency number units.

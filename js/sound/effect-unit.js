@@ -35,7 +35,7 @@ class EffectUnit {
 		const maxDelayAmounts = [
 			255, 255, 255,
 			Math.ceil(0.0055 / TIME_UNIT - minDelayUnits),	// Flanger
-			224, 254
+			255, 254
 		];
 		this.maxDelayAmounts = maxDelayAmounts;
 
@@ -97,7 +97,6 @@ class EffectUnit {
 		/* Suggested maximum delay amounts:
 		 * SHORT: 294
 		 * FLANGE: 136
-		 * CHORUS: 224
 		 * Everything else: 255
 		 */
 		this.delayAmount = 128;				// Between 0 and approximately 255

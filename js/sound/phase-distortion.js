@@ -476,7 +476,7 @@ class PhaseDistortion {
 
 	/**Applies a rounding function to the waveform's phase. This creates a number of steps,
 	 * somewhat like a bit crusher effect except that the amplitude levels are not linearly
-	 * spaced if the input waveform.
+	 * spaced if the input waveform isn't linear.
 	 * @param {number} n Determines how many amplitude levels there are. In general this should
 	 * be either a positive integer or the value 0.5 (which equivalent to the finishEarly recipe).
 	 * In the case of a sawtooth input waveform then n can be any positive multiple of 0.5.
@@ -567,18 +567,18 @@ class PhaseDistortion {
 			if (snappedPhase === 0 && nonZeroFinal) {
 				snappedPhase = snap;
 			}
-		}
-
-		if (!smoothSweep && softness > 0 && syncPhase - controlValue > 0) {
-			while (true) {
-				const gradient = (snappedPhase - controlValue) / (syncPhase - controlValue);
-				if (Math.abs(gradient) < 1) {
-					snappedPhase += snap;
-				} else {
-					break;
+			if (softness > 0 && syncPhase - controlValue > 0) {
+				while (true) {
+					const gradient = (snappedPhase - controlValue) / (syncPhase - controlValue);
+					if (Math.abs(gradient) < 1) {
+						snappedPhase += snap;
+					} else {
+						break;
+					}
 				}
 			}
 		}
+
 		return [[controlValue, syncPhase], [polarity * controlValue, polarity * snappedPhase]];
 	}
 
@@ -616,7 +616,8 @@ class PhaseDistortion {
 		return [[0.5 * pulseWidth, pulseWidth, 1], [-0.5 * formant, 0, 1]];
 	}
 
-	/**
+	/**Use with a wave which has a minimal and maximal points at x = 0 mod 1 and x = 0.5 mod 1
+	 * such as cosine.
 	 * See Figure 4 and Figure 5 in http://recherche.ircam.fr/pub/dafx11/Papers/55_e.pdf
 	 * @param {number} pitchRatio The pitch of the partial to accentuate. Non-integers will
 	 * introduce a lot of high frequency content and cause some aliasing.
@@ -628,7 +629,7 @@ class PhaseDistortion {
 	 * modulations.
 	 */
 	static formant(pitchRatio, spread = 1, smoothSweep = false) {
-		const splitY = 0.5 * (pitchRatio + 1);
+		let splitY = 0.5 * (pitchRatio + 1);
 		const similarToPointFive = 0.5 * ((pitchRatio + 1) ** 2) / (pitchRatio * pitchRatio + 1);
 		let splitX;
 		if (spread <= -1) {
@@ -669,13 +670,33 @@ class PhaseDistortion {
 			}
 		}
 
-		let endY;
-		if (smoothSweep || pitchRatio === 0 || pitchRatio % 1 !== 0) {
-			endY = 1;
+		if (pitchRatio % 1 !== 0) {
+
+			const lowerY = Math.trunc(splitY);
+			const signY = Math.sign(splitY);
+			const fractionY = splitY - lowerY;
+			const lowerX = splitX * lowerY / splitY;
+			const gradient = (1 - splitX) / Math.abs(splitY - 1);
+			const upperX = splitX + fractionY * gradient;
+			const b = Math.abs(fractionY);
+			if (b <= 0.5) {
+				splitY = lowerY + signY * 0.5;
+			} else {
+				splitY = lowerY + signY;
+			}
+			const pointsX = [lowerX, splitX, upperX, 1];
+			const pointsY = [lowerY, splitY, lowerY, 1];
+			return [pointsX, pointsY];
+
+		} else if (smoothSweep || pitchRatio === 0) {
+
+			return [[splitX, 1], [splitY, 1]];
+
 		} else {
-			endY = pitchRatio;
+
+			return [[splitX, 1], [splitY, pitchRatio]];
+
 		}
-		return [[splitX, 1], [splitY, endY]];
 	}
 
 	/**From the Korg Prophecy. Given a triangle wave, slows down some parts and speeds up
@@ -833,10 +854,83 @@ class PhaseDistortion {
 		return PhaseDistortion.fadeValues(blendFunction, nSteps, 1, 0, modulatorFunction);
 	}
 
+	static blendToIDByY(xValues, yValues, amount, snap = 1, nonZeroFinal = true) {
+		const length = yValues.length;
+		let outputX = xValues.slice();
+		const outputY = new Array(length);
+		for (let i = 0; i < length; i++) {
+			outputY[i] = amount * yValues[i] + (1 - amount) * xValues[i];
+		}
+
+		const lastX = xValues[length - 1];
+		const lastY = outputY[length - 1];
+		let penultimateX, penultimateY;
+		let found = false;
+		for (let i = length - 2; i >= 0; i--) {
+			penultimateX = xValues[i];
+			penultimateY = outputY[i];
+			if (penultimateY !== lastY) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			penultimateX = 0;
+			penultimateY = 0;
+		}
+
+		let newLastY = Math.round(lastY / snap) * snap;
+		const dx = lastX - penultimateX;
+		const dy = lastY - penultimateY;
+		if (nonZeroFinal && newLastY === 0) {
+			newLastY += snap * (dy >= 0 ? 1 : -1);
+		}
+		const newLastX = penultimateX + dx / Math.abs(dy) * Math.abs(newLastY - penultimateY);
+		outputX[length - 1] = newLastX;
+		outputY[length - 1] = newLastY;
+
+		return [outputX, outputY];
+	}
+
+	static blendToIDByX(xValues, yValues, amount) {
+		const length = xValues.length;
+		const output = new Array(length);
+		for (let i = 0; i < length; i++) {
+			const x = xValues[i];
+			const y = yValues[i];
+			output[i] = [
+				amount * x + (1 - amount) * y,
+				y
+			];
+		}
+
+		const ascendingX = (a, b) => a[0] - b[0];
+		output.sort(ascendingX);
+		const outputX = new Array(length);
+		const outputY = new Array(length);
+		for (let i = 0; i < length; i++) {
+			const pair = output[i];
+			outputX[i] = pair[0];
+			outputY[i] = pair[1];
+		}
+		return [outputX, outputY];
+	}
+
+	static fadeToIDByX(xValues1, yValues1, nSteps, modulatorFunction) {
+		const blendFunction = x => PhaseDistortion.blendToIDByX(xValues, yValues, x);
+		return PhaseDistortion.fadeValues(blendFunction, nSteps, 1, 0, modulatorFunction);
+	}
+
 	/**Has the effect of changing the fundamental frequency.
 	 */
 	static scaleX(xValues, yValues, scaleFactor) {
 		return [xValues.map(x => x * scaleFactor), yValues];
+	}
+
+	/**Has the effect of changing the fundamental frequency.
+	 */
+	static scaleY(xValues, yValues, scaleFactor) {
+		return [xValues, yValues.map(y => y * scaleFactor)];
 	}
 
 	/**Useful when chained together with an actual distortion.

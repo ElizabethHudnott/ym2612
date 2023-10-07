@@ -6,7 +6,7 @@
  * it or store it in any other website or other form of electronic retrieval system. Nor may
  * you translate it into another language.
  */
-import {logToLinear, gcd} from './common.js';
+import {logToLinear, descendingNumericOrder, expandFactors, factorize, gcd} from './common.js';
 
 class AbstractOscillatorFactory {
 
@@ -306,26 +306,26 @@ function findDenominator(a, b) {
 	}
 	if (a % 1 > 0 || b % 1 > 0) {
 		const multiple = a > b ? a / b : b / a;
-		let remainder = multiple % 1;
-		if (remainder === 0) {
+		let multipleFraction = multiple % 1;
+		if (multipleFraction === 0) {
 			a *= multiple;
 			b *= multiple;
 		} else {
-			const rounding = 10e-11;
-			let numeratorA, numeratorB;
+			const tolerance = 10e-11;
+			let numeratorAFraction, numeratorBFraction;
 			do {
-				numeratorA = (a / remainder) % 1;
-				if (numeratorA < rounding || numeratorA > 1 - rounding) {
-					numeratorA = 1;
+				numeratorAFraction = (a / multipleFraction) % 1;
+				if (numeratorAFraction <= tolerance || numeratorAFraction >= 1 - tolerance) {
+					numeratorAFraction = 1;
 				}
-				numeratorB = (b / remainder) % 1;
-				if (numeratorB < rounding || numeratorB > 1 - rounding) {
-					numeratorB = 1;
+				numeratorBFraction = (b / multipleFraction) % 1;
+				if (numeratorBFraction <= tolerance || numeratorBFraction >= 1 - tolerance) {
+					numeratorBFraction = 1;
 				}
-				remainder *= Math.min(numeratorA, numeratorB);
-			} while (numeratorA < 1 || numeratorB < 1);
-			a = Math.round((a / remainder) / rounding) * rounding;
-			b = Math.round((b / remainder) / rounding) * rounding;
+				multipleFraction *= Math.min(numeratorAFraction, numeratorBFraction);
+			} while (numeratorAFraction !== 1 || numeratorBFraction !== 1);
+			a = Math.round((a / multipleFraction) / tolerance) * tolerance;
+			b = Math.round((b / multipleFraction) / tolerance) * tolerance;
 		}
 	}
 	return b / gcd(a, b);
@@ -642,26 +642,45 @@ class TimbreFrameOscillator extends SampleSource {
 					 * example we can be halfway through a cycle if the frequency ratio is 3:2. Thus
 					 * if the two frames have harmonics in common with the same phases specified
 					 * then those harmonics will stay phase aligned.
+					 *
 					 * Example:
 					 * Faster wave:	0		1.5	3		4.5	6 ...
 					 * Slower wave:	0		1		2		3		4 ...
-					 * So every instant that's a multiple of 0.5 times the period of the faster wave
-					 * is special.
+					 *
+					 * So instants which happen at certain multiples of half the period of the
+					 * faster wave are special (1/2) because the waves align.
+					 *
 					 * Alternatively:
 					 * Faster wave:	0		1		2		3		4		5		6 ...
 					 * Slower wave:	0		2/3	4/3	2		2+2/3	2+4/3	4 ...
-					 * So there's periodicity in 2/3 of the period of the slower wave too.
+					 *
+					 * So there's periodicity in 2/3 of the period of the slower wave too. And
+					 * every multiple of 1/3 is notable because it occurs somewhere.
+					 *
+					 * Faster Wave				Slower Wave
+					 *	1 complete cycle		2 thirds through a cycle
+					 *	2 complete cycles		1 third  through a cycle
+					 * 3 complete cycles		0 thirds through a cycle (complete cycle)
 					 */
 					let subperiod = period;
 					if (!isLastFrame) {
 						if (nextPitchRatio === 0) {
 							subperiod *= 0.5;	// i.e. any zero crossing point
 						} else {
-							const multiple = findDenominator(pitchRatio, nextPitchRatio);
-							// The interference pattern must happen fast enough to be perceived as
-							// timbre, not modulation, i.e. minimum 20Hz.
-							if (nextPitchRatio * recordingPitch / multiple >= 20) {
-								subperiod /= multiple;
+							let multiple = findDenominator(pitchRatio, nextPitchRatio);
+							/* The interference pattern must happen fast enough to be perceived as
+							 * timbre, not modulation, i.e. minimum 20Hz.
+							 * nextPitchRatio / multiple = pitchRatio / gcd(pitchRatio, nextPitchRatio)
+							 * when pitch ratios are integers. multiple could be large if the pitch
+							 * ratios have many decimal places.
+							 */
+							const factors = expandFactors(...factorize(multiple));
+							factors.sort(descendingNumericOrder);
+							for (multiple of factors) {
+								if (nextPitchRatio * recordingPitch / multiple >= 20) {
+									subperiod /= multiple;
+									break;
+								}
 							}
 						}
 					}

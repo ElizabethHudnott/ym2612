@@ -14,7 +14,7 @@ Then renumber Operator 2 and Operator 3 (switch around)?
 Distortion (symmetry) modulation?
 
 Timbre frames
-	Replace the basic wave shapes with a weighted sum (or difference) of saws, squares and triangles at different frequency multiples? (+ one custom wave or sine with only 0 & 180 degree phases)
+	Replace the basic wave shapes with a weighted sum (or difference) of saws, pulse waves and triangles at different frequency multiples? (+ one custom wave or sine with only 0 & 180 degree phases)
 		E.g. Saw at 1f sets the overall shape, saw at 2f modifies the even numbered harmonics
 		i.e. layered timbre frames:
 		Sawtooth wave: frequencies: n * m, amplitudes: 1/n, alternating phases
@@ -24,24 +24,24 @@ Timbre frames
 		Optionally AM or ring mod a basic shape with a sine wave
 		Pass the wave (or combined sum?) though a LP filter (with resonance?) (HP filter available too?)
 	Take account of operator ratio / fixed frequency when calculating timings
-	Reuse oscillators when adjacent frames only vary in amplitude (or pitch ratio if fading between pitches)
-	Option to set interval between samples (rather than being to octaves)
+	Reuse all oscillators when adjacent frames only vary in amplitude (or pitch ratio if fading between pitches) (eliminates the need to adjust timing to align the waveforms)
+	Change sampling interval to approximately every 4 semitones (see spreadsheet)
 	Option to set start time
 		particularly useful for skipping hold time of first frame on first loop iteration
 		round to zero crossing point (specify as frame number + offset?)
 	Option to have a bidirectional loop
 	Option to set pitch ratio using transpose + detune
 	Option to cross fade using cosine shape
+	Option to set fade time as a musical interval when timingPitch = 1
 	Option to fade out harmonics one by one using a filter
 		Filter sweep then volume fade? Or simultaneous? Or overlapping? Or sweep filter down to (near?) 0Hz?
 		General case (when combined with FM): arbitrary filter sweep?
 			Or only available when not using FM?
 	Integrated FM modulator (sine) with DADSR envelope and ratio or fixed (and semi-fixed?)
+		Option to only apply it to some of the oscillators
 	Option to glide between frequencies
 	Release (post loop) frames
 	Single cycle waveform samples as frames
-	Generate one sample per octave
-		timing stretch option
 
 	Different sets of timbre frames for different note ranges?
 	Different sets of timbre frames for different velocities?
@@ -50,11 +50,14 @@ Timbre frames
 	Resynthesis
 
 Phase distortion?
-	fix intersecting blend vectors
-	Resonant waves: Don't use absolute value (except for sawtooth, offer both)
-	Option to mix in some fundamental
-	Offsets
+	Fix intersecting blend vectors
+	Resonant waves: Don't use absolute value (except for sawtooth where both should be offered)
 	Finish implementing playback modes
+	Sample starting offsets
+	Option to advance wavetable position by changing loop end and start positions using setTimeout
+	Option to mix in some fundamental
+		Fundamental or source wave if the source is not sinusoidal?
+		Fade this signal in gradually to remedy a final zero phase offset
 	Option to invert frequency gain
 	Too similar to feedback? Instead of feedback?
 	Transfer functions
@@ -62,20 +65,7 @@ Phase distortion?
 			cos(x) -> sawtooth(x)
 				Not an exact recipe to emulate feedback
 					e.g. when feedback = 5 then more like (0.91, 0.4) ?
-		Forward then back			(a, 0.5), (1, 0)
-			sin(x) -> doubleSin(x)
-		Mirror							(0.5, b), (1, 0)
-		Finish early 				(a, 1), (1, 1)
-			f(x) -> f(x) with width control when f(0) = 0
-			cos(x) -> sawPulse(x)
-			square(x) -> pulse(x)
-		Hard sync					(a, a), (a + delta, round(a))
-		Alternate waveforms		..., (a, 1), ... (2, 2)
-		Pulse <-> Cosine			(a, 0), (a + b, 0.5), (1 - b, 0.5), (1, 1)
-		CosinePulse <-> -Cosine (0.5a, -0.5), (a, 0), (1, 1)
-		Korg NTS-1 Saw
-			(2a, 2a), (2a, 2 - 2a), (3 - 2a, 2a - 1), (3 - 2a, 1 - 2a), (2, 0)
-			a from 0.75 to 0.5
+		...
 		Impulse						x ^ a (or with asymmetry reversed)
 		Waveshaper					asin(f(gain * sin(2PI * x))) / 2PI
 			In general: apply the virtual input waveform, then the inverse of the actual input
@@ -121,6 +111,8 @@ only run lfo when tremolo, vibrato, panbrello, etc. depth is non-zero
 
 linearValueAtTime - check values saved appropriately
 Ability to make parameters velocity sensitive (e.g. distortion, filter envelope amount, resonance (FS1R))
+ability to add small amount of noise to operators for character?
+	E.g. +-1/2048
 envelopes synced to tempo?
 attenuation bend and velocity?
 
