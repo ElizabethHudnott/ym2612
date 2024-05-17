@@ -519,18 +519,20 @@ class PhaseDistortion {
 
 	/**Produces the Casio saw-pulse wave When applied to a cosine wave. Use a value close to 1
 	 * to replicate the Casio CZ.
-	 * @param {number} splitPoint Must be greater than or equal to the hold length.
 	 */
-	static halfSlowAndHoldAtEnd(holdLength, splitPoint) {
-		const finishX = 1 - holdLength;
-		const halfX = splitPoint - holdLength;
-		return [[halfX, finishX, 1], [0.5, 1, 1]];
+	static halfSlowAndHoldAtEnd(x, holdLength, formant = 1) {
+		const xValues = [x * (1 - holdLength), 1 - holdLength, 1];
+		if (x < 0.5) {
+			return [xValues, [formant - 0.5, formant, formant]];
+		} else {
+			return [xValues, [0.5, formant, formant]];
+		}
 	}
 
 	/**Variation of Casio's saw-pulse When applied to a cosine wave.
 	 */
-	static holdAtStartAndHalfSlow(holdLength, splitPoint, slant = 0) {
-		return [[holdLength, splitPoint, 1], [slant, 0.5, 1]];
+	static holdAtStartAndHalfSlow(holdLength, x, slant = 0) {
+		return [[holdLength, holdLength + x * (1 - holdLength), 1], [slant, 0.5, 1]];
 	}
 
 	/**Approximates hard sync by running the last part of the waveform really fast.
